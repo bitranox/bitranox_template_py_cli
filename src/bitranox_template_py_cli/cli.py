@@ -15,8 +15,8 @@ Contents
   ``--help`` behavior across commands.
 * :func:`cli` – root command group that applies global options and syncs the
   ``lib_cli_exit_tools`` configuration.
-* :func:`cli_main` – fallback hook invoked when no subcommand is provided;
-  delegates to the domain placeholder ``main`` helper.
+* :func:`cli_main` – fallback invoked when no subcommand is provided; calls
+  the domain placeholder ``main`` helper.
 * :func:`cli_info`, :func:`cli_hello`, :func:`cli_fail` – subcommands covering
   metadata printing, success path, and failure path.
 * :func:`main` – composition helper that defers to ``lib_cli_exit_tools`` for
@@ -194,7 +194,7 @@ def cli_fail() -> None:
         especially when users toggle ``--traceback``.
 
     What
-        Calls :func:`bitranox_template_py_cli.bitranox_template_py_cli.i_should_fail`
+        Calls :func:`bitranox_tempate_py_cli.bitranox_template_py_cli.i_should_fail`
         which always raises ``RuntimeError``.
 
     Side Effects

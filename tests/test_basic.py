@@ -117,6 +117,46 @@ def test_module_main_traceback(monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     assert "[TRUNCATED" not in captured.err
 
 
+def test_cli_without_subcommand_calls_domain_main(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def record_call() -> None:
+        calls.append("called")
+
+    monkeypatch.setattr(cli_mod, "_domain_main", record_call)
+    runner = CliRunner()
+    result = runner.invoke(cli_mod.cli, [])
+
+    assert result.exit_code == 0
+    assert calls == ["called"]
+    assert result.output.strip() == ""
+
+
+def test_main_without_subcommand_delegates_to_cli_main(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def record_call() -> None:
+        calls.append("called")
+
+    monkeypatch.setattr(cli_mod, "_domain_main", record_call)
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
+
+    def fake_run_cli(command, argv=None, *, prog_name=None, signal_specs=None, install_signals=True):
+        runner = CliRunner()
+        args = [] if argv is None else list(argv)
+        result = runner.invoke(command, args)
+        if result.exception is not None:
+            raise result.exception
+        return result.exit_code
+
+    monkeypatch.setattr(lib_cli_exit_tools, "run_cli", fake_run_cli)
+
+    exit_code = cli_mod.main([])
+
+    assert exit_code == 0
+    assert calls == ["called"]
+
+
 def test_cli_hello_and_fail_commands() -> None:
     runner = CliRunner()
     result_hello = runner.invoke(cli_mod.cli, ["hello"])
