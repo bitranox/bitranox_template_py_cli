@@ -138,7 +138,7 @@ No external data; CLI tests rely on Click's `CliRunner`.
 
 ---
 **Created:** 2025-09-17 by GPT-5 Codex  
-**Last Updated:** 2025-09-18 by GPT-5 Codex  
+**Last Updated:** 2025-09-23 by GPT-5 Codex  
 **Review Date:** 2025-12-17
 
 ---
@@ -184,7 +184,7 @@ Domain layer placeholder invoked by CLI commands and tests.
 
 ## Implementation Details
 **Dependencies:** None (pure Python for easy reuse and testing).  
-**Key Configuration:** None.  
+**Key Configuration:** Direct execution is prevented by an `if __name__ == "__main__"` guard so that transports stay the only supported entry points.  
 **Database Changes:** None.
 
 ## Testing Approach
@@ -208,7 +208,7 @@ Domain layer placeholder invoked by CLI commands and tests.
 
 ---
 **Created:** 2025-09-18 by GPT-5 Codex  
-**Last Updated:** 2025-09-18 by GPT-5 Codex  
+**Last Updated:** 2025-09-23 by GPT-5 Codex  
 **Review Date:** 2025-12-18
 
 ---
@@ -299,7 +299,7 @@ Formats the metadata block and writes it to stdout.
 
 ---
 **Created:** 2025-09-18 by GPT-5 Codex  
-**Last Updated:** 2025-09-18 by GPT-5 Codex  
+**Last Updated:** 2025-09-23 by GPT-5 Codex  
 **Review Date:** 2025-12-18
 
 ---
@@ -366,5 +366,5 @@ Executes the CLI, prints exceptions via shared tooling, restores traceback prefe
 
 ---
 **Created:** 2025-09-18 by GPT-5 Codex  
-**Last Updated:** 2025-09-18 by GPT-5 Codex  
+**Last Updated:** 2025-09-23 by GPT-5 Codex  
 **Review Date:** 2025-12-18

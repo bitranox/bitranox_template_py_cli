@@ -4,6 +4,9 @@ This module holds the minimal domain-level behaviors that the CLI exposes while
 the real logging helpers are under construction. Keeping the greeting and
 intentional failure logic here means the CLI can validate stdout handling and
 error propagation without depending on yet-to-be-built Rich logging features.
+Running the module as a script is intentionally blocked so transports remain the
+only entry points and downstream documentation cannot accidentally diverge from
+the supported usage.
 
 Contents
 --------
@@ -78,5 +81,10 @@ def i_should_fail() -> None:
     raise RuntimeError("I should fail")
 
 
+# Execution Guard
+# ---------------
+# The domain helpers are designed for import by CLI adapters and tests only.
+# Import-time side effects must stay deterministic, so direct execution raises
+# an error to steer developers toward the supported transport surfaces.
 if __name__ == "__main__":
     raise SystemExit("This module is import-only and should not be executed directly. Use the CLI entry points instead.")
