@@ -1,5 +1,8 @@
 # Changelog
 
+## [1.4.0] - 2025-09-23
+- add main section
+
 ## [1.3.0] - 2025-09-18
 - fix nix build
 
