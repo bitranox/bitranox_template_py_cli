@@ -76,3 +76,7 @@ def i_should_fail() -> None:
     """
 
     raise RuntimeError("I should fail")
+
+
+if __name__ == "__main__":
+    raise SystemExit("This module is import-only and should not be executed directly. Use the CLI entry points instead.")
