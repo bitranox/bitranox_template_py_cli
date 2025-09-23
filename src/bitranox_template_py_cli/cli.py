@@ -15,6 +15,8 @@ Contents
   ``--help`` behavior across commands.
 * :func:`cli` – root command group that applies global options and syncs the
   ``lib_cli_exit_tools`` configuration.
+* :func:`cli_main` – fallback hook invoked when no subcommand is provided;
+  delegates to the domain placeholder ``main`` helper.
 * :func:`cli_info`, :func:`cli_hello`, :func:`cli_fail` – subcommands covering
   metadata printing, success path, and failure path.
 * :func:`main` – composition helper that defers to ``lib_cli_exit_tools`` for
@@ -39,13 +41,18 @@ import lib_cli_exit_tools
 from . import __init__conf__
 from .bitranox_template_py_cli import hello_world as _hello_world
 from .bitranox_template_py_cli import i_should_fail as _fail
+from .bitranox_template_py_cli import main as _domain_main
 
 # Maintain a single help option map so every command advertises ``-h`` and
 # ``--help`` consistently; Click's default only exposes ``--help``.
 CLICK_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])  # noqa: C408
 
 
-@click.group(help=__init__conf__.title, context_settings=CLICK_CONTEXT_SETTINGS)
+@click.group(
+    help=__init__conf__.title,
+    context_settings=CLICK_CONTEXT_SETTINGS,
+    invoke_without_command=True,
+)
 @click.version_option(
     version=__init__conf__.version,
     prog_name=__init__conf__.shell_command,
@@ -68,7 +75,9 @@ def cli(ctx: click.Context, traceback: bool) -> None:
     What
         Ensures a dict-based context, stores the ``traceback`` flag, and mirrors
         the value into ``lib_cli_exit_tools.config.traceback`` so downstream
-        helpers observe the preference.
+        helpers observe the preference. When no subcommand is requested the
+        function delegates to :func:`cli_main` to exercise the sanctioned
+        default behavior.
 
     Side Effects
         Mutates :mod:`lib_cli_exit_tools.config` to reflect the requested
@@ -88,6 +97,36 @@ def cli(ctx: click.Context, traceback: bool) -> None:
     ctx.ensure_object(dict)
     ctx.obj["traceback"] = traceback
     lib_cli_exit_tools.config.traceback = traceback
+    if ctx.invoked_subcommand is None:
+        cli_main()
+        return None
+
+
+def cli_main() -> None:
+    """Run the domain placeholder when the CLI is invoked without a command.
+
+    Why
+        Some automation scripts and shell users expect bare invocations to
+        perform a sensible default action. While the domain layer currently
+        exposes only a no-op `main`, calling it here establishes the contract
+        and keeps future extensions discoverable.
+
+    What
+        Delegates to :func:`bitranox_template_py_cli.bitranox_template_py_cli.main`
+        so the sanctioned entry point is exercised even when no subcommand is
+        chosen. The helper returns ``None`` and produces no output today.
+
+    Side Effects
+        None. The domain placeholder intentionally avoids I/O to keep imports
+        deterministic.
+
+    Examples
+    --------
+    >>> cli_main()
+
+    """
+
+    _domain_main()
 
 
 @cli.command("info", context_settings=CLICK_CONTEXT_SETTINGS)

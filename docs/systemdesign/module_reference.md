@@ -18,14 +18,14 @@ Complete
 Provide a minimal but functional command-line interface (CLI) scaffold for the `bitranox_template_py_cli` package so developers can exercise the package, preview logging features, and validate the packaging scripts without additional wiring.
 
 ## Solution Overview
-A Click-powered CLI entry point exposes three subcommands (`info`, `hello`, `fail`) behind a root group. Global options manage traceback verbosity via the shared `lib_cli_exit_tools` helper. The CLI wraps the library's stub functions, making it easy to test colored output, failure handling, and project metadata printing while reusing the shared exit tooling. Traceback preferences are scoped to each invocation, with the entrypoint restoring the prior setting once execution completes.
+A Click-powered CLI entry point exposes three subcommands (`info`, `hello`, `fail`) behind a root group and now executes a default pathway when no subcommand is supplied. Global options manage traceback verbosity via the shared `lib_cli_exit_tools` helper. The CLI wraps the library's stub functions, making it easy to test colored output, failure handling, and project metadata printing while reusing the shared exit tooling. Traceback preferences are scoped to each invocation, with the entrypoint restoring the prior setting once execution completes.
 
 ## Architecture Integration
 **Where this fits in the overall app:**
 Runs in the outer adapters layer as the package's main transport. It orchestrates user input into application/library functions (`hello_world`, `i_should_fail`, configuration printers) and routes exit behavior through `lib_cli_exit_tools`.
 
 **Data flow:**
-User invokes `bitranox_template_py_cli` CLI → Click parses args & stores global flags → Root command configures `lib_cli_exit_tools` → Subcommand executes library helper (`hello_world`, `i_should_fail`, or `__init__conf__.print_info`) → Results printed to stdout/stderr → `lib_cli_exit_tools.run_cli` returns exit code to caller.
+User invokes `bitranox_template_py_cli` CLI → Click parses args & stores global flags → Root command configures `lib_cli_exit_tools` → If no subcommand is provided, `cli_main()` triggers the domain placeholder `main`; otherwise the chosen subcommand executes the appropriate helper (`hello_world`, `i_should_fail`, or `__init__conf__.print_info`) → Results printed to stdout/stderr → `lib_cli_exit_tools.run_cli` returns exit code to caller.
 
 ## Core Components
 
@@ -35,9 +35,15 @@ User invokes `bitranox_template_py_cli` CLI → Click parses args & stores globa
 **Location:** src/bitranox_template_py_cli/cli.py
 
 ### cli()
-**Purpose:** Root Click group managing global options and shared context (traceback flag).  
+**Purpose:** Root Click group managing global options, shared context (traceback flag), and fallback delegation when no subcommand is provided.  
 **Input:** Parsed CLI options (`--traceback`) and Click context.  
 **Output:** Configured context dict with traceback flag; side-effect of syncing `lib_cli_exit_tools.config.traceback`.  
+**Location:** src/bitranox_template_py_cli/cli.py
+
+### cli_main()
+**Purpose:** Default action for bare invocations; proxies to the domain's placeholder `main`.  
+**Input:** None.  
+**Output:** None (calls the domain helper, which returns `None`).  
 **Location:** src/bitranox_template_py_cli/cli.py
 
 ### cli_info()
@@ -82,7 +88,7 @@ User invokes `bitranox_template_py_cli` CLI → Click parses args & stores globa
 - Internal: `bitranox_template_py_cli.bitranox_template_py_cli` helpers, project metadata in `__init__conf__`.
 
 **Key Configuration:**
-- Global `--traceback/--no-traceback` flag toggles full traceback printing through `lib_cli_exit_tools.config.traceback`. The CLI restores the prior configuration on completion, while the module `__main__` entry point defers restoration until after exception reporting.
+- Global `--traceback/--no-traceback` flag toggles full traceback printing through `lib_cli_exit_tools.config.traceback`. When no subcommand is supplied the root handler calls `cli_main()`, which in turn executes the domain placeholder `main()` so default behavior remains centralized. The CLI restores the prior configuration on completion, while the module `__main__` entry point defers restoration until after exception reporting.
 - Program metadata (`shell_command`, `version`, `title`) loaded from `__init__conf__`.
 
 **Database Changes:**
@@ -182,9 +188,15 @@ Domain layer placeholder invoked by CLI commands and tests.
 **Output:** Raises `RuntimeError("I should fail")`.  
 **Location:** src/bitranox_template_py_cli/bitranox_template_py_cli.py
 
+### main()
+**Purpose:** Placeholder orchestration hook that keeps a stable seam for future domain entry wiring while staying side-effect free today.  
+**Input:** None.  
+**Output:** Returns `None` and performs no work.  
+**Location:** src/bitranox_template_py_cli/bitranox_template_py_cli.py
+
 ## Implementation Details
 **Dependencies:** None (pure Python for easy reuse and testing).  
-**Key Configuration:** Direct execution is prevented by an `if __name__ == "__main__"` guard so that transports stay the only supported entry points.  
+**Key Configuration:** Direct execution is prevented by an `if __name__ == "__main__"` guard, and a no-op `main()` preserves a sanctioned extension seam without enabling ad-hoc execution.  
 **Database Changes:** None.
 
 ## Testing Approach
