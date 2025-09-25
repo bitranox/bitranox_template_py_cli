@@ -2,12 +2,21 @@ from __future__ import annotations
 
 import runpy
 import sys
+import re
 from typing import Any
 
 from click.testing import CliRunner
 import pytest
 
 import lib_cli_exit_tools
+
+ANSI_RE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+
+
+def strip_ansi(value: str) -> str:
+    return ANSI_RE.sub("", value)
+
+
 from bitranox_template_py_cli import hello_world
 from bitranox_template_py_cli import cli as cli_mod
 
@@ -110,11 +119,12 @@ def test_module_main_traceback(monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
         runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
 
     captured = capsys.readouterr()
+    plain_err = strip_ansi(captured.err)
 
     assert exc.value.code != 0
-    assert "Traceback (most recent call last)" in captured.err
-    assert "RuntimeError: I should fail" in captured.err
-    assert "[TRUNCATED" not in captured.err
+    assert "Traceback (most recent call last)" in plain_err
+    assert "RuntimeError: I should fail" in plain_err
+    assert "[TRUNCATED" not in plain_err
 
 
 def test_cli_without_subcommand_calls_domain_main(monkeypatch: pytest.MonkeyPatch) -> None:
