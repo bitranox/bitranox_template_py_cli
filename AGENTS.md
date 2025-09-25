@@ -14,6 +14,7 @@
   - python_libraries_to_use.md
   - python_structure_template.md
   - self_documenting.md
+  - self_documenting_template.md
 
 
 always apply those Rules :
