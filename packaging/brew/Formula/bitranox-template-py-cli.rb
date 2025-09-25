@@ -20,8 +20,13 @@ Yb893e1b0e686e8f0974f79475499f2e175ed064d3ab0f6c9872631a9dda502"
   end
 
   resource "lib_cli_exit_tools" do
-    url "https://files.pythonhosted.org/packages/93/49/8361de4ae5e740a2c63833e7fedfacb4ef46d79e97c17e59f2f44206a648/lib_cli_exit_tools-1.1.1.tar.gz"
+    url "https://files.pythonhosted.org/packages/cb/0e/444f22dbcc517af5513030d67cf0c0b1389726f1d85cae1f95b6a73b1457/lib_cli_exit_tools-1.2.0.tar.gz"
 Yb893e1b0e686e8f0974f79475499f2e175ed064d3ab0f6c9872631a9dda502"
+  end
+
+  resource "rich-click" do
+    url "https://files.pythonhosted.org/packages/29/c2/f08b5e7c1a33af8a115be640aa0796ba01c4732696da6d2254391376b314/rich_click-1.9.1.tar.gz"
+    sha256 "4f2620589d7287f86265432e6a909de4f281de909fe68d8c835fbba49265d268"
   end
 
   def install

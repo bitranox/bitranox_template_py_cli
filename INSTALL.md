@@ -1,5 +1,7 @@
 # Installation Guide
 
+> The CLI stack uses `rich-click`, which bundles `rich` styling on top of click-style ergonomics.
+
 This guide collects every supported method to install `bitranox_template_py_cli`, including
 isolated environments and system package managers. Pick the option that matches your workflow.
 

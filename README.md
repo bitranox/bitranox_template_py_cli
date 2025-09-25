@@ -13,7 +13,7 @@
 [![Known Vulnerabilities](https://snyk.io/test/github/bitranox/bitranox_template_py_cli/badge.svg)](https://snyk.io/test/github/bitranox/bitranox_template_py_cli)
 
 Scaffold for Python Projects with registered commandline commands:
-- CLI entry point
+- CLI entry point styled with rich-click (rich output + click ergonomics)
 - Exit-code and messaging helpers powered by lib_cli_exit_tools
 
 ## Install
@@ -29,6 +29,7 @@ For alternative install paths (pipx, uv, Conda, source builds, etc.), see
 
 ## Usage
 
+The CLI leverages [rich-click](https://github.com/ewels/rich-click) so help output, validation errors, and prompts render with Rich styling while keeping the familiar click ergonomics.
 The scaffold keeps a CLI entry point so you can validate packaging flows, but it
 currently exposes a single informational command while logging features are
 developed:

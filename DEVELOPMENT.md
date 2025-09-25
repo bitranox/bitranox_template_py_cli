@@ -125,6 +125,8 @@ COVERAGE=on make test        # force coverage and generate coverage.xml/codecov.
 
 Starter files for package managers live under `packaging/`:
 
+- The CLI is built on `rich-click`, so help and errors inherit Rich styling while preserving click semantics.
+
 - Conda: `packaging/conda/recipe/meta.yaml` (update version + sha256)
 - Homebrew: `packaging/brew/Formula/bitranox-template-py-cli.rb` (fill sha256 and vendored resources)
 - Nix: `packaging/nix/flake.nix` (use working tree or pin to GitHub rev with sha256)

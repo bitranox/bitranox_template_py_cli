@@ -29,35 +29,24 @@
           ];
           doCheck = false;
         };
-        clickVendor = pypkgs.buildPythonPackage rec {
-          pname = "click";
-          version = "8.3.0";
-          format = "wheel";
-          src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/db/d3/9dcc0f5797f070ec8edf30fbadfb200e71d9db6b84d211e3b2085a7589a0/click-8.3.0-py3-none-any.whl";
-            sha256 = "sha256-m58oUwLG4wZPQzDAXwW4GUWyo5VEJ5ND5ufF8nqbrdw=";
-          };
-          doCheck = false;
-        };
-
         libCliExitToolsVendor = pypkgs.buildPythonPackage rec {
           pname = "lib_cli_exit_tools";
-          version = "1.1.1";
+          version = "1.2.0";
           format = "wheel";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/78/a9/3a3eb69c3fe8f2fc0d659600e38ae2f0334507cbbef383fd628038a8f779/lib_cli_exit_tools-1.1.1-py3-none-any.whl";
-            sha256 = "sha256-MX0896kKVwphlsTLkAPYLAYhyZE9Ajpi4xbmMhLBchY=";
+            url = "https://files.pythonhosted.org/packages/5c/e5/c60cf03b5935a0b9b7488126a55a16e8e874ea8b81c43baf30f79396e09b/lib_cli_exit_tools-1.2.0-py3-none-any.whl";
+            sha256 = "sha256-gKBX/EOMbFOhD+XMUFy0TCASdvR/NpK6b8j4mU3d1W8=";
           };
           doCheck = false;
         };
 
-        richVendor = pypkgs.buildPythonPackage rec {
-          pname = "rich";
-          version = "14.1";
+        richClickVendor = pypkgs.buildPythonPackage rec {
+          pname = "rich-click";
+          version = "1.9.1";
           format = "wheel";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/e3/30/3c4d035596d3cf444529e0b2953ad0466f6049528a879d27534700580395/rich-14.1.0-py3-none-any.whl";
-            sha256 = "sha256-U29fF4WYbW296jx1IFxHP5cHd7Sg1sbdG2lqoFo/oE8=";
+            url = "https://files.pythonhosted.org/packages/a8/77/e9144dcf68a0b3f3f4386986f97255c3d9f7c659be58bb7a5fe8f26f3efa/rich_click-1.9.1-py3-none-any.whl";
+            sha256 = "sha256-6mEUqeCBt9aMwHsxUHA5j4BvAbsODEnaVvEp5nKHeBc=";
           };
           doCheck = false;
         };
@@ -70,7 +59,7 @@
           pyproject = true;
           src = ../..;
           nativeBuildInputs = [ hatchlingVendor ];
-          propagatedBuildInputs = [ clickVendor libCliExitToolsVendor richVendor ];
+          propagatedBuildInputs = [ libCliExitToolsVendor richClickVendor ];
 
           meta = with pkgs.lib; {
             description = "Rich-powered logging helpers for colorful terminal output";
@@ -85,9 +74,8 @@
           packages = [
             pkgs.python310
             hatchlingVendor
-            clickVendor
             libCliExitToolsVendor
-            richVendor
+            richClickVendor
             pypkgs.pytest
             pkgs.ruff
             pkgs.nodejs
