@@ -26,10 +26,6 @@ For alternative install paths (pipx, uv, Conda, source builds, etc.), see
 [INSTALL.md](INSTALL.md). All supported methods register both the
 `bitranox_template_py_cli` and `bitranox-template-py-cli` commands on your PATH.
 
-## Development
-
-Development workflow, packaging, and release details now live in [DEVELOPMENT.md](DEVELOPMENT.md).
-
 
 ## Usage
 

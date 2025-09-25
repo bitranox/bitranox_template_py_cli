@@ -42,6 +42,26 @@
           };
           doCheck = false;
         };
+
+        clickLatest = pypkgs.click.overridePythonAttrs (_: rec {
+          version = "8.3.0";
+          src = pkgs.fetchPypi {
+            pname = "click";
+            inherit version;
+            format = "wheel";
+            sha256 = "sha256-m58oUwLG4wZPQzDAXwW4GUWyo5VEJ5ND5ufF8nqbrdw=";
+          };
+        });
+
+        richLatest = pypkgs.rich.overridePythonAttrs (_: rec {
+          version = "14.1.0";
+          src = pkgs.fetchPypi {
+            pname = "rich";
+            inherit version;
+            format = "wheel";
+            sha256 = "sha256-U29fF4WYbW296jx1IFxHP5cHd7Sg1sbdG2lqoFo/oE8=";
+          };
+        });
       in
       {
         packages.default = pypkgs.buildPythonPackage {
@@ -61,7 +81,7 @@
           # Ensure PEP 517 backend is available at required version
           # Ensure PEP 517 backend available at required version (>=1.25)
           nativeBuildInputs = [ hatchlingVendor ];
-          propagatedBuildInputs = [ pypkgs.rich pypkgs.click libCliExitTools ];
+          propagatedBuildInputs = [ richLatest clickLatest libCliExitTools ];
 
           meta = with pkgs.lib; {
             description = "Rich-powered logging helpers for colorful terminal output";
@@ -76,8 +96,8 @@
           packages = [
             pkgs.python310
             hatchlingVendor
-            pypkgs.rich
-            pypkgs.click
+            richLatest
+            clickLatest
             libCliExitTools
             pypkgs.pytest
             pkgs.ruff
