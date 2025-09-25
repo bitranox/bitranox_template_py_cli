@@ -43,21 +43,27 @@
           doCheck = false;
         };
 
-        clickLatest = pypkgs.click.overridePythonAttrs (_: rec {
-          version = "8.3.0";
+        clickLatest = pypkgs.buildPythonPackage rec {
+          pname = "click";
+          version = "8.1";
+          format = "wheel";
           src = pkgs.fetchurl {
             url = "https://files.pythonhosted.org/packages/py3/c/click/click-8.3.0-py3-none-any.whl";
-            sha256 = "sha256-m58oUwLG4wZPQzDAXwW4GUWyo5VEJ5ND5ufF8nqbrdw=";
+            sha256 = "sha256-GaS6pk2pJMXgzYiauo6UfygDCfGizglHo+OnvLfMctY=";
           };
-        });
+          doCheck = false;
+        };
 
-        richLatest = pypkgs.rich.overridePythonAttrs (_: rec {
-          version = "14.1.0";
+        richLatest = pypkgs.buildPythonPackage rec {
+          pname = "rich";
+          version = "13.7";
+          format = "wheel";
           src = pkgs.fetchurl {
             url = "https://files.pythonhosted.org/packages/py3/r/rich/rich-14.1.0-py3-none-any.whl";
-            sha256 = "sha256-U29fF4WYbW296jx1IFxHP5cHd7Sg1sbdG2lqoFo/oE8=";
+            sha256 = "sha256-baFMEIxIZu6VILv/px9v45YuGTt9pocgWDhQzUVI4jU=";
           };
-        });
+          doCheck = false;
+        };
       in
       {
         packages.default = pypkgs.buildPythonPackage {
