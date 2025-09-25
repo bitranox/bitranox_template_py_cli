@@ -34,6 +34,8 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
+from rich.console import Console
+from rich.traceback import install as rich_traceback_install
 import rich_click as click
 
 import lib_cli_exit_tools
