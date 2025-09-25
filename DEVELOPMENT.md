@@ -152,3 +152,23 @@ Conda/Homebrew/Nix: use files in `packaging/` to submit to their ecosystems. CI 
 - For private repos, set `CODECOV_TOKEN` (see `.env.example`) or export it in your shell.
 - For public repos, a token is typically not required.
 - Because Codecov requires a revision, the test harness commits (allow-empty) immediately before uploading. Remove or amend that commit after the run if you do not intend to keep it.
+
+
+### Conda Build Caveats
+
+The repository includes a Conda recipe under `packaging/conda/`. In CI the build logs often print "done," yet the solver can still fail if one of our runtime dependencies is not available on conda-forge (or another configured channel). Conda reports an `ExplainedDependencyNeedsBuildingError` for whatever package is missing. The build command itself may exit with 0, so the logs look green, but the dependency remains unsatisfied locally and in CI until we publish it to a Conda channel we control.
+
+Options:
+- Package the missing dependency on conda-forge or an internal channel (preferred solution).
+- Allow the Conda step to fail/skip knowingly.
+- Mark the dependency for pip installation inside the recipe (stopgap).
+
+#### Pip workaround (trade-offs)
+- **How**: Remove the dependency from the `run:` section and add `pip install ...` for it inside the recipe build script.
+- **Pros**: keeps the build green; package still installed; minimal change.
+- **Cons**: mixes pip and Conda managers; loses Conda binary/reproducibility benefits; broader supply-chain surface.
+- **Acceptable when**: the dependency is unlikely to land on conda-forge soon; it is pure Python; the team accepts mixed environments.
+- **Avoid when**: you need fully reproducible Conda environments or the dependency includes native code.
+
+Treat the pip workaround as a temporary fix; the long-term answer is to publish the missing dependency to a Conda channel.
+
