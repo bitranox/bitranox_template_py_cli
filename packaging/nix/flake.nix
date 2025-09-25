@@ -11,15 +11,13 @@
         lib = pkgs.lib;
         pypkgs = pkgs.python310Packages;
 
-        # Vendor hatchling>=1.25 from PyPI (wheel) to satisfy PEP 517 build
         hatchlingVendor = pypkgs.buildPythonPackage rec {
           pname = "hatchling";
           version = "1.25.0";
-          format = "wheel"; # install straight from wheel to avoid circular build-backend
-          # Use explicit URL for py3 wheel; nixpkgs 24.05 fetchPypi may choose a py2.py3 path.
+          format = "wheel";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/py3/h/hatchling/${pname}-${version}-py3-none-any.whl";
-            hash = "sha256-tHlI5F1NlzA0WE3UyznBS2pwInzyh6t+wK15g0CKiCw=";
+            url = "https://files.pythonhosted.org/packages/py3/h/hatchling/hatchling-1.25.0-py3-none-any.whl";
+            hash = "sha256-tHlI5F1NlzA0WE3UyznBS2pwInzyh6t+wK15g0CKiCw";
           };
           propagatedBuildInputs = [
             pypkgs.packaging
@@ -31,59 +29,48 @@
           ];
           doCheck = false;
         };
+        clickVendor = pypkgs.buildPythonPackage rec {
+          pname = "click";
+          version = "8.3.0";
+          format = "wheel";
+          src = pkgs.fetchurl {
+            url = "https://files.pythonhosted.org/packages/db/d3/9dcc0f5797f070ec8edf30fbadfb200e71d9db6b84d211e3b2085a7589a0/click-8.3.0-py3-none-any.whl";
+            sha256 = "sha256-m58oUwLG4wZPQzDAXwW4GUWyo5VEJ5ND5ufF8nqbrdw=";
+          };
+          doCheck = false;
+        };
 
-        libCliExitTools = pypkgs.buildPythonPackage rec {
+        libCliExitToolsVendor = pypkgs.buildPythonPackage rec {
           pname = "lib_cli_exit_tools";
           version = "1.1.1";
           format = "wheel";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/py3/l/lib_cli_exit_tools/${pname}-${version}-py3-none-any.whl";
-            hash = "sha256-MX0896kKVwphlsTLkAPYLAYhyZE9Ajpi4xbmMhLBchY=";
+            url = "https://files.pythonhosted.org/packages/78/a9/3a3eb69c3fe8f2fc0d659600e38ae2f0334507cbbef383fd628038a8f779/lib_cli_exit_tools-1.1.1-py3-none-any.whl";
+            sha256 = "sha256-MX0896kKVwphlsTLkAPYLAYhyZE9Ajpi4xbmMhLBchY=";
           };
           doCheck = false;
         };
 
-        clickLatest = pypkgs.buildPythonPackage rec {
-          pname = "click";
-          version = "8.1";
-          format = "wheel";
-          src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/py3/c/click/click-8.3.0-py3-none-any.whl";
-            sha256 = "sha256-GaS6pk2pJMXgzYiauo6UfygDCfGizglHo+OnvLfMctY=";
-          };
-          doCheck = false;
-        };
-
-        richLatest = pypkgs.buildPythonPackage rec {
+        richVendor = pypkgs.buildPythonPackage rec {
           pname = "rich";
-          version = "13.7";
+          version = "14.1";
           format = "wheel";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/py3/r/rich/rich-14.1.0-py3-none-any.whl";
-            sha256 = "sha256-baFMEIxIZu6VILv/px9v45YuGTt9pocgWDhQzUVI4jU=";
+            url = "https://files.pythonhosted.org/packages/e3/30/3c4d035596d3cf444529e0b2953ad0466f6049528a879d27534700580395/rich-14.1.0-py3-none-any.whl";
+            sha256 = "sha256-U29fF4WYbW296jx1IFxHP5cHd7Sg1sbdG2lqoFo/oE8=";
           };
           doCheck = false;
         };
+
       in
       {
         packages.default = pypkgs.buildPythonPackage {
           pname = "bitranox_template_py_cli";
           version = "1.4.0";
           pyproject = true;
-          # Build from the repository root (two levels up from packaging/nix)
           src = ../..;
-          # For pinned releases, swap src for fetchFromGitHub with a rev/sha256.
-          # src = pkgs.fetchFromGitHub {
-          #   owner = "bitranox";
-          #   repo = "bitranox_template_py_cli";
-          #   rev = "v1.4.0";
-          #   sha256 = "<fill-me>";
-          # };
-
-          # Ensure PEP 517 backend is available at required version
-          # Ensure PEP 517 backend available at required version (>=1.25)
           nativeBuildInputs = [ hatchlingVendor ];
-          propagatedBuildInputs = [ richLatest clickLatest libCliExitTools ];
+          propagatedBuildInputs = [ clickVendor libCliExitToolsVendor richVendor ];
 
           meta = with pkgs.lib; {
             description = "Rich-powered logging helpers for colorful terminal output";
@@ -98,9 +85,9 @@
           packages = [
             pkgs.python310
             hatchlingVendor
-            richLatest
-            clickLatest
-            libCliExitTools
+            clickVendor
+            libCliExitToolsVendor
+            richVendor
             pypkgs.pytest
             pkgs.ruff
             pkgs.nodejs
