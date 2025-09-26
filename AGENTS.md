@@ -15,7 +15,7 @@
   - python_structure_template.md
   - self_documenting.md
   - self_documenting_template.md
-
+  - python_jupyter_notebooks.md
 
 always apply those Rules :
 
@@ -119,12 +119,9 @@ when writing or refracturing Python scripts, apply those Rules :
 - run "make test" before any push to avoid lint/test breakage.
 - after push, monitor errors in the github actions and try to correct the errors
 
-## Jupyter Notebooks
-use at least nbformat >=4.5 
- - "nbformat": 4,
- - "nbformat_minor": 5
- 
 --- 
+
+# ONLY ON USER REQEST !!!! :
 
 # 📘 Documentation Review & Enhancement Prompt
 
