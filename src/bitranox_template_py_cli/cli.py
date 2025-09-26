@@ -32,7 +32,7 @@ helpers documented here.
 
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Final, Optional, Sequence
 
 import rich_click as click
 
@@ -46,6 +46,10 @@ from .bitranox_template_py_cli import main as _domain_main
 # Maintain a single help option map so every command advertises ``-h`` and
 # ``--help`` consistently; Click's default only exposes ``--help``.
 CLICK_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])  # noqa: C408
+
+# Mirror __main__ traceback output limits so console and module entry points stay aligned.
+_TRACEBACK_SUMMARY_LIMIT: Final[int] = 500
+_TRACEBACK_VERBOSE_LIMIT: Final[int] = 10_000
 
 
 @click.group(
@@ -82,7 +86,7 @@ def cli(ctx: click.Context, traceback: bool) -> None:
     Side Effects
         Mutates :mod:`lib_cli_exit_tools.config` to reflect the requested
         traceback mode, including ``traceback_force_color`` when tracebacks are
-        enabled.
+        enabled. Reconfigures rich-click output once per process.
 
     Examples
     --------
@@ -256,11 +260,18 @@ def main(argv: Optional[Sequence[str]] = None, *, restore_traceback: bool = True
     previous_traceback = getattr(lib_cli_exit_tools.config, "traceback", False)
     previous_force_color = getattr(lib_cli_exit_tools.config, "traceback_force_color", False)
     try:
-        return lib_cli_exit_tools.run_cli(
-            cli,
-            argv=list(argv) if argv is not None else None,
-            prog_name=__init__conf__.shell_command,
-        )
+        try:
+            return lib_cli_exit_tools.run_cli(
+                cli,
+                argv=list(argv) if argv is not None else None,
+                prog_name=__init__conf__.shell_command,
+            )
+        except BaseException as exc:  # noqa: BLE001 - funnel through shared printers
+            lib_cli_exit_tools.print_exception_message(
+                trace_back=lib_cli_exit_tools.config.traceback,
+                length_limit=(_TRACEBACK_VERBOSE_LIMIT if lib_cli_exit_tools.config.traceback else _TRACEBACK_SUMMARY_LIMIT),
+            )
+            return lib_cli_exit_tools.get_system_exit_code(exc)
     finally:
         if restore_traceback:
             lib_cli_exit_tools.config.traceback = previous_traceback

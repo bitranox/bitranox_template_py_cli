@@ -177,6 +177,23 @@ def test_main_without_subcommand_delegates_to_cli_main(monkeypatch: pytest.Monke
     assert calls == ["called"]
 
 
+def test_main_traceback_renders_rich(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
+
+    exit_code = cli_mod.main(["--traceback", "fail"])
+
+    captured = capsys.readouterr()
+    plain_err = strip_ansi(captured.err)
+
+    assert exit_code != 0
+    assert "Traceback (most recent call last)" in plain_err
+    assert "RuntimeError: I should fail" in plain_err
+    assert "[TRUNCATED" not in plain_err
+    assert lib_cli_exit_tools.config.traceback is False
+    assert lib_cli_exit_tools.config.traceback_force_color is False
+
+
 def test_cli_hello_and_fail_commands() -> None:
     runner = CliRunner()
     result_hello = runner.invoke(cli_mod.cli, ["hello"])
