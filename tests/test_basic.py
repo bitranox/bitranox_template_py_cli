@@ -29,20 +29,27 @@ def test_hello_world_prints_greeting(capsys: pytest.CaptureFixture[str]) -> None
 
 
 def test_cli_info_command_sets_traceback(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[bool] = []
+    calls: list[tuple[bool, bool]] = []
 
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
 
     def record_traceback_flag() -> None:
-        calls.append(lib_cli_exit_tools.config.traceback)
+        calls.append(
+            (
+                lib_cli_exit_tools.config.traceback,
+                lib_cli_exit_tools.config.traceback_force_color,
+            )
+        )
 
     monkeypatch.setattr(cli_mod.__init__conf__, "print_info", record_traceback_flag)
 
     result = cli_mod.main(["--traceback", "info"])
 
     assert result == 0
-    assert calls == [True]
+    assert calls == [(True, True)]
     assert lib_cli_exit_tools.config.traceback is False
+    assert lib_cli_exit_tools.config.traceback_force_color is False
 
 
 def test_main_delegates_to_run_cli(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -114,6 +121,7 @@ def test_module_main_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_module_main_traceback(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "--traceback", "fail"])
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
 
     with pytest.raises(SystemExit) as exc:
         runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
@@ -125,6 +133,8 @@ def test_module_main_traceback(monkeypatch: pytest.MonkeyPatch, capsys: pytest.C
     assert "Traceback (most recent call last)" in plain_err
     assert "RuntimeError: I should fail" in plain_err
     assert "[TRUNCATED" not in plain_err
+    assert lib_cli_exit_tools.config.traceback is False
+    assert lib_cli_exit_tools.config.traceback_force_color is False
 
 
 def test_cli_without_subcommand_calls_domain_main(monkeypatch: pytest.MonkeyPatch) -> None:

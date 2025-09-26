@@ -34,8 +34,6 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
-from rich.console import Console
-from rich.traceback import install as rich_traceback_install
 import rich_click as click
 
 import lib_cli_exit_tools
@@ -83,7 +81,8 @@ def cli(ctx: click.Context, traceback: bool) -> None:
 
     Side Effects
         Mutates :mod:`lib_cli_exit_tools.config` to reflect the requested
-        traceback mode.
+        traceback mode, including ``traceback_force_color`` when tracebacks are
+        enabled.
 
     Examples
     --------
@@ -99,6 +98,7 @@ def cli(ctx: click.Context, traceback: bool) -> None:
     ctx.ensure_object(dict)
     ctx.obj["traceback"] = traceback
     lib_cli_exit_tools.config.traceback = traceback
+    lib_cli_exit_tools.config.traceback_force_color = traceback
     if ctx.invoked_subcommand is None:
         cli_main()
         return None
@@ -242,8 +242,9 @@ def main(argv: Optional[Sequence[str]] = None, *, restore_traceback: bool = True
         Exit code produced by ``run_cli``.
 
     Side Effects
-        Mutates ``lib_cli_exit_tools.config.traceback`` while the CLI runs and
-        optionally restores it afterwards.
+        Mutates ``lib_cli_exit_tools.config.traceback`` and
+        ``lib_cli_exit_tools.config.traceback_force_color`` while the CLI runs
+        and optionally restores them afterwards.
 
     Examples
     --------
@@ -253,6 +254,7 @@ def main(argv: Optional[Sequence[str]] = None, *, restore_traceback: bool = True
     """
 
     previous_traceback = getattr(lib_cli_exit_tools.config, "traceback", False)
+    previous_force_color = getattr(lib_cli_exit_tools.config, "traceback_force_color", False)
     try:
         return lib_cli_exit_tools.run_cli(
             cli,
@@ -262,3 +264,4 @@ def main(argv: Optional[Sequence[str]] = None, *, restore_traceback: bool = True
     finally:
         if restore_traceback:
             lib_cli_exit_tools.config.traceback = previous_traceback
+            lib_cli_exit_tools.config.traceback_force_color = previous_force_color

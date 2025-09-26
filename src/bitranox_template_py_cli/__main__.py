@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from typing import Final
 
+import sys
+
 import lib_cli_exit_tools
 
 from . import cli
@@ -54,9 +56,9 @@ def _module_main() -> int:
         occurs.
 
     Side Effects
-        Reads and writes ``lib_cli_exit_tools.config.traceback`` and writes to
-        standard error via :func:`lib_cli_exit_tools.print_exception_message` on
-        failure.
+        Reads and writes ``lib_cli_exit_tools.config.traceback`` and
+        ``lib_cli_exit_tools.config.traceback_force_color``; writes to standard
+        error via :func:`lib_cli_exit_tools.print_exception_message` on failure.
 
     Examples
     --------
@@ -67,6 +69,7 @@ def _module_main() -> int:
     """
 
     previous_traceback = getattr(lib_cli_exit_tools.config, "traceback", False)
+    previous_force_color = getattr(lib_cli_exit_tools.config, "traceback_force_color", False)
     try:
         try:
             return int(cli.main(restore_traceback=False))
@@ -78,6 +81,7 @@ def _module_main() -> int:
             return lib_cli_exit_tools.get_system_exit_code(exc)
     finally:
         lib_cli_exit_tools.config.traceback = previous_traceback
+        lib_cli_exit_tools.config.traceback_force_color = previous_force_color
 
 
 if __name__ == "__main__":
