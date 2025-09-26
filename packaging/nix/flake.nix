@@ -55,7 +55,7 @@
       {
         packages.default = pypkgs.buildPythonPackage {
           pname = "bitranox_template_py_cli";
-          version = "1.5.1";
+          version = "1.6.0";
           pyproject = true;
           src = ../..;
           nativeBuildInputs = [ hatchlingVendor ];
