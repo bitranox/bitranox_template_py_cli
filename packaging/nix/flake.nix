@@ -31,11 +31,11 @@
         };
         libCliExitToolsVendor = pypkgs.buildPythonPackage rec {
           pname = "lib_cli_exit_tools";
-          version = "1.4.0";
+          version = "1.5.0";
           format = "wheel";
           src = pkgs.fetchurl {
-            url = "https://files.pythonhosted.org/packages/da/7b/66e87fc3c50eec162d40d5d2b4a0b8f75d5c4fceab44fef8b1d6e9a60178/lib_cli_exit_tools-1.4.0-py3-none-any.whl";
-            sha256 = "sha256-9sDzZJiM13L3VebHIWrcmRcJSsp7dYtjullIUx2uGhk=";
+            url = "https://files.pythonhosted.org/packages/43/c3/7b34d5f400086796a6cfe1eb59dc250e4df7cc704b3fa6e90e427c6bf776/lib_cli_exit_tools-1.5.0-py3-none-any.whl";
+            sha256 = "sha256-H5mIYfuRSt1RU9EIH54H+8cn1lf8bhEewJb5eCTcuj8=";
           };
           doCheck = false;
         };
