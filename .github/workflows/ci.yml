@@ -17,8 +17,8 @@ jobs:
         # Test against Python 3.13 and the latest 3.x available on Actions runners
         python: ["3.13", "3.x"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
       - name: Extract project metadata
