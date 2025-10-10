@@ -42,7 +42,7 @@ when writing or refracturing Python scripts, apply those Rules :
 
 - `src/bitranox_template_py_cli/`: Python package exposing placeholders for testing.
 - `scripts/`: shared automation (build/test/release) reused from scaffold.
-- `packaging/`: Conda, Homebrew, and Nix specs kept in sync via scripts.
+- `packaging/`: placeholders for external distribution metadata (currently unused).
 - `tests/`: placeholder suite skipping until logging features exist.
 
 
@@ -58,7 +58,7 @@ when writing or refracturing Python scripts, apply those Rules :
 
 | Target            | One-line description                                                           |
 |-------------------|--------------------------------------------------------------------------------|
-| `build`           | Build wheel/sdist and attempt Conda/Brew/Nix builds (auto-installs tools).     |
+| `build`           | Build wheel/sdist artifacts.                                                    |
 | `bump`            | Bump version (VERSION=X.Y.Z or PART=major\|minor\|patch) and update changelog. |
 | `bump-major`      | Increment major version ((X+1).0.0).                                           |
 | `bump-minor`      | Increment minor version (X.Y.Z → X.(Y+1).0).                                   |

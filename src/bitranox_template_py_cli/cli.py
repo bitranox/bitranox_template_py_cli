@@ -42,9 +42,6 @@ import lib_cli_exit_tools
 from . import __init__conf__
 from .behaviors import emit_greeting, noop_main, raise_intentional_failure
 
-# Backwards-compat alias retained for existing tests and integrations.
-_domain_main = noop_main
-
 CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}  # noqa: C408
 TRACEBACK_SUMMARY_LIMIT: Final[int] = 500
 TRACEBACK_VERBOSE_LIMIT: Final[int] = 10_000
@@ -121,7 +118,26 @@ def restore_traceback_state(state: TracebackState) -> None:
     lib_cli_exit_tools.config.traceback_force_color = bool(state[1])
 
 
-def _invoke_cli(
+def _remember_traceback_choice(ctx: click.Context, enabled: bool) -> None:
+    """Persist the traceback choice in the Click context."""
+
+    ctx.ensure_object(dict)
+    ctx.obj["traceback"] = enabled
+
+
+def _share_choice_with_exit_tools(enabled: bool) -> None:
+    """Keep lib_cli_exit_tools aware of the chosen traceback mode."""
+
+    apply_traceback_preferences(enabled)
+
+
+def _no_subcommand_requested(ctx: click.Context) -> bool:
+    """Return True when the user did not request a subcommand."""
+
+    return ctx.invoked_subcommand is None
+
+
+def _run_cli_via_exit_tools(
     argv: Optional[Sequence[str]],
     *,
     summary_limit: int,
@@ -159,7 +175,7 @@ def _invoke_cli(
     ...     return 0
     >>> lib_cli_exit_tools.run_cli = fake_run_cli
     >>> try:
-    ...     _invoke_cli(['hello'], summary_limit=10, verbose_limit=20)
+    ...     _run_cli_via_exit_tools(['hello'], summary_limit=10, verbose_limit=20)
     ... finally:
     ...     lib_cli_exit_tools.run_cli = saved_run_cli
     0
@@ -232,10 +248,9 @@ def cli(ctx: click.Context, traceback: bool) -> None:
     True
     """
 
-    ctx.ensure_object(dict)
-    ctx.obj["traceback"] = traceback
-    apply_traceback_preferences(traceback)
-    if ctx.invoked_subcommand is None:
+    _remember_traceback_choice(ctx, traceback)
+    _share_choice_with_exit_tools(traceback)
+    if _no_subcommand_requested(ctx):
         cli_main()
 
 
@@ -247,7 +262,7 @@ def cli_main() -> None:
     >>> cli_main()
     """
 
-    _domain_main()
+    noop_main()
 
 
 @cli.command("info", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -305,7 +320,13 @@ def main(
 
     previous = snapshot_traceback_state()
     try:
-        return _invoke_cli(argv, summary_limit=summary_limit, verbose_limit=verbose_limit)
+        return _run_cli_via_exit_tools(argv, summary_limit=summary_limit, verbose_limit=verbose_limit)
     finally:
-        if restore_traceback:
-            restore_traceback_state(previous)
+        _restore_when_requested(previous, restore_traceback)
+
+
+def _restore_when_requested(state: TracebackState, should_restore: bool) -> None:
+    """Restore the prior traceback configuration when requested."""
+
+    if should_restore:
+        restore_traceback_state(state)

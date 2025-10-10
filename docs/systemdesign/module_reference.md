@@ -11,12 +11,14 @@ Complete
 **Related Files:**
 
 * src/bitranox_template_py_cli/behaviors.py
-* src/bitranox_template_py_cli/bitranox_template_py_cli.py
 * src/bitranox_template_py_cli/cli.py
 * src/bitranox_template_py_cli/__main__.py
 * src/bitranox_template_py_cli/__init__.py
 * src/bitranox_template_py_cli/__init__conf__.py
-* tests/test_basic.py
+* tests/test_cli.py
+* tests/test_module_entry.py
+* tests/test_behaviors.py
+* tests/test_scripts.py
 
 ---
 
@@ -38,8 +40,8 @@ separation that would be overkill for this minimal template.
   the exit-code handling used by both entry points.
 * Reduced ``__main__.py`` to a thin wrapper delegating to the CLI helper while
   sharing the same traceback state restoration helpers.
-* Re-exported the helpers through ``__init__.py`` and
-  ``bitranox_template_py_cli.py`` so existing imports continue to work.
+* Re-exported the helpers through ``__init__.py`` so CLI and library imports
+  draw from the same source.
 * Documented the responsibilities in this module reference so future refactors
   have an authoritative baseline.
 
@@ -120,9 +122,8 @@ stand-in domain.
 ### Package Exports
 
 * ``__init__.py`` re-exports behaviour helpers and ``print_info`` for library
-  consumers.
-* ``bitranox_template_py_cli.py`` keeps legacy imports pointing to the new
-  behaviour module so older code keeps working.
+  consumers. No legacy compatibility layer remains; new code should import from
+  the canonical module paths.
 
 ---
 
@@ -161,8 +162,14 @@ stand-in domain.
 
 **Automated Tests:**
 
-* ``tests/test_basic.py`` covers CLI happy path, failure path, and module entry
-  semantics, including traceback restoration behaviour.
+* ``tests/test_cli.py`` exercises happy path, failure path, metadata output, and
+  invalid command handling for the click surface.
+* ``tests/test_module_entry.py`` ensures ``python -m`` entry mirrors the console
+  script, including traceback behaviour.
+* ``tests/test_behaviors.py`` verifies greeting/failure helpers against custom
+  streams.
+* ``tests/test_scripts.py`` validates the automation entry points via the shared
+  scripts CLI.
 * Doctests embedded in behaviour and CLI helpers provide micro-regression tests
   for argument handling.
 

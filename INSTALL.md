@@ -67,18 +67,8 @@ pdm install
 pip install "git+https://github.com/bitranox/bitranox_template_py_cli#egg=bitranox_template_py_cli"
 ```
 
-## 8. Conda or Mamba Environment
+## 8. System Package Managers (Optional Distribution Channels)
 
-```bash
-mamba create -n bitranox-template-py-cli python=3.12 pip
-mamba activate bitranox-template-py-cli
-pip install .
-```
-
-## 9. System Package Managers (Optional Distribution Channels)
-
-- Homebrew (macOS): `brew install bitranox_template_py_cli` (if published)
-- Nix: Use the flake or package definition for reproducible installs
 - Deb/RPM: Package with `fpm` for OS-native delivery
 
 All methods register both the `bitranox_template_py_cli` and

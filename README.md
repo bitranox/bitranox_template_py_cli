@@ -22,7 +22,7 @@ Scaffold for Python Projects with registered commandline commands:
 pip install bitranox_template_py_cli
 ```
 
-For alternative install paths (pipx, uv, Conda, source builds, etc.), see
+For alternative install paths (pipx, uv, source builds, etc.), see
 [INSTALL.md](INSTALL.md). All supported methods register both the
 `bitranox_template_py_cli` and `bitranox-template-py-cli` commands on your PATH.
 
@@ -48,9 +48,9 @@ For library use you can import the documented helpers directly:
 ```python
 import bitranox_template_py_cli as btpc
 
-btpc.hello_world()
+btpc.emit_greeting()
 try:
-    btpc.i_should_fail()
+    btpc.raise_intentional_failure()
 except RuntimeError as exc:
     print(f"caught expected failure: {exc}")
 
@@ -66,4 +66,3 @@ btpc.print_info()
 - [Changelog](CHANGELOG.md)
 - [Module Reference](docs/systemdesign/module_reference.md)
 - [License](LICENSE)
-

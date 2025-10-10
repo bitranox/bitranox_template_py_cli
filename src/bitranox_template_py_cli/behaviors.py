@@ -14,9 +14,6 @@ Contents
   CLI flows to validate traceback handling.
 * :func:`noop_main` – placeholder entry used when callers expect a ``main``
   callable despite the domain layer being stubbed today.
-* :func:`hello_world` – compatibility alias returning the canonical greeting.
-* :func:`i_should_fail` – compatibility alias raising the intentional error.
-* :func:`main` – compatibility alias delegating to :func:`noop_main`.
 
 System Role
 -----------
@@ -33,6 +30,26 @@ import sys
 
 
 CANONICAL_GREETING = "Hello World"
+
+
+def _resolve_target_stream(stream: TextIO | None) -> TextIO:
+    """Choose the stream that will receive the greeting."""
+
+    return stream if stream is not None else sys.stdout
+
+
+def _greeting_line() -> str:
+    """Return the canonical greeting line including newline."""
+
+    return f"{CANONICAL_GREETING}\n"
+
+
+def _flush_if_possible(stream: TextIO) -> None:
+    """Flush the stream when a flush method exists."""
+
+    flush = getattr(stream, "flush", None)
+    if callable(flush):
+        flush()
 
 
 def emit_greeting(*, stream: TextIO | None = None) -> None:
@@ -66,11 +83,9 @@ def emit_greeting(*, stream: TextIO | None = None) -> None:
     True
     """
 
-    target = stream if stream is not None else sys.stdout
-    target.write(f"{CANONICAL_GREETING}\n")
-    flush = getattr(target, "flush", None)
-    if callable(flush):
-        flush()
+    target = _resolve_target_stream(stream)
+    target.write(_greeting_line())
+    _flush_if_possible(target)
 
 
 def raise_intentional_failure() -> None:
@@ -122,61 +137,9 @@ def noop_main() -> None:
     return None
 
 
-def hello_world(*, stream: TextIO | None = None) -> None:
-    """Compatibility shim delegating to :func:`emit_greeting`.
-
-    Why
-        Preserve the long-standing ``hello_world`` hook so onboarding material
-        and sample code continue to work as the behaviour helpers evolve.
-
-    Parameters
-    ----------
-    stream:
-        Optional stream receiving the greeting, mirroring
-        :func:`emit_greeting`.
-
-    Examples
-    --------
-    >>> hello_world()
-    Hello World
-    >>> from io import StringIO
-    >>> buffer = StringIO()
-    >>> hello_world(stream=buffer)
-    >>> buffer.getvalue() == "Hello World\\n"
-    True
-    """
-
-    emit_greeting(stream=stream)
-
-
-def i_should_fail() -> None:
-    """Compatibility shim delegating to :func:`raise_intentional_failure`.
-
-    Why
-        Maintain the historical failure hook name so documentation and tests
-        that reference ``i_should_fail`` need no updates.
-
-    Examples
-    --------
-    >>> i_should_fail()
-    Traceback (most recent call last):
-    ...
-    RuntimeError: I should fail
-    """
-
-    raise_intentional_failure()
-
-
-def main() -> None:
-    """Compatibility shim delegating to :func:`noop_main`.
-
-    Why
-        Preserve the legacy ``main`` symbol used by transports before the
-        refactor. New code should call :func:`noop_main` directly.
-
-    Examples
-    --------
-    >>> main()
-    """
-
-    noop_main()
+__all__ = [
+    "CANONICAL_GREETING",
+    "emit_greeting",
+    "raise_intentional_failure",
+    "noop_main",
+]
