@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.7.0] - 2025-10-13
+
+- Refractored and modernized
+
 ## [1.6.0] - 2025-10-10
 ### Added
 - Type-hardened CLI, module-entry, and behaviour tests covering metadata output

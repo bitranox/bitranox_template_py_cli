@@ -1,15 +1,10 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import rich_click as click
 
-try:
-    from ._utils import get_project_metadata, run
-except ImportError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from scripts._utils import get_project_metadata, run
+from ._utils import get_project_metadata, run
 
 __all__ = ["build_artifacts"]
 
@@ -39,7 +34,6 @@ def main() -> None:  # pragma: no cover
 
 
 if __name__ == "__main__":  # pragma: no cover
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from scripts.cli import main as cli_main
+    from .cli import main as cli_main
 
     cli_main(["build", *sys.argv[1:]])

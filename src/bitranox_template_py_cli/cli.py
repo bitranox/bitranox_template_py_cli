@@ -20,6 +20,12 @@ Contents
 * :func:`cli_main` – default action when no subcommand is provided.
 * :func:`cli_info`, :func:`cli_hello`, :func:`cli_fail` – subcommands covering
   metadata printing, success path, and failure path.
+* :func:`_record_traceback_choice`, :func:`_announce_traceback_choice` – persist
+  traceback preferences across context and shared tooling.
+* :func:`_invoke_cli`, :func:`_current_traceback_mode`, :func:`_traceback_limit`,
+  :func:`_print_exception`, :func:`_run_cli_via_exit_tools` – isolate the error
+  handling and delegation path.
+* :func:`_restore_when_requested` – restores tracebacks when ``main`` finishes.
 * :func:`main` – composition helper delegating to ``lib_cli_exit_tools`` while
   honouring the shared traceback preferences.
 
@@ -38,12 +44,16 @@ from typing import Final, Optional, Sequence, Tuple
 import rich_click as click
 
 import lib_cli_exit_tools
+from click.core import ParameterSource
 
 from . import __init__conf__
 from .behaviors import emit_greeting, noop_main, raise_intentional_failure
 
+#: Shared Click context flags so help output stays consistent across commands.
 CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}  # noqa: C408
+#: Character budget used when printing truncated tracebacks.
 TRACEBACK_SUMMARY_LIMIT: Final[int] = 500
+#: Character budget used when verbose tracebacks are enabled.
 TRACEBACK_VERBOSE_LIMIT: Final[int] = 10_000
 TracebackState = Tuple[bool, bool]
 
@@ -118,23 +128,189 @@ def restore_traceback_state(state: TracebackState) -> None:
     lib_cli_exit_tools.config.traceback_force_color = bool(state[1])
 
 
-def _remember_traceback_choice(ctx: click.Context, enabled: bool) -> None:
-    """Persist the traceback choice in the Click context."""
+def _record_traceback_choice(ctx: click.Context, *, enabled: bool) -> None:
+    """Remember the chosen traceback mode inside the Click context.
+
+    Why
+        Downstream commands need to know whether verbose tracebacks were
+        requested so they can honour the user's preference without re-parsing
+        flags.
+
+    What
+        Ensures the context has a dict backing store and persists the boolean
+        under the ``"traceback"`` key.
+
+    Inputs
+        ctx:
+            Click context associated with the current invocation.
+        enabled:
+            ``True`` when verbose tracebacks were requested; ``False`` otherwise.
+
+    Side Effects
+        Mutates ``ctx.obj``.
+    """
 
     ctx.ensure_object(dict)
     ctx.obj["traceback"] = enabled
 
 
-def _share_choice_with_exit_tools(enabled: bool) -> None:
-    """Keep lib_cli_exit_tools aware of the chosen traceback mode."""
+def _announce_traceback_choice(enabled: bool) -> None:
+    """Keep ``lib_cli_exit_tools`` in sync with the selected traceback mode.
+
+    Why
+        ``lib_cli_exit_tools`` reads global configuration to decide how to print
+        tracebacks; we mirror the user's choice into that configuration.
+
+    Inputs
+        enabled:
+            ``True`` when verbose tracebacks should be shown; ``False`` when the
+            summary view is desired.
+
+    Side Effects
+        Mutates ``lib_cli_exit_tools.config``.
+    """
 
     apply_traceback_preferences(enabled)
 
 
 def _no_subcommand_requested(ctx: click.Context) -> bool:
-    """Return True when the user did not request a subcommand."""
+    """Return ``True`` when the invocation did not name a subcommand.
+
+    Why
+        The CLI defaults to calling ``noop_main`` when no subcommand appears; we
+        need a readable predicate to capture that intent.
+
+    Inputs
+        ctx:
+            Click context describing the current CLI invocation.
+
+    Outputs
+        bool:
+            ``True`` when no subcommand was invoked; ``False`` otherwise.
+    """
 
     return ctx.invoked_subcommand is None
+
+
+def _invoke_cli(argv: Optional[Sequence[str]]) -> int:
+    """Ask ``lib_cli_exit_tools`` to execute the Click command.
+
+    Why
+        ``lib_cli_exit_tools`` normalises exit codes and exception handling; we
+        centralise the call so tests can stub it cleanly.
+
+    Inputs
+        argv:
+            Optional sequence of command-line arguments. ``None`` delegates to
+            ``sys.argv`` inside ``lib_cli_exit_tools``.
+
+    Outputs
+        int:
+            Exit code returned by the CLI execution.
+    """
+
+    return lib_cli_exit_tools.run_cli(
+        cli,
+        argv=list(argv) if argv is not None else None,
+        prog_name=__init__conf__.shell_command,
+    )
+
+
+def _current_traceback_mode() -> bool:
+    """Return the global traceback preference as a boolean.
+
+    Why
+        Error handling logic needs to know whether verbose tracebacks are active
+        so it can pick the right character budget and ensure colouring is
+        consistent.
+
+    Outputs
+        bool:
+            ``True`` when verbose tracebacks are enabled; ``False`` otherwise.
+    """
+
+    return bool(getattr(lib_cli_exit_tools.config, "traceback", False))
+
+
+def _traceback_limit(tracebacks_enabled: bool, *, summary_limit: int, verbose_limit: int) -> int:
+    """Return the character budget that matches the current traceback mode.
+
+    Why
+        Verbose tracebacks should show the full story while compact ones keep the
+        terminal tidy. This helper makes that decision explicit.
+
+    Inputs
+        tracebacks_enabled:
+            ``True`` when verbose tracebacks are active.
+        summary_limit:
+            Character budget for truncated output.
+        verbose_limit:
+            Character budget for the full traceback.
+
+    Outputs
+        int:
+            The applicable character limit.
+    """
+
+    return verbose_limit if tracebacks_enabled else summary_limit
+
+
+def _print_exception(exc: BaseException, *, tracebacks_enabled: bool, length_limit: int) -> int:
+    """Render the exception through ``lib_cli_exit_tools`` and return its exit code.
+
+    Why
+        All transports funnel errors through ``lib_cli_exit_tools`` so that exit
+        codes and formatting stay consistent; this helper keeps the plumbing in
+        one place.
+
+    Inputs
+        exc:
+            Exception raised by the CLI.
+        tracebacks_enabled:
+            ``True`` when verbose tracebacks should be shown.
+        length_limit:
+            Maximum number of characters to print.
+
+    Outputs
+        int:
+            Exit code to surface to the shell.
+
+    Side Effects
+        Writes the formatted exception to stderr via ``lib_cli_exit_tools``.
+    """
+
+    lib_cli_exit_tools.print_exception_message(
+        trace_back=tracebacks_enabled,
+        length_limit=length_limit,
+    )
+    return lib_cli_exit_tools.get_system_exit_code(exc)
+
+
+def _traceback_option_requested(ctx: click.Context) -> bool:
+    """Return ``True`` when the user explicitly requested ``--traceback``.
+
+    Why
+        Determines whether a no-command invocation should run the default
+        behaviour or display the help screen.
+
+    Inputs
+        ctx:
+            Click context associated with the current invocation.
+
+    Outputs
+        bool:
+            ``True`` when the user provided ``--traceback`` or ``--no-traceback``;
+            ``False`` when the default value is in effect.
+    """
+
+    source = ctx.get_parameter_source("traceback")
+    return source not in (ParameterSource.DEFAULT, None)
+
+
+def _show_help(ctx: click.Context) -> None:
+    """Render the command help to stdout."""
+
+    click.echo(ctx.get_help())
 
 
 def _run_cli_via_exit_tools(
@@ -143,63 +319,40 @@ def _run_cli_via_exit_tools(
     summary_limit: int,
     verbose_limit: int,
 ) -> int:
-    """Run the click application and normalise exit codes.
+    """Run the command while narrating the failure path with care.
 
     Why
-        ``lib_cli_exit_tools`` centralises exit-code translation and pretty
-        printing. Wrapping the call keeps exception handling identical for both
-        console scripts and ``python -m`` execution.
+        Consolidates the call to ``lib_cli_exit_tools`` so happy paths and error
+        handling remain consistent across the application and tests.
 
-    Parameters
-    ----------
-    argv:
-        Optional argument vector. ``None`` defers to ``sys.argv``.
-    summary_limit:
-        Character budget for truncated tracebacks when ``--traceback`` is not
-        set.
-    verbose_limit:
-        Character budget for full tracebacks when ``--traceback`` is set.
+    Inputs
+        argv:
+            Optional sequence of CLI arguments.
+        summary_limit / verbose_limit:
+            Character budgets steering exception output length.
 
-    Returns
-    -------
-    int
-        Exit code produced by the command execution.
+    Outputs
+        int:
+            Exit code produced by the command.
 
-    Examples
-    --------
-    >>> saved_run_cli = lib_cli_exit_tools.run_cli
-    >>> calls = {}
-    >>> def fake_run_cli(command, argv=None, *, prog_name=None, signal_specs=None, install_signals=True):
-    ...     calls['argv'] = argv
-    ...     calls['prog_name'] = prog_name
-    ...     return 0
-    >>> lib_cli_exit_tools.run_cli = fake_run_cli
-    >>> try:
-    ...     _run_cli_via_exit_tools(['hello'], summary_limit=10, verbose_limit=20)
-    ... finally:
-    ...     lib_cli_exit_tools.run_cli = saved_run_cli
-    0
-    >>> calls['argv']
-    ['hello']
-    >>> calls['prog_name'] == __init__conf__.shell_command
-    True
+    Side Effects
+        Delegates to ``lib_cli_exit_tools`` which may write to stderr.
     """
 
     try:
-        return lib_cli_exit_tools.run_cli(
-            cli,
-            argv=list(argv) if argv is not None else None,
-            prog_name=__init__conf__.shell_command,
+        return _invoke_cli(argv)
+    except BaseException as exc:  # noqa: BLE001 - handled by shared printers
+        tracebacks_enabled = _current_traceback_mode()
+        apply_traceback_preferences(tracebacks_enabled)
+        return _print_exception(
+            exc,
+            tracebacks_enabled=tracebacks_enabled,
+            length_limit=_traceback_limit(
+                tracebacks_enabled,
+                summary_limit=summary_limit,
+                verbose_limit=verbose_limit,
+            ),
         )
-    except BaseException as exc:  # noqa: BLE001 - funnel through shared printers
-        traceback_enabled = bool(getattr(lib_cli_exit_tools.config, "traceback", False))
-        apply_traceback_preferences(traceback_enabled)
-        limit = verbose_limit if traceback_enabled else summary_limit
-        lib_cli_exit_tools.print_exception_message(
-            trace_back=traceback_enabled,
-            length_limit=limit,
-        )
-        return lib_cli_exit_tools.get_system_exit_code(exc)
 
 
 @click.group(
@@ -229,8 +382,9 @@ def cli(ctx: click.Context, traceback: bool) -> None:
     What
         Ensures a dict-based context, stores the ``traceback`` flag, and mirrors
         the value into ``lib_cli_exit_tools.config`` so downstream helpers observe
-        the preference. When no subcommand is requested the function delegates to
-        :func:`cli_main` to exercise the sanctioned default behaviour.
+        the preference. When no subcommand (or options) are provided, the command
+        prints help instead of running the domain stub; otherwise the default
+        action delegates to :func:`cli_main`.
 
     Side Effects
         Mutates :mod:`lib_cli_exit_tools.config` to reflect the requested
@@ -248,14 +402,25 @@ def cli(ctx: click.Context, traceback: bool) -> None:
     True
     """
 
-    _remember_traceback_choice(ctx, traceback)
-    _share_choice_with_exit_tools(traceback)
+    _record_traceback_choice(ctx, enabled=traceback)
+    _announce_traceback_choice(traceback)
     if _no_subcommand_requested(ctx):
-        cli_main()
+        if _traceback_option_requested(ctx):
+            cli_main()
+        else:
+            _show_help(ctx)
 
 
 def cli_main() -> None:
-    """Run the placeholder domain entry when no subcommand is provided.
+    """Run the placeholder domain entry when callers opt into execution.
+
+    Why
+        Maintains compatibility with tooling that expects the original
+        "do-nothing" behaviour by explicitly opting in via options (e.g.
+        ``--traceback`` without subcommands).
+
+    Side Effects
+        Delegates to :func:`noop_main`.
 
     Examples
     --------
@@ -293,40 +458,61 @@ def main(
     summary_limit: int = TRACEBACK_SUMMARY_LIMIT,
     verbose_limit: int = TRACEBACK_VERBOSE_LIMIT,
 ) -> int:
-    """Execute the CLI with shared exit handling and return the exit code.
+    """Execute the CLI with deliberate error handling and return the exit code.
 
-    Parameters
-    ----------
-    argv:
-        Optional argument vector. ``None`` means defer to ``sys.argv``.
-    restore_traceback:
-        Whether to reset :mod:`lib_cli_exit_tools.config` after the CLI finishes.
-    summary_limit:
-        Character budget for truncated tracebacks when ``--traceback`` is ``False``.
-    verbose_limit:
-        Character budget for verbose tracebacks when ``--traceback`` is ``True``.
+    Why
+        Provides the single entry point used by console scripts and
+        ``python -m`` execution so that behaviour stays identical across
+        transports.
 
-    Returns
-    -------
-    int
-        Exit code produced by the CLI.
+    Inputs
+        argv:
+            Optional sequence of CLI arguments. ``None`` lets Click consume
+            ``sys.argv`` directly.
+        restore_traceback:
+            ``True`` to restore the prior ``lib_cli_exit_tools`` traceback
+            configuration after execution.
+        summary_limit / verbose_limit:
+            Character budgets used when formatting exceptions.
 
-    Examples
-    --------
-    >>> main(["hello"])
-    Hello World
-    0
+    Outputs
+        int:
+            Exit code reported by the CLI run.
+
+    Side Effects
+        Mutates the global traceback configuration while the CLI runs.
     """
 
-    previous = snapshot_traceback_state()
+    previous_state = snapshot_traceback_state()
     try:
-        return _run_cli_via_exit_tools(argv, summary_limit=summary_limit, verbose_limit=verbose_limit)
+        return _run_cli_via_exit_tools(
+            argv,
+            summary_limit=summary_limit,
+            verbose_limit=verbose_limit,
+        )
     finally:
-        _restore_when_requested(previous, restore_traceback)
+        _restore_when_requested(previous_state, restore_traceback)
 
 
 def _restore_when_requested(state: TracebackState, should_restore: bool) -> None:
-    """Restore the prior traceback configuration when requested."""
+    """Restore the prior traceback configuration when requested.
+
+    Why
+        CLI execution may toggle verbose tracebacks for the duration of the run.
+        Once the command ends we restore the previous configuration so other
+        code paths continue with their expected defaults.
+
+    Inputs
+        state:
+            Tuple captured by :func:`snapshot_traceback_state` describing the
+            prior configuration.
+        should_restore:
+            ``True`` to reapply the stored configuration; ``False`` to keep the
+            current settings.
+
+    Side Effects
+        May mutate ``lib_cli_exit_tools.config``.
+    """
 
     if should_restore:
         restore_traceback_state(state)

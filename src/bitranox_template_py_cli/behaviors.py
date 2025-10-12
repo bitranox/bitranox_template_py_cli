@@ -32,20 +32,20 @@ import sys
 CANONICAL_GREETING = "Hello World"
 
 
-def _resolve_target_stream(stream: TextIO | None) -> TextIO:
-    """Choose the stream that will receive the greeting."""
+def _target_stream(preferred: TextIO | None) -> TextIO:
+    """Return the stream that should hear the greeting."""
 
-    return stream if stream is not None else sys.stdout
+    return preferred if preferred is not None else sys.stdout
 
 
 def _greeting_line() -> str:
-    """Return the canonical greeting line including newline."""
+    """Return the greeting exactly as it should appear."""
 
     return f"{CANONICAL_GREETING}\n"
 
 
 def _flush_if_possible(stream: TextIO) -> None:
-    """Flush the stream when a flush method exists."""
+    """Flush the stream when the stream knows how to flush."""
 
     flush = getattr(stream, "flush", None)
     if callable(flush):
@@ -83,7 +83,7 @@ def emit_greeting(*, stream: TextIO | None = None) -> None:
     True
     """
 
-    target = _resolve_target_stream(stream)
+    target = _target_stream(stream)
     target.write(_greeting_line())
     _flush_if_possible(target)
 

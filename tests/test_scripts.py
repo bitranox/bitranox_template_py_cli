@@ -3,9 +3,11 @@ from __future__ import annotations
 from click.testing import CliRunner
 from collections.abc import Mapping, Sequence
 import sys
+from dataclasses import dataclass
 from types import ModuleType, SimpleNamespace
 from typing import Protocol, TypedDict
 
+import pytest
 from pytest import MonkeyPatch
 
 import scripts.build as build
@@ -30,7 +32,20 @@ class RecordedOptions(TypedDict):
     dry_run: bool
 
 
-RunRecord = tuple[RunCommand, RecordedOptions]
+@dataclass(slots=True)
+class RecordedRun:
+    """Single invocation captured from a scripts command execution.
+
+    Attributes
+    ----------
+    command:
+        Command list or shell string passed to the automation runner.
+    options:
+        Keyword arguments controlling execution (capture, cwd, etc.).
+    """
+
+    command: RunCommand
+    options: RecordedOptions
 
 
 class RunStub(Protocol):
@@ -46,7 +61,21 @@ class RunStub(Protocol):
     ) -> RunResult: ...
 
 
-def _make_run_recorder(record: list[RunRecord]) -> RunStub:
+def _remember_runs(history: list[RecordedRun]) -> RunStub:
+    """Return a runner stub that appends every invocation to ``history``.
+
+    Why
+        Tests need to inspect the commands executed by automation wrappers
+        without launching real subprocesses.
+
+    Inputs
+        history:
+            Mutable list collecting :class:`RecordedRun` entries.
+
+    Outputs
+        RunStub: Callable mimicking ``scripts._utils.run``.
+    """
+
     def _run(
         cmd: RunCommand,
         *,
@@ -56,23 +85,68 @@ def _make_run_recorder(record: list[RunRecord]) -> RunStub:
         env: Mapping[str, str] | None = None,
         dry_run: bool = False,
     ) -> RunResult:
-        record.append(
-            (
-                cmd,
-                {
+        history.append(
+            RecordedRun(
+                command=cmd,
+                options={
                     "check": check,
                     "capture": capture,
                     "cwd": cwd,
                     "env": env,
                     "dry_run": dry_run,
                 },
-            ),
+            )
         )
         return RunResult(0, "", "")
 
     return _run
 
 
+def _commands_as_text(runs: list[RecordedRun]) -> list[str]:
+    """Render every recorded command as a single string.
+
+    Why
+        Simplifies assertions that look for substrings inside the recorded
+        commands.
+
+    Inputs
+        runs:
+            Sequence of recorded invocations.
+
+    Outputs
+        list[str]:
+            Normalised textual commands.
+    """
+
+    rendered: list[str] = []
+    for run in runs:
+        command = run.command
+        if isinstance(command, str):
+            rendered.append(command)
+        else:
+            rendered.append(" ".join(command))
+    return rendered
+
+
+def _first_command(runs: list[RecordedRun]) -> RunCommand:
+    """Return the command associated with the first recorded run.
+
+    Why
+        Several tests only care about the inaugural command executed by the
+        automation wrapper; this helper keeps that intent obvious.
+
+    Inputs
+        runs:
+            Recorded run list populated by :func:`_remember_runs`.
+
+    Outputs
+        RunCommand: the first command issued.
+    """
+
+    return runs[0].command
+
+
+@pytest.mark.os_agnostic
 def test_get_project_metadata_fields():
     meta = _utils.get_project_metadata()
     assert meta.name == "bitranox_template_py_cli"
@@ -82,38 +156,42 @@ def test_get_project_metadata_fields():
     assert meta.github_tarball_url("1.2.3").endswith("/bitranox/bitranox_template_py_cli/archive/refs/tags/v1.2.3.tar.gz")
 
 
+@pytest.mark.os_agnostic
 def test_build_script_uses_metadata(monkeypatch: MonkeyPatch) -> None:
-    recorded: list[RunRecord] = []
-    monkeypatch.setattr(build, "run", _make_run_recorder(recorded))
+    recorded: list[RecordedRun] = []
+    monkeypatch.setattr(build, "run", _remember_runs(recorded))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["build"])
     assert result.exit_code == 0
-    commands = [" ".join(cmd) if not isinstance(cmd, str) else cmd for cmd, _ in recorded]
+    commands = _commands_as_text(recorded)
     assert any("python -m build" in cmd for cmd in commands)
 
 
+@pytest.mark.os_agnostic
 def test_dev_script_installs_dev_extras(monkeypatch: MonkeyPatch) -> None:
-    recorded: list[RunRecord] = []
-    monkeypatch.setattr(dev, "run", _make_run_recorder(recorded))
+    recorded: list[RecordedRun] = []
+    monkeypatch.setattr(dev, "run", _remember_runs(recorded))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["dev"])
     assert result.exit_code == 0
-    first_command, _options = recorded[0]
+    first_command = _first_command(recorded)
     assert isinstance(first_command, list)
     assert first_command == [sys.executable, "-m", "pip", "install", "-e", ".[dev]"]
 
 
+@pytest.mark.os_agnostic
 def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
-    recorded: list[RunRecord] = []
-    monkeypatch.setattr(install, "run", _make_run_recorder(recorded))
+    recorded: list[RecordedRun] = []
+    monkeypatch.setattr(install, "run", _remember_runs(recorded))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["install"])
     assert result.exit_code == 0
-    first_command, _options = recorded[0]
+    first_command = _first_command(recorded)
     assert isinstance(first_command, list)
     assert first_command == [sys.executable, "-m", "pip", "install", "-e", "."]
 
 
+@pytest.mark.os_agnostic
 def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
     seen: list[str] = []
 
@@ -138,8 +216,9 @@ def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
         assert seen == [f"{package}.__main__", f"{package}.cli"]
 
 
+@pytest.mark.os_agnostic
 def test_test_script_uses_pyproject_configuration(monkeypatch: MonkeyPatch) -> None:
-    recorded: list[RunRecord] = []
+    recorded: list[RecordedRun] = []
 
     def _noop() -> None:
         return None
@@ -149,15 +228,16 @@ def test_test_script_uses_pyproject_configuration(monkeypatch: MonkeyPatch) -> N
 
     monkeypatch.setattr(test_script, "bootstrap_dev", _noop)
     monkeypatch.setattr(_utils, "cmd_exists", _always_false)
-    monkeypatch.setattr(test_script, "run", _make_run_recorder(recorded))
+    monkeypatch.setattr(test_script, "run", _remember_runs(recorded))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["test"])
     assert result.exit_code == 0
     pytest_commands: list[list[str]] = []
-    for cmd, _ in recorded:
-        if isinstance(cmd, str):
+    for run in recorded:
+        command = run.command
+        if isinstance(command, str):
             continue
-        command_list = list(cmd)
+        command_list = list(command)
         if command_list[:3] == ["python", "-m", "pytest"]:
             pytest_commands.append(command_list)
     assert pytest_commands, "pytest not invoked"

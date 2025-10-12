@@ -13,7 +13,7 @@ Thanks for helping improve **bitranox_template_py_cli**. The sections below summ
 ## 2. Commits & Pushes
 
 - Commit messages should be imperative (`Add rich handler`, `Fix CLI exit codes`).
-- The test harness (`make test`) performs an allow-empty commit named `test: auto commit before Codecov upload` immediately before it sends coverage to Codecov. This guarantees Codecov sees a concrete revision. If you do not want to retain that commit, run `git reset --soft HEAD~1` (or amend) after the test run finishes.
+- The test harness (`make test`) runs the full lint/type/test pipeline but leaves the repository untouched; create commits yourself before pushing or uploading coverage artifacts.
 - `make push` always performs a commit before pushing. It prompts for a message when run interactively, honours `COMMIT_MESSAGE="…"` when provided, and creates an empty commit if nothing is staged. The Textual menu (`make menu → push`) exposes the same behaviour via an input field.
 
 ## 3. Coding Standards
@@ -28,6 +28,8 @@ Thanks for helping improve **bitranox_template_py_cli**. The sections below summ
 - `make test` runs Ruff (lint + format check), Pyright, and Pytest with coverage. Coverage is `on` by default; override with `COVERAGE=off` if you explicitly need a no-coverage run.
 - The harness auto-installs dev tools with `pip install -e .[dev]` when Ruff, Pyright, or Pytest are missing. Skip this by exporting `SKIP_BOOTSTRAP=1`.
 - Codecov uploads require a commit (provided by the automatic commit described above). For private repositories set `CODECOV_TOKEN` in your environment or `.env`.
+- Tests follow a narrative style: prefer names like `test_when_<condition>_<outcome>()`, keep each case laser-focused, and mark OS constraints with the provided markers (`@pytest.mark.os_agnostic`, `@pytest.mark.os_windows`, etc.).
+- Whenever you add a CLI behaviour or change metadata fallbacks, update the relevant story in `tests/test_cli.py` or `tests/test_metadata.py` so the specification remains complete.
 
 ## 5. Documentation Checklist
 

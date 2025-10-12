@@ -4,7 +4,7 @@ Purpose
 -------
 Collect helper functions used by the ``scripts/`` entry points (build, test,
 release) so git helpers and subprocess wrappers live in one place. The behaviour mirrors the operational guidance described in
-``docs/systemdesign/concept_architecture_plan.md`` and ``DEVELOPMENT.md``.
+``docs/systemdesign/module_reference.md`` and ``DEVELOPMENT.md``.
 
 Contents
 --------
@@ -24,13 +24,14 @@ from __future__ import annotations
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from subprocess import CompletedProcess
-from typing import Any, Callable, Mapping, Sequence, cast
+from typing import Any, Mapping, Sequence, cast
 from urllib.parse import urlparse
 
 
@@ -131,14 +132,7 @@ def run(
 
 
 def cmd_exists(name: str) -> bool:
-    return (
-        subprocess.call(
-            ["bash", "-lc", f"command -v {shlex.quote(name)} >/dev/null 2>&1"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        == 0
-    )
+    return shutil.which(name) is not None
 
 
 def _normalize_slug(value: str) -> str:
@@ -185,12 +179,11 @@ def _load_pyproject(pyproject: Path) -> dict[str, object]:
     if cached is not None:
         return cached
     raw_text = path.read_text(encoding="utf-8")
-    data: dict[str, object] = {}
     try:
-        load_toml = cast(Callable[[str], dict[str, Any]], getattr(tomllib, "loads"))
-        parsed_obj = load_toml(raw_text)
-    except Exception:
-        parsed_obj = {}
+        parsed_obj = tomllib.loads(raw_text)
+    except tomllib.TOMLDecodeError as exc:  # pragma: no cover - invalid pyproject fails fast
+        msg = f"Unable to parse {path}: {exc}"
+        raise ValueError(msg) from exc
     data = {str(key): value for key, value in parsed_obj.items()}
     _PYPROJECT_DATA_CACHE[path] = data
     return data

@@ -3,21 +3,15 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 import rich_click as click
 
-try:
-    from ._utils import get_project_metadata, git_branch, read_version_from_pyproject, run
-except ImportError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from scripts._utils import git_branch, run
-    from scripts._utils import get_project_metadata, read_version_from_pyproject
+from ._utils import get_project_metadata, git_branch, read_version_from_pyproject, run
 
 __all__ = ["push"]
 
 
-def push(*, remote: str = "origin", message: Optional[str] = None) -> None:
+def push(*, remote: str = "origin", message: str | None = None) -> None:
     """Run checks, commit changes, and push the current branch."""
 
     metadata = get_project_metadata()
@@ -27,8 +21,8 @@ def push(*, remote: str = "origin", message: Optional[str] = None) -> None:
     branch = git_branch()
     click.echo(f"[push] branch={branch} remote={remote}")
 
-    click.echo("[push] Running local checks (scripts/test.py)")
-    run(["python", "scripts/test.py"], capture=False)
+    click.echo("[push] Running local checks (python -m scripts.test)")
+    run(["python", "-m", "scripts.test"], capture=False)
 
     click.echo("[push] Committing and pushing (single attempt)")
     run(["git", "add", "-A"], capture=False)  # stage all
@@ -41,7 +35,7 @@ def push(*, remote: str = "origin", message: Optional[str] = None) -> None:
     run(["git", "push", "-u", remote, branch], capture=False)  # type: ignore[list-item]
 
 
-def _resolve_commit_message(message: Optional[str]) -> str:
+def _resolve_commit_message(message: str | None) -> str:
     default_message = os.environ.get("COMMIT_MESSAGE", "chore: update").strip() or "chore: update"
     if message is not None:
         return message.strip() or default_message
@@ -71,6 +65,6 @@ def _resolve_commit_message(message: Optional[str]) -> str:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    from scripts.cli import main as cli_main
+    from .cli import main as cli_main
 
     cli_main(["push", *sys.argv[1:]])

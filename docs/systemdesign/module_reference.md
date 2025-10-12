@@ -105,6 +105,26 @@ stand-in domain.
 * **Output:** Integer exit code (0 on success, mapped error codes otherwise).
 * **Location:** src/bitranox_template_py_cli/cli.py
 
+### cli._record_traceback_choice / cli._announce_traceback_choice / cli._traceback_option_requested
+
+* **Purpose:** Persist the selected traceback mode in both the Click context and
+  ``lib_cli_exit_tools`` while exposing a predicate that tells whether the user
+  explicitly provided the option.
+* **Input:** Click context plus the boolean flag derived from CLI options.
+* **Output:** None (mutates context and ``lib_cli_exit_tools.config``) and a
+  boolean value from ``_traceback_option_requested``.
+* **Location:** src/bitranox_template_py_cli/cli.py
+
+### cli._invoke_cli / cli._current_traceback_mode / cli._traceback_limit / cli._print_exception / cli._run_cli_via_exit_tools / cli._show_help
+
+* **Purpose:** Delegate execution to ``lib_cli_exit_tools`` while deciding how
+  to present tracebacks and when to show command help for bare invocations.
+* **Input:** Global configuration flags, configured length limits, optional
+  argv, and the Click context used for help rendering.
+* **Output:** Either a boolean flag, an integer limit, a rendered help screen,
+  or the exit code produced by ``lib_cli_exit_tools``.
+* **Location:** src/bitranox_template_py_cli/cli.py
+
 ### __main__._module_main
 
 * **Purpose:** Provide ``python -m`` entry point mirroring the console script.
@@ -112,11 +132,38 @@ stand-in domain.
 * **Output:** Exit code from ``cli.main`` after restoring traceback state.
 * **Location:** src/bitranox_template_py_cli/__main__.py
 
+### __main__._open_cli_session / _command_to_run / _command_name
+
+* **Purpose:** Describe the session wiring and command selection used by the
+  module entry point so tests and documentation can reason about the
+  composition.
+* **Output:** Context manager yielding the command runner, the Click command
+  itself, and the shell-facing name.
+* **Location:** src/bitranox_template_py_cli/__main__.py
+
 ### __init__conf__.print_info
 
 * **Purpose:** Render project metadata for CLI ``info`` command.
 * **Input:** None.
 * **Output:** Writes metadata block to ``stdout``.
+* **Location:** src/bitranox_template_py_cli/__init__conf__.py
+
+### __init__conf__.PackagePortrait
+
+* **Purpose:** Immutable snapshot describing the package name, summary, version,
+  homepage, author details, and shell command exposed to users.
+* **Input:** Constructed internally from metadata lookups.
+* **Output:** Dataclass consumed by module exports and ``print_info``.
+* **Location:** src/bitranox_template_py_cli/__init__conf__.py
+
+### __init__conf__ helper functions
+
+* **Purpose:** ``_load_metadata``, ``_load_version``, ``_metadata_field``,
+  ``_resolve_homepage``, ``_resolve_author``, ``_resolve_summary``, and
+  ``_shell_command`` each focus on a single metadata concern so fallbacks remain
+  explicit and testable.
+* **Input:** Distribution name or metadata mappings as appropriate.
+* **Output:** Concrete strings or tuples feeding the ``PackagePortrait``.
 * **Location:** src/bitranox_template_py_cli/__init__conf__.py
 
 ### Package Exports
@@ -155,21 +202,25 @@ stand-in domain.
 
 **Manual Testing Steps:**
 
-1. ``bitranox_template_py_cli hello`` → prints greeting.
-2. ``bitranox_template_py_cli fail`` → prints truncated traceback.
-3. ``bitranox_template_py_cli --traceback fail`` → prints full rich traceback.
-4. ``python -m bitranox_template_py_cli --traceback fail`` → matches console output.
+1. ``bitranox_template_py_cli`` → prints CLI help (no default action).
+2. ``bitranox_template_py_cli hello`` → prints greeting.
+3. ``bitranox_template_py_cli fail`` → prints truncated traceback.
+4. ``bitranox_template_py_cli --traceback fail`` → prints full rich traceback.
+5. ``python -m bitranox_template_py_cli --traceback fail`` → matches console output.
 
 **Automated Tests:**
 
-* ``tests/test_cli.py`` exercises happy path, failure path, metadata output, and
-  invalid command handling for the click surface.
+* ``tests/test_cli.py`` exercises the help-first behaviour, failure path,
+  metadata output, and invalid command handling for the click surface.
 * ``tests/test_module_entry.py`` ensures ``python -m`` entry mirrors the console
   script, including traceback behaviour.
 * ``tests/test_behaviors.py`` verifies greeting/failure helpers against custom
   streams.
 * ``tests/test_scripts.py`` validates the automation entry points via the shared
   scripts CLI.
+* ``tests/test_cli.py`` and ``tests/test_module_entry.py`` now introduce
+  structured recording helpers (``CapturedRun`` and ``PrintedTraceback``) so the
+  assertions read like documented scenarios.
 * Doctests embedded in behaviour and CLI helpers provide micro-regression tests
   for argument handling.
 
