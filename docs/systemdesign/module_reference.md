@@ -143,27 +143,9 @@ stand-in domain.
 
 ### __init__conf__.print_info
 
-* **Purpose:** Render project metadata for CLI ``info`` command.
+* **Purpose:** Render the statically-defined project metadata for the CLI ``info`` command.
 * **Input:** None.
-* **Output:** Writes metadata block to ``stdout``.
-* **Location:** src/bitranox_template_py_cli/__init__conf__.py
-
-### __init__conf__.PackagePortrait
-
-* **Purpose:** Immutable snapshot describing the package name, summary, version,
-  homepage, author details, and shell command exposed to users.
-* **Input:** Constructed internally from metadata lookups.
-* **Output:** Dataclass consumed by module exports and ``print_info``.
-* **Location:** src/bitranox_template_py_cli/__init__conf__.py
-
-### __init__conf__ helper functions
-
-* **Purpose:** ``_load_metadata``, ``_load_version``, ``_metadata_field``,
-  ``_resolve_homepage``, ``_resolve_author``, ``_resolve_summary``, and
-  ``_shell_command`` each focus on a single metadata concern so fallbacks remain
-  explicit and testable.
-* **Input:** Distribution name or metadata mappings as appropriate.
-* **Output:** Concrete strings or tuples feeding the ``PackagePortrait``.
+* **Output:** Writes the hard-coded metadata block to ``stdout``.
 * **Location:** src/bitranox_template_py_cli/__init__conf__.py
 
 ### Package Exports
@@ -179,7 +161,7 @@ stand-in domain.
 **Dependencies:**
 
 * External: ``rich_click``, ``lib_cli_exit_tools``
-* Internal: ``behaviors`` module, ``__init__conf__`` metadata facade
+* Internal: ``behaviors`` module, ``__init__conf__`` static metadata constants
 
 **Key Configuration:**
 

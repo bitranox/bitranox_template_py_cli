@@ -1,4 +1,4 @@
-"""Metadata tales ensuring fallbacks stay true."""
+"""Metadata tales celebrating the pinned project portrait."""
 
 from __future__ import annotations
 
@@ -18,21 +18,11 @@ def test_when_print_info_runs_it_lists_every_field(capsys: pytest.CaptureFixture
 
 
 @pytest.mark.os_agnostic
-def test_when_metadata_is_missing_fallback_values_hold(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    class FailingMeta:
-        def __call__(self, _dist: str) -> None:
-            raise __init__conf__._im.PackageNotFoundError  # type: ignore[attr-defined]
-
-    class FailingVersion:
-        def __call__(self, _dist: str) -> str:
-            raise __init__conf__._im.PackageNotFoundError  # type: ignore[attr-defined]
-
-    monkeypatch.setattr(__init__conf__._im, "metadata", FailingMeta())  # type: ignore[attr-defined]
-    monkeypatch.setattr(__init__conf__._im, "version", FailingVersion())  # type: ignore[attr-defined]
-
-    __init__conf__.print_info()
-
-    captured = capsys.readouterr().out
-
-    assert "0.0.0.dev0" in captured
-    assert "https://github.com/bitranox/bitranox_template_py_cli" in captured
+def test_the_metadata_constants_match_the_project() -> None:
+    assert __init__conf__.name == "bitranox_template_py_cli"
+    assert __init__conf__.title == "Template for python apps with registered cli commands"
+    assert __init__conf__.version == "1.7.0"
+    assert __init__conf__.homepage == "https://github.com/bitranox/bitranox_template_py_cli"
+    assert __init__conf__.author == "bitranox"
+    assert __init__conf__.author_email == "bitranox@gmail.com"
+    assert __init__conf__.shell_command == "bitranox-template-py-cli"

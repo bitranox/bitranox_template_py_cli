@@ -19,6 +19,7 @@ from ._utils import (
     bootstrap_dev,
     get_project_metadata,
     run,
+    sync_metadata_module,
 )
 
 PROJECT = get_project_metadata()
@@ -51,6 +52,7 @@ def _refresh_default_env() -> None:
 def run_coverage(*, verbose: bool = False) -> None:
     """Run pytest under coverage using python modules to avoid PATH shim issues."""
 
+    sync_metadata_module(PROJECT)
     bootstrap_dev()
     _prune_coverage_data_files()
     _remove_report_artifacts()
@@ -111,6 +113,8 @@ def run_tests(*, coverage: str = "on", verbose: bool = False, strict_format: boo
     env_verbose = os.getenv("TEST_VERBOSE", "").lower()
     if not verbose and env_verbose in _TRUTHY:
         verbose = True
+
+    sync_metadata_module(PROJECT)
 
     def _run(
         cmd: Sequence[str] | str,
