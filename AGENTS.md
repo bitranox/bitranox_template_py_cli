@@ -40,10 +40,9 @@ when writing or refracturing Python scripts, apply those Rules :
 
 ## Project Structure & Module Organization
 
-- `src/bitranox_template_py_cli/`: Python package exposing placeholders for testing.
-- `scripts/`: shared automation (build/test/release) reused from scaffold.
-- `packaging/`: placeholders for external distribution metadata (currently unused).
-- `tests/`: placeholder suite skipping until logging features exist.
+- `src/bitranox_template_py_cli/`: Python package
+- `scripts/`: shared automation
+- `tests/`: test suite
 
 
 ### Versioning & Releases
