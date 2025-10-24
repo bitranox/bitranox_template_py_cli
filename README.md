@@ -17,6 +17,7 @@
 - Exit-code and messaging helpers powered by lib_cli_exit_tools
 
 ## Install - recommended via UV
+UV - the ultrafast installer - written in Rust (10–20× faster than pip/poetry)
 
 ```bash
 # recommended Install via uv 
@@ -37,16 +38,12 @@ For alternative install paths (pip, pipx, uv, uvx source builds, etc.), see
 
 ### Python 3.13+ Baseline
 
-- The project now targets **Python 3.13 and newer only**. All compatibility
-  shims for older interpreters and legacy tool outputs have been removed; the
-  automation helpers now lean on modern conveniences such as `Path.unlink(missing_ok=True)`
-  and standard-library `shutil.which()` lookups.
+- The project targets **Python 3.13 and newer only**. 
 - Runtime dependencies stay on the current stable releases (`rich-click>=1.9.3`
-  and `lib_cli_exit_tools>=2.0.0`), while the development extra trims unused
-  packages (notably `pytest-asyncio`) and keeps pytest, ruff, pyright, bandit,
+  and `lib_cli_exit_tools>=2.0.0`) and keeps pytest, ruff, pyright, bandit,
   build, twine, codecov-cli, pip-audit, textual, and import-linter pinned to
   their newest majors.
-- CI workflows now exercise GitHub's rolling runner images (`ubuntu-latest`,
+- CI workflows exercise GitHub's rolling runner images (`ubuntu-latest`,
   `macos-latest`, `windows-latest`) and cover CPython 3.13 alongside the latest
   available 3.x release provided by Actions.
 
@@ -65,6 +62,7 @@ bitranox_template_py_cli fail
 bitranox_template_py_cli --traceback fail
 bitranox-template-py-cli info
 python -m bitranox_template_py_cli info
+uvx bitranox_template_py_cli info
 ```
 
 For library use you can import the documented helpers directly:
