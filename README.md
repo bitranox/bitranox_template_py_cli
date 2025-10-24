@@ -12,17 +12,26 @@
 [![Maintainability](https://qlty.sh/badges/041ba2c1-37d6-40bb-85a0-ec5a8a0aca0c/maintainability.svg)](https://qlty.sh/gh/bitranox/projects/bitranox_template_py_cli)
 [![Known Vulnerabilities](https://snyk.io/test/github/bitranox/bitranox_template_py_cli/badge.svg)](https://snyk.io/test/github/bitranox/bitranox_template_py_cli)
 
-Scaffold for Python Projects with registered commandline commands:
+<agent: fill in short project description and main features>
 - CLI entry point styled with rich-click (rich output + click ergonomics)
 - Exit-code and messaging helpers powered by lib_cli_exit_tools
 
-## Install
+## Install - recommended via UV
 
 ```bash
-pip install bitranox_template_py_cli
+# recommended Install via uv 
+pip install --upgrade uv
+# Create and activate a virtual environment (optional but recommended)
+uv venv
+# macOS/Linux
+source .venv/bin/activate
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+# install via uv from PyPI
+uv pip install bitranox_template_py_cli
 ```
 
-For alternative install paths (pipx, uv, source builds, etc.), see
+For alternative install paths (pip, pipx, uv, uvx source builds, etc.), see
 [INSTALL.md](INSTALL.md). All supported methods register both the
 `bitranox_template_py_cli` and `bitranox-template-py-cli` commands on your PATH.
 
