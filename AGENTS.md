@@ -48,7 +48,8 @@ when writing or refracturing Python scripts, apply those Rules :
 ### Versioning & Releases
 
 - Single source of truth for the package version is `pyproject.toml` (`[project].version`).
-- On a version bump, update `pyproject.toml` , `CHANGELOG.md` and update the constants in `src/../__init__conf__.py` according to `pyproject.toml`  
+- Automation rewrites `src/lib_cli_exit_tools/__init__conf__.py` from `pyproject.toml`, so runtime code imports generated constants instead of querying `importlib.metadata`.
+- After updating project metadata (version, summary, URLs, authors) run `make test` (or `python -m scripts.test`) to regenerate the metadata module before committing.
 - Tag releases `vX.Y.Z` and push tags; CI will build artifacts and publish when configured.
 
 ### Common Make Targets (Alphabetical)

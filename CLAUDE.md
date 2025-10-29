@@ -74,6 +74,8 @@ bitranox_template_py_cli/
 
 - **Single Source of Truth**: Package version is in `pyproject.toml` (`[project].version`)
 - **Version Bumps**: update `pyproject.toml` , `CHANGELOG.md` and update the constants in `src/../__init__conf__.py` according to `pyproject.toml`  
+    - Automation rewrites `src/lib_cli_exit_tools/__init__conf__.py` from `pyproject.toml`, so runtime code imports generated constants instead of querying `importlib.metadata`.
+    - After updating project metadata (version, summary, URLs, authors) run `make test` (or `python -m scripts.test`) to regenerate the metadata module before committing.
 - **Release Tags**: Format is `vX.Y.Z` (push tags for CI to build and publish)
 
 ## Common Make Targets
