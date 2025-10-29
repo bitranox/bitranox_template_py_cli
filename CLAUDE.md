@@ -73,9 +73,7 @@ bitranox_template_py_cli/
 ## Versioning & Releases
 
 - **Single Source of Truth**: Package version is in `pyproject.toml` (`[project].version`)
-- Runtime code uses `importlib.metadata` to read version metadata
-- **Version Bumps**: Update only `pyproject.toml` and `CHANGELOG.md`
-- **DO NOT** edit `src/bitranox_template_py_cli/__init__conf__.py` for versioning
+- **Version Bumps**: update `pyproject.toml` , `CHANGELOG.md` and update the constants in `src/../__init__conf__.py` according to `pyproject.toml`  
 - **Release Tags**: Format is `vX.Y.Z` (push tags for CI to build and publish)
 
 ## Common Make Targets
