@@ -1,5 +1,8 @@
 # Changelog
 
+All notable changes to this project will be documented in this file following
+the [Keep a Changelog](https://keepachangelog.com/) format.
+
 ## [1.7.0] - 2025-10-13
 ### Added
 - Static metadata portrait generated from ``pyproject.toml`` and exported via
