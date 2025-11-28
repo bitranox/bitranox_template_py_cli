@@ -56,13 +56,18 @@ _AuditPayload = list[dict[str, object]]
 # ---------------------------------------------------------------------------
 
 
+def _empty_str_list() -> list[str]:
+    """Return an empty list of strings for dataclass default factory."""
+    return []
+
+
 @dataclass
 class ProjectConfig:
     """Configuration values read from pyproject.toml."""
 
     fail_under: int = 80
-    bandit_skips: list[str] = field(default_factory=list)
-    pip_audit_ignores: list[str] = field(default_factory=list)
+    bandit_skips: list[str] = field(default_factory=_empty_str_list)
+    pip_audit_ignores: list[str] = field(default_factory=_empty_str_list)
     pytest_verbosity: str = "-vv"
     coverage_report_file: str = "coverage.xml"
     src_path: str = "src"

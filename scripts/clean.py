@@ -9,6 +9,7 @@ import shutil
 from collections.abc import Iterable
 from pathlib import Path
 from types import ModuleType
+from typing import cast
 
 _FALLBACK_PATTERNS: tuple[str, ...] = (
     ".hypothesis",
@@ -56,8 +57,9 @@ def get_clean_patterns(pyproject: Path = Path("pyproject.toml")) -> tuple[str, .
     try:
         toml = _get_toml_module()
         data = toml.loads(pyproject.read_text())
-        patterns = data.get("tool", {}).get("clean", {}).get("patterns", [])
-        if patterns and isinstance(patterns, list):
+        raw_patterns: object = data.get("tool", {}).get("clean", {}).get("patterns", [])
+        if raw_patterns and isinstance(raw_patterns, list):
+            patterns = cast(list[object], raw_patterns)
             return tuple(str(p) for p in patterns if p)
     except Exception:
         pass
