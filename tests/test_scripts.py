@@ -36,12 +36,9 @@ class RecordedOptions(TypedDict):
 class RecordedRun:
     """Single invocation captured from a scripts command execution.
 
-    Attributes
-    ----------
-    command:
-        Command list or shell string passed to the automation runner.
-    options:
-        Keyword arguments controlling execution (capture, cwd, etc.).
+    Attributes:
+        command: Command list or shell string passed to the automation runner.
+        options: Keyword arguments controlling execution (capture, cwd, etc.).
     """
 
     command: RunCommand
@@ -64,16 +61,14 @@ class RunStub(Protocol):
 def _remember_runs(history: list[RecordedRun]) -> RunStub:
     """Return a runner stub that appends every invocation to ``history``.
 
-    Why
-        Tests need to inspect the commands executed by automation wrappers
-        without launching real subprocesses.
+    Tests need to inspect the commands executed by automation wrappers without
+    launching real subprocesses.
 
-    Inputs
-        history:
-            Mutable list collecting :class:`RecordedRun` entries.
+    Args:
+        history: Mutable list collecting ``RecordedRun`` entries.
 
-    Outputs
-        RunStub: Callable mimicking ``scripts._utils.run``.
+    Returns:
+        Callable mimicking ``scripts._utils.run``.
     """
 
     def _run(
@@ -105,19 +100,14 @@ def _remember_runs(history: list[RecordedRun]) -> RunStub:
 def _commands_as_text(runs: list[RecordedRun]) -> list[str]:
     """Render every recorded command as a single string.
 
-    Why
-        Simplifies assertions that look for substrings inside the recorded
-        commands.
+    Simplifies assertions that look for substrings inside the recorded commands.
 
-    Inputs
-        runs:
-            Sequence of recorded invocations.
+    Args:
+        runs: Sequence of recorded invocations.
 
-    Outputs
-        list[str]:
-            Normalised textual commands.
+    Returns:
+        Normalised textual commands.
     """
-
     rendered: list[str] = []
     for run in runs:
         command = run.command
@@ -131,18 +121,15 @@ def _commands_as_text(runs: list[RecordedRun]) -> list[str]:
 def _first_command(runs: list[RecordedRun]) -> RunCommand:
     """Return the command associated with the first recorded run.
 
-    Why
-        Several tests only care about the inaugural command executed by the
-        automation wrapper; this helper keeps that intent obvious.
+    Several tests only care about the inaugural command executed by the
+    automation wrapper; this helper keeps that intent obvious.
 
-    Inputs
-        runs:
-            Recorded run list populated by :func:`_remember_runs`.
+    Args:
+        runs: Recorded run list populated by ``_remember_runs()``.
 
-    Outputs
-        RunCommand: the first command issued.
+    Returns:
+        The first command issued.
     """
-
     return runs[0].command
 
 

@@ -574,7 +574,6 @@ def _format_command(env: dict[str, str], cmd: list[str]) -> str:
 
 def run_menu() -> None:
     """Launch the Textual-based automation menu."""
-
     MenuApp().run()
 
 

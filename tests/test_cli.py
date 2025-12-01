@@ -19,18 +19,12 @@ from bitranox_template_py_cli import __init__conf__
 class CapturedRun:
     """Record of a single ``lib_cli_exit_tools.run_cli`` invocation.
 
-    Attributes
-    ----------
-    command:
-        Command object passed to ``run_cli``.
-    argv:
-        Argument vector forwarded to the command, when any.
-    prog_name:
-        Program name announced in the help output.
-    signal_specs:
-        Signal handlers registered by the runner.
-    install_signals:
-        ``True`` when the runner installed default signal handlers.
+    Attributes:
+        command: Command object passed to ``run_cli``.
+        argv: Argument vector forwarded to the command, when any.
+        prog_name: Program name announced in the help output.
+        signal_specs: Signal handlers registered by the runner.
+        install_signals: ``True`` when the runner installed default signal handlers.
     """
 
     command: Any
@@ -43,17 +37,14 @@ class CapturedRun:
 def _capture_run_cli(target: list[CapturedRun]) -> Callable[..., int]:
     """Return a stub that records ``lib_cli_exit_tools.run_cli`` invocations.
 
-    Why
-        Tests assert that the CLI delegates to ``lib_cli_exit_tools`` with the
-        expected arguments; recording each call keeps those assertions readable.
+    Tests assert that the CLI delegates to ``lib_cli_exit_tools`` with the
+    expected arguments; recording each call keeps those assertions readable.
 
-    Inputs
-        target:
-            Mutable list that will collect :class:`CapturedRun` entries.
+    Args:
+        target: Mutable list that will collect ``CapturedRun`` entries.
 
-    Outputs
-        Callable[..., int]:
-            Replacement for ``lib_cli_exit_tools.run_cli``.
+    Returns:
+        Replacement for ``lib_cli_exit_tools.run_cli``.
     """
 
     def _run(

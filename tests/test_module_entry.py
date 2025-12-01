@@ -19,14 +19,10 @@ from bitranox_template_py_cli import __init__conf__, cli as cli_mod
 class PrintedTraceback:
     """Capture of a traceback rendering invoked by ``lib_cli_exit_tools``.
 
-    Attributes
-    ----------
-    trace_back:
-        ``True`` when verbose tracebacks were printed.
-    length_limit:
-        Character budget applied to the output.
-    stream_present:
-        ``True`` when a stream object was provided to the printer.
+    Attributes:
+        trace_back: ``True`` when verbose tracebacks were printed.
+        length_limit: Character budget applied to the output.
+        stream_present: ``True`` when a stream object was provided to the printer.
     """
 
     trace_back: bool
@@ -37,18 +33,15 @@ class PrintedTraceback:
 def _record_print_message(target: list[PrintedTraceback]) -> Callable[..., None]:
     """Return an exception printer that records each invocation.
 
-    Why
-        Module-entry tests assert that ``lib_cli_exit_tools`` prints the correct
-        style of traceback; capturing the parameters lets the test assert intent
-        without examining stderr.
+    Module-entry tests assert that ``lib_cli_exit_tools`` prints the correct
+    style of traceback; capturing the parameters lets the test assert intent
+    without examining stderr.
 
-    Inputs
-        target:
-            Mutable list collecting :class:`PrintedTraceback` entries.
+    Args:
+        target: Mutable list collecting ``PrintedTraceback`` entries.
 
-    Outputs
-        Callable[..., None]:
-            Replacement printer used during the test.
+    Returns:
+        Replacement printer used during the test.
     """
 
     def _printer(

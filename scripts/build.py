@@ -1,3 +1,9 @@
+"""Build wheel and sdist artifacts for the project.
+
+Removes stale artifacts from dist/ and builds fresh wheel and source
+distribution packages using Python's build module.
+"""
+
 from __future__ import annotations
 
 import shutil
@@ -15,15 +21,35 @@ DIST_DIR = Path("dist")
 
 
 def _status(label: str) -> str:
+    """Return green-styled success label.
+
+    Args:
+        label: Text to style.
+
+    Returns:
+        Green-styled string.
+    """
     return click.style(label, fg="green")
 
 
 def _failure(label: str) -> str:
+    """Return red-styled failure label.
+
+    Args:
+        label: Text to style.
+
+    Returns:
+        Red-styled string.
+    """
     return click.style(label, fg="red")
 
 
 def _purge_dist(dist_dir: Path = DIST_DIR) -> None:
-    """Remove the dist directory so stale artifacts never reach PyPI."""
+    """Remove the dist directory so stale artifacts never reach PyPI.
+
+    Args:
+        dist_dir: Path to the distribution directory.
+    """
     if not dist_dir.exists():
         return
     click.echo(f"[build] Removing stale artifacts in {dist_dir.as_posix()}/")
@@ -31,8 +57,11 @@ def _purge_dist(dist_dir: Path = DIST_DIR) -> None:
 
 
 def build_artifacts() -> None:
-    """Build Python wheel and sdist artifacts."""
+    """Build Python wheel and sdist artifacts.
 
+    Raises:
+        SystemExit: If the build process fails.
+    """
     _purge_dist()
     sync_metadata_module(PROJECT)
     click.echo("[build] Building wheel/sdist via python -m build")
@@ -43,6 +72,7 @@ def build_artifacts() -> None:
 
 
 def main() -> None:  # pragma: no cover
+    """Entry point for direct script execution."""
     build_artifacts()
 
 

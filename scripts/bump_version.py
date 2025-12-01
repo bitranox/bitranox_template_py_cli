@@ -1,3 +1,9 @@
+"""Version bumping utility for pyproject.toml and CHANGELOG.md.
+
+Provides functions to parse version arguments, bump semantic version numbers,
+and update project files with new version information.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -7,6 +13,11 @@ from pathlib import Path
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for version bumping.
+
+    Returns:
+        Parsed namespace with version, part, pyproject, and changelog options.
+    """
     parser = argparse.ArgumentParser(description="Bump version in pyproject.toml and CHANGELOG.md")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--version", help="Explicit new version X.Y.Z")
@@ -22,6 +33,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def bump_semver(current: str, part: str) -> str:
+    """Increment a semantic version string by the specified part.
+
+    Args:
+        current: Current version string in X.Y.Z format.
+        part: Which part to bump - "major", "minor", or "patch".
+
+    Returns:
+        New version string with the specified part incremented.
+    """
     major, minor, patch = (int(token) for token in (current.split(".") + ["0", "0"])[:3])
     if part == "major":
         major, minor, patch = major + 1, 0, 0
@@ -33,6 +53,18 @@ def bump_semver(current: str, part: str) -> str:
 
 
 def _write_new_version(pyproject: Path, version: str) -> str:
+    """Update the version in pyproject.toml and return the previous version.
+
+    Args:
+        pyproject: Path to pyproject.toml file.
+        version: New version string to write.
+
+    Returns:
+        Previous version string that was replaced.
+
+    Raises:
+        SystemExit: If version field is not found in pyproject.toml.
+    """
     text = pyproject.read_text(encoding="utf-8")
     match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M)
     if not match:
@@ -45,6 +77,12 @@ def _write_new_version(pyproject: Path, version: str) -> str:
 
 
 def _update_changelog(changelog: Path, version: str) -> None:
+    """Insert a new version section into the changelog.
+
+    Args:
+        changelog: Path to CHANGELOG.md file.
+        version: Version string for the new section header.
+    """
     today = _dt.date.today().isoformat()
     entry = f"## [{version}] - {today}\n\n- _Describe changes here._\n\n"
     if changelog.exists():
@@ -58,6 +96,11 @@ def _update_changelog(changelog: Path, version: str) -> None:
 
 
 def main() -> int:
+    """Execute the version bump workflow.
+
+    Returns:
+        Exit code (0 for success).
+    """
     ns = parse_args()
     pyproject = Path(ns.pyproject)
     changelog = Path(ns.changelog)

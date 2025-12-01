@@ -1,3 +1,9 @@
+"""CLI interface for development automation scripts.
+
+Provides a rich-click command group with subcommands for building, testing,
+releasing, and managing the project.
+"""
+
 from __future__ import annotations
 
 import os
@@ -32,8 +38,14 @@ _DEFAULT_REMOTE = get_default_remote()
 
 
 def env_token(name: str) -> str | None:
-    """Return an environment variable stripped of surrounding whitespace."""
+    """Return an environment variable stripped of surrounding whitespace.
 
+    Args:
+        name: Environment variable name.
+
+    Returns:
+        Stripped value or None if empty or unset.
+    """
     raw = os.getenv(name)
     if raw is None:
         return None
@@ -49,8 +61,21 @@ def choose_token(
     label: str,
     default: str,
 ) -> str:
-    """Pick the first non-empty token, ensuring it belongs to the allowed family."""
+    """Pick the first non-empty token, ensuring it belongs to the allowed family.
 
+    Args:
+        option: Primary option value to check.
+        fallbacks: Tuple of fallback values to try.
+        allowed: Set of valid token values.
+        label: Label for error messages.
+        default: Default value if no valid token found.
+
+    Returns:
+        First valid token or default.
+
+    Raises:
+        click.ClickException: If a non-None value is not in allowed set.
+    """
     for candidate in (option, *fallbacks):
         if candidate is None:
             continue
@@ -63,8 +88,14 @@ def choose_token(
 
 
 def coverage_choice(option: str | None) -> str:
-    """Resolve the coverage mode using CLI flag, environment, then default."""
+    """Resolve the coverage mode using CLI flag, environment, then default.
 
+    Args:
+        option: CLI option value.
+
+    Returns:
+        Resolved coverage mode.
+    """
     return choose_token(
         option,
         fallbacks=(env_token("COVERAGE"),),
@@ -75,8 +106,14 @@ def coverage_choice(option: str | None) -> str:
 
 
 def part_choice(option: str | None) -> str:
-    """Resolve the version part to bump."""
+    """Resolve the version part to bump.
 
+    Args:
+        option: CLI option value.
+
+    Returns:
+        Resolved version part (major, minor, or patch).
+    """
     return choose_token(
         option,
         fallbacks=(env_token("PART"),),
@@ -87,8 +124,14 @@ def part_choice(option: str | None) -> str:
 
 
 def remote_choice(option: str | None) -> str:
-    """Resolve the git remote for push-like workflows."""
+    """Resolve the git remote for push-like workflows.
 
+    Args:
+        option: CLI option value.
+
+    Returns:
+        Resolved remote name.
+    """
     return option or env_token("REMOTE") or _DEFAULT_REMOTE
 
 
@@ -102,18 +145,29 @@ def main() -> None:
 
 @main.command(name="help", help="Show automation target summary")
 def help_command() -> None:
+    """Display help summary for all automation targets."""
     help_module.print_help()
 
 
 @main.command(name="install", help="Editable install: pip install -e .")
 @click.option("--dry-run", is_flag=True, help="Print commands only")
 def install_command(dry_run: bool) -> None:
+    """Run editable pip install for the project.
+
+    Args:
+        dry_run: Print commands without executing.
+    """
     install_module.install(dry_run=dry_run)
 
 
 @main.command(name="dev", help="Install with development extras: pip install -e .[dev]")
 @click.option("--dry-run", is_flag=True, help="Print commands only")
 def dev_command(dry_run: bool) -> None:
+    """Install project with development extras.
+
+    Args:
+        dry_run: Print commands without executing.
+    """
     dev_module.install_dev(dry_run=dry_run)
 
 
