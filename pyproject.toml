@@ -97,6 +97,10 @@ omit = [
 fail_under = 85
 show_missing = true
 
+[tool.coverage.json]
+output = "coverage.json"
+pretty_print = true
+
 [tool.clean]
 # Patterns to remove when running `make clean` or `python -m scripts clean`
 patterns = [
