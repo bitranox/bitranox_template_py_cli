@@ -25,6 +25,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   access (`context_data.field`)
 - Fixed pyright type errors in test files with proper type annotations
 
+### Documentation
+- Clarified `--no-traceback` as the default error display mode in README
+- Added Traceback Mode section explaining `--traceback` vs `--no-traceback` usage
+
 ## [1.7.0] - 2025-10-13
 ### Added
 - Static metadata portrait generated from ``pyproject.toml`` and exported via

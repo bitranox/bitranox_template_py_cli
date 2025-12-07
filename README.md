@@ -59,11 +59,24 @@ developed:
 ```bash
 bitranox_template_py_cli info
 bitranox_template_py_cli hello
-bitranox_template_py_cli fail
-bitranox_template_py_cli --traceback fail
+bitranox_template_py_cli fail              # errors show summary (default: --no-traceback)
+bitranox_template_py_cli --traceback fail  # errors show full Python traceback
 bitranox-template-py-cli info
 python -m bitranox_template_py_cli info
 uvx bitranox_template_py_cli info
+```
+
+### Traceback Mode
+
+By default, errors display a concise summary (`--no-traceback`). Use `--traceback`
+to see full Python tracebacks for debugging:
+
+```bash
+# Default: concise error summary
+bitranox_template_py_cli fail
+
+# Verbose: full traceback with colors
+bitranox_template_py_cli --traceback fail
 ```
 
 For library use you can import the documented helpers directly:
