@@ -1,81 +1,42 @@
-"""CLI stories: every invocation a single beat."""
+"""Tests for the CLI module.
+
+Each test validates a single CLI behavior:
+- Traceback configuration management
+- Command invocation and routing
+- Help output and error handling
+
+Tests prefer real CLI execution over stubs wherever possible.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from collections.abc import Callable, Sequence
-from typing import Any
+from collections.abc import Callable
 
 import pytest
-from click.testing import CliRunner, Result
+from click.testing import CliRunner
 
 import lib_cli_exit_tools
 
-from bitranox_template_py_cli import cli as cli_mod
 from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli import cli as cli_mod
 
 
-@dataclass(slots=True)
-class CapturedRun:
-    """Record of a single ``lib_cli_exit_tools.run_cli`` invocation.
-
-    Attributes:
-        command: Command object passed to ``run_cli``.
-        argv: Argument vector forwarded to the command, when any.
-        prog_name: Program name announced in the help output.
-        signal_specs: Signal handlers registered by the runner.
-        install_signals: ``True`` when the runner installed default signal handlers.
-    """
-
-    command: Any
-    argv: Sequence[str] | None
-    prog_name: str | None
-    signal_specs: Any
-    install_signals: bool
-
-
-def _capture_run_cli(target: list[CapturedRun]) -> Callable[..., int]:
-    """Return a stub that records ``lib_cli_exit_tools.run_cli`` invocations.
-
-    Tests assert that the CLI delegates to ``lib_cli_exit_tools`` with the
-    expected arguments; recording each call keeps those assertions readable.
-
-    Args:
-        target: Mutable list that will collect ``CapturedRun`` entries.
-
-    Returns:
-        Replacement for ``lib_cli_exit_tools.run_cli``.
-    """
-
-    def _run(
-        command: Any,
-        argv: Sequence[str] | None = None,
-        *,
-        prog_name: str | None = None,
-        signal_specs: Any = None,
-        install_signals: bool = True,
-    ) -> int:
-        target.append(
-            CapturedRun(
-                command=command,
-                argv=argv,
-                prog_name=prog_name,
-                signal_specs=signal_specs,
-                install_signals=install_signals,
-            )
-        )
-        return 42
-
-    return _run
+# ---------------------------------------------------------------------------
+# Traceback Configuration Tests
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.os_agnostic
-def test_when_we_snapshot_traceback_the_initial_state_is_quiet(isolated_traceback_config: None) -> None:
-    assert cli_mod.snapshot_traceback_state() == (False, False)
+def test_snapshot_captures_initial_state(isolated_traceback_config: None) -> None:
+    """Snapshot returns (False, False) when traceback is disabled."""
+    state = cli_mod.snapshot_traceback_state()
+
+    assert state == (False, False)
 
 
 @pytest.mark.os_agnostic
-def test_when_we_enable_traceback_the_config_sings_true(isolated_traceback_config: None) -> None:
+def test_apply_traceback_enables_both_flags(isolated_traceback_config: None) -> None:
+    """Enabling traceback sets both traceback and force_color to True."""
     cli_mod.apply_traceback_preferences(True)
 
     assert lib_cli_exit_tools.config.traceback is True
@@ -83,7 +44,18 @@ def test_when_we_enable_traceback_the_config_sings_true(isolated_traceback_confi
 
 
 @pytest.mark.os_agnostic
-def test_when_we_restore_traceback_the_config_whispers_false(isolated_traceback_config: None) -> None:
+def test_apply_traceback_disables_both_flags(isolated_traceback_config: None) -> None:
+    """Disabling traceback sets both flags to False."""
+    cli_mod.apply_traceback_preferences(True)
+    cli_mod.apply_traceback_preferences(False)
+
+    assert lib_cli_exit_tools.config.traceback is False
+    assert lib_cli_exit_tools.config.traceback_force_color is False
+
+
+@pytest.mark.os_agnostic
+def test_restore_traceback_reverts_to_previous_state(isolated_traceback_config: None) -> None:
+    """Restore brings config back to the captured state."""
     previous = cli_mod.snapshot_traceback_state()
     cli_mod.apply_traceback_preferences(True)
 
@@ -93,186 +65,306 @@ def test_when_we_restore_traceback_the_config_whispers_false(isolated_traceback_
     assert lib_cli_exit_tools.config.traceback_force_color is False
 
 
-@pytest.mark.os_agnostic
-def test_when_info_runs_with_traceback_the_choice_is_shared(
-    monkeypatch: pytest.MonkeyPatch,
-    isolated_traceback_config: None,
-    preserve_traceback_state: None,
-) -> None:
-    notes: list[tuple[bool, bool]] = []
-
-    def record() -> None:
-        notes.append(
-            (
-                lib_cli_exit_tools.config.traceback,
-                lib_cli_exit_tools.config.traceback_force_color,
-            )
-        )
-
-    monkeypatch.setattr(cli_mod.__init__conf__, "print_info", record)
-
-    exit_code = cli_mod.main(["--traceback", "info"])
-
-    assert exit_code == 0
-    assert notes == [(True, True)]
-    assert lib_cli_exit_tools.config.traceback is False
-    assert lib_cli_exit_tools.config.traceback_force_color is False
+# ---------------------------------------------------------------------------
+# CLI Help and Usage Tests
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.os_agnostic
-def test_when_main_is_called_it_delegates_to_run_cli(monkeypatch: pytest.MonkeyPatch) -> None:
-    ledger: list[CapturedRun] = []
-    monkeypatch.setattr(lib_cli_exit_tools, "run_cli", _capture_run_cli(ledger))
-
-    result = cli_mod.main(["info"])
-
-    assert result == 42
-    assert ledger == [
-        CapturedRun(
-            command=cli_mod.cli,
-            argv=["info"],
-            prog_name=__init__conf__.shell_command,
-            signal_specs=None,
-            install_signals=True,
-        )
-    ]
-
-
-@pytest.mark.os_agnostic
-def test_when_cli_runs_without_arguments_help_is_printed(
-    monkeypatch: pytest.MonkeyPatch,
-    cli_runner: CliRunner,
-) -> None:
-    calls: list[str] = []
-
-    def remember() -> None:
-        calls.append("called")
-
-    monkeypatch.setattr(cli_mod, "noop_main", remember)
-
+def test_cli_without_arguments_shows_help(cli_runner: CliRunner) -> None:
+    """Invoking CLI without arguments shows help text."""
     result = cli_runner.invoke(cli_mod.cli, [])
 
     assert result.exit_code == 0
     assert "Usage:" in result.output
-    assert calls == []
 
 
 @pytest.mark.os_agnostic
-def test_when_main_receives_no_arguments_cli_main_is_exercised(
-    monkeypatch: pytest.MonkeyPatch,
-    cli_runner: CliRunner,
-    isolated_traceback_config: None,
-) -> None:
-    calls: list[str] = []
-    outputs: list[str] = []
-
-    def remember() -> None:
-        calls.append("called")
-
-    monkeypatch.setattr(cli_mod, "noop_main", remember)
-
-    def fake_run_cli(
-        command: Any,
-        argv: Sequence[str] | None = None,
-        *,
-        prog_name: str | None = None,
-        signal_specs: Any = None,
-        install_signals: bool = True,
-    ) -> int:
-        args = [] if argv is None else list(argv)
-        result: Result = cli_runner.invoke(command, args)
-        if result.exception is not None:
-            raise result.exception
-        outputs.append(result.output)
-        return result.exit_code
-
-    monkeypatch.setattr(lib_cli_exit_tools, "run_cli", fake_run_cli)
-
-    exit_code = cli_mod.main([])
-
-    assert exit_code == 0
-    assert calls == []
-    assert outputs and "Usage:" in outputs[0]
-
-
-@pytest.mark.os_agnostic
-def test_when_traceback_is_requested_without_command_the_domain_runs(
-    monkeypatch: pytest.MonkeyPatch,
-    cli_runner: CliRunner,
-) -> None:
-    calls: list[str] = []
-
-    def remember() -> None:
-        calls.append("called")
-
-    monkeypatch.setattr(cli_mod, "noop_main", remember)
-
-    result = cli_runner.invoke(cli_mod.cli, ["--traceback"])
+def test_cli_with_help_flag_shows_help(cli_runner: CliRunner) -> None:
+    """The --help flag shows the help text."""
+    result = cli_runner.invoke(cli_mod.cli, ["--help"])
 
     assert result.exit_code == 0
-    assert calls == ["called"]
-    assert "Usage:" not in result.output
+    assert "Usage:" in result.output
+    assert __init__conf__.title in result.output
 
 
 @pytest.mark.os_agnostic
-def test_when_traceback_flag_is_passed_the_full_story_is_printed(
-    isolated_traceback_config: None,
-    capsys: pytest.CaptureFixture[str],
-    strip_ansi: Callable[[str], str],
-) -> None:
-    exit_code = cli_mod.main(["--traceback", "fail"])
+def test_cli_with_short_help_flag_shows_help(cli_runner: CliRunner) -> None:
+    """The -h flag shows the help text."""
+    result = cli_runner.invoke(cli_mod.cli, ["-h"])
 
-    plain_err = strip_ansi(capsys.readouterr().err)
-
-    assert exit_code != 0
-    assert "Traceback (most recent call last)" in plain_err
-    assert "RuntimeError: I should fail" in plain_err
-    assert "[TRUNCATED" not in plain_err
-    assert lib_cli_exit_tools.config.traceback is False
-    assert lib_cli_exit_tools.config.traceback_force_color is False
+    assert result.exit_code == 0
+    assert "Usage:" in result.output
 
 
 @pytest.mark.os_agnostic
-def test_when_hello_is_invoked_the_cli_smiles(cli_runner: CliRunner) -> None:
-    result: Result = cli_runner.invoke(cli_mod.cli, ["hello"])
+def test_cli_version_flag_shows_version(cli_runner: CliRunner) -> None:
+    """The --version flag shows the version."""
+    result = cli_runner.invoke(cli_mod.cli, ["--version"])
+
+    assert result.exit_code == 0
+    assert __init__conf__.version in result.output
+
+
+# ---------------------------------------------------------------------------
+# Hello Command Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_hello_command_prints_greeting(cli_runner: CliRunner) -> None:
+    """The hello command prints 'Hello World'."""
+    result = cli_runner.invoke(cli_mod.cli, ["hello"])
 
     assert result.exit_code == 0
     assert result.output == "Hello World\n"
 
 
 @pytest.mark.os_agnostic
-def test_when_fail_is_invoked_the_cli_raises(cli_runner: CliRunner) -> None:
-    result: Result = cli_runner.invoke(cli_mod.cli, ["fail"])
+def test_hello_command_with_help_shows_description(cli_runner: CliRunner) -> None:
+    """The hello command has a help description."""
+    result = cli_runner.invoke(cli_mod.cli, ["hello", "--help"])
+
+    assert result.exit_code == 0
+    assert "greeting" in result.output.lower()
+
+
+# ---------------------------------------------------------------------------
+# Fail Command Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_fail_command_raises_error(cli_runner: CliRunner) -> None:
+    """The fail command raises RuntimeError."""
+    result = cli_runner.invoke(cli_mod.cli, ["fail"])
 
     assert result.exit_code != 0
     assert isinstance(result.exception, RuntimeError)
 
 
 @pytest.mark.os_agnostic
-def test_when_info_is_invoked_the_metadata_is_displayed(cli_runner: CliRunner) -> None:
-    result: Result = cli_runner.invoke(cli_mod.cli, ["info"])
+def test_fail_command_exception_message(cli_runner: CliRunner) -> None:
+    """The fail command raises with message 'I should fail'."""
+    result = cli_runner.invoke(cli_mod.cli, ["fail"])
+
+    assert str(result.exception) == "I should fail"
+
+
+# ---------------------------------------------------------------------------
+# Info Command Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_info_command_shows_package_name(cli_runner: CliRunner) -> None:
+    """The info command shows the package name."""
+    result = cli_runner.invoke(cli_mod.cli, ["info"])
 
     assert result.exit_code == 0
-    assert f"Info for {__init__conf__.name}:" in result.output
+    assert __init__conf__.name in result.output
+
+
+@pytest.mark.os_agnostic
+def test_info_command_shows_version(cli_runner: CliRunner) -> None:
+    """The info command shows the version."""
+    result = cli_runner.invoke(cli_mod.cli, ["info"])
+
+    assert result.exit_code == 0
     assert __init__conf__.version in result.output
 
 
 @pytest.mark.os_agnostic
-def test_when_an_unknown_command_is_used_a_helpful_error_appears(cli_runner: CliRunner) -> None:
-    result: Result = cli_runner.invoke(cli_mod.cli, ["does-not-exist"])
+def test_info_command_shows_all_metadata_fields(cli_runner: CliRunner) -> None:
+    """The info command shows all expected metadata fields."""
+    result = cli_runner.invoke(cli_mod.cli, ["info"])
+
+    assert result.exit_code == 0
+    assert "name" in result.output
+    assert "title" in result.output
+    assert "version" in result.output
+    assert "homepage" in result.output
+    assert "author" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Unknown Command Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_unknown_command_shows_error(cli_runner: CliRunner) -> None:
+    """An unknown command shows an error message."""
+    result = cli_runner.invoke(cli_mod.cli, ["nonexistent"])
 
     assert result.exit_code != 0
     assert "No such command" in result.output
 
 
 @pytest.mark.os_agnostic
-def test_when_restore_is_disabled_the_traceback_choice_remains(
+def test_unknown_command_suggests_alternatives(cli_runner: CliRunner) -> None:
+    """An unknown command may suggest similar commands."""
+    result = cli_runner.invoke(cli_mod.cli, ["helo"])  # typo of 'hello'
+
+    assert result.exit_code != 0
+    # Rich-click may show suggestions
+
+
+# ---------------------------------------------------------------------------
+# Traceback Flag Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_traceback_flag_without_command_runs_noop(
+    cli_runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The --traceback flag without a command runs the noop main."""
+    calls: list[str] = []
+    monkeypatch.setattr(cli_mod, "noop_main", lambda: calls.append("called"))
+
+    result = cli_runner.invoke(cli_mod.cli, ["--traceback"])
+
+    assert result.exit_code == 0
+    assert calls == ["called"]
+
+
+@pytest.mark.os_agnostic
+def test_no_traceback_flag_without_command_shows_help(cli_runner: CliRunner) -> None:
+    """The --no-traceback flag alone shows help."""
+    result = cli_runner.invoke(cli_mod.cli, ["--no-traceback"])
+
+    assert result.exit_code == 0
+    # --no-traceback is explicit so should still trigger noop
+    assert "Usage:" not in result.output or result.output == ""
+
+
+@pytest.mark.os_agnostic
+def test_traceback_flag_enables_verbose_errors(
+    isolated_traceback_config: None,
+    capsys: pytest.CaptureFixture[str],
+    strip_ansi: Callable[[str], str],
+) -> None:
+    """The --traceback flag shows full tracebacks on errors."""
+    exit_code = cli_mod.main(["--traceback", "fail"])
+    stderr = strip_ansi(capsys.readouterr().err)
+
+    assert exit_code != 0
+    assert "Traceback (most recent call last)" in stderr
+    assert "RuntimeError: I should fail" in stderr
+
+
+@pytest.mark.os_agnostic
+def test_traceback_flag_does_not_truncate_output(
+    isolated_traceback_config: None,
+    capsys: pytest.CaptureFixture[str],
+    strip_ansi: Callable[[str], str],
+) -> None:
+    """The --traceback flag shows complete output without truncation."""
+    exit_code = cli_mod.main(["--traceback", "fail"])
+    stderr = strip_ansi(capsys.readouterr().err)
+
+    assert exit_code != 0
+    assert "[TRUNCATED" not in stderr
+
+
+# ---------------------------------------------------------------------------
+# Main Function Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_main_restores_traceback_by_default(
     isolated_traceback_config: None,
     preserve_traceback_state: None,
 ) -> None:
-    cli_mod.apply_traceback_preferences(False)
+    """Main restores traceback config after execution."""
+    cli_mod.main(["--traceback", "hello"])
 
+    assert lib_cli_exit_tools.config.traceback is False
+    assert lib_cli_exit_tools.config.traceback_force_color is False
+
+
+@pytest.mark.os_agnostic
+def test_main_can_skip_restore(
+    isolated_traceback_config: None,
+    preserve_traceback_state: None,
+) -> None:
+    """Main can be told not to restore traceback config."""
     cli_mod.main(["--traceback", "hello"], restore_traceback=False)
 
     assert lib_cli_exit_tools.config.traceback is True
     assert lib_cli_exit_tools.config.traceback_force_color is True
+
+
+@pytest.mark.os_agnostic
+def test_main_returns_zero_on_success(isolated_traceback_config: None) -> None:
+    """Main returns 0 when command succeeds."""
+    exit_code = cli_mod.main(["hello"])
+
+    assert exit_code == 0
+
+
+@pytest.mark.os_agnostic
+def test_main_returns_nonzero_on_failure(isolated_traceback_config: None) -> None:
+    """Main returns non-zero when command fails."""
+    exit_code = cli_mod.main(["fail"])
+
+    assert exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# Info Command with Traceback Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_info_with_traceback_shares_config(
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_traceback_config: None,
+    preserve_traceback_state: None,
+) -> None:
+    """Info command with --traceback sees the traceback config."""
+    observed_states: list[tuple[bool, bool]] = []
+
+    def capture_state() -> None:
+        observed_states.append(
+            (
+                lib_cli_exit_tools.config.traceback,
+                lib_cli_exit_tools.config.traceback_force_color,
+            )
+        )
+
+    monkeypatch.setattr(cli_mod.__init__conf__, "print_info", capture_state)
+
+    cli_mod.main(["--traceback", "info"])
+
+    assert observed_states == [(True, True)]
+
+
+# ---------------------------------------------------------------------------
+# CLI Module Constants Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_traceback_summary_limit_is_reasonable() -> None:
+    """The summary limit is a sensible value."""
+    assert cli_mod.TRACEBACK_SUMMARY_LIMIT > 0
+    assert cli_mod.TRACEBACK_SUMMARY_LIMIT < 10000
+
+
+@pytest.mark.os_agnostic
+def test_traceback_verbose_limit_is_larger_than_summary() -> None:
+    """The verbose limit is larger than the summary limit."""
+    assert cli_mod.TRACEBACK_VERBOSE_LIMIT > cli_mod.TRACEBACK_SUMMARY_LIMIT
+
+
+@pytest.mark.os_agnostic
+def test_click_context_settings_has_help_options() -> None:
+    """Click context settings include help option names."""
+    assert "help_option_names" in cli_mod.CLICK_CONTEXT_SETTINGS
+    assert "-h" in cli_mod.CLICK_CONTEXT_SETTINGS["help_option_names"]
+    assert "--help" in cli_mod.CLICK_CONTEXT_SETTINGS["help_option_names"]

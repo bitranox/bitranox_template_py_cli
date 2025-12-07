@@ -35,6 +35,7 @@ Note:
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Final, Optional, Sequence, Tuple
 
 import rich_click as click
@@ -45,8 +46,40 @@ from click.core import ParameterSource
 from . import __init__conf__
 from .behaviors import emit_greeting, noop_main, raise_intentional_failure
 
+
+@dataclass(slots=True)
+class ClickContextSettings:
+    """Typed container for Click context settings.
+
+    Attributes:
+        help_option_names: List of option names that trigger help output.
+    """
+
+    help_option_names: list[str] = field(default_factory=lambda: ["-h", "--help"])
+
+    def as_dict(self) -> dict[str, list[str]]:
+        """Convert to dict for Click compatibility.
+
+        Returns:
+            Dictionary representation for Click's context_settings parameter.
+        """
+        return {"help_option_names": self.help_option_names}
+
+
+@dataclass(slots=True)
+class CLIContextData:
+    """Typed container for CLI context data stored in Click's ctx.obj.
+
+    Attributes:
+        traceback: Whether verbose tracebacks are enabled.
+    """
+
+    traceback: bool = False
+
+
 #: Shared Click context flags so help output stays consistent across commands.
-CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}  # noqa: C408
+_CLICK_CONTEXT_SETTINGS_MODEL = ClickContextSettings()
+CLICK_CONTEXT_SETTINGS: dict[str, list[str]] = _CLICK_CONTEXT_SETTINGS_MODEL.as_dict()
 #: Character budget used when printing truncated tracebacks.
 TRACEBACK_SUMMARY_LIMIT: Final[int] = 500
 #: Character budget used when verbose tracebacks are enabled.
@@ -111,13 +144,27 @@ def restore_traceback_state(state: TracebackState) -> None:
     lib_cli_exit_tools.config.traceback_force_color = bool(state[1])
 
 
+def _get_or_create_context_data(ctx: click.Context) -> CLIContextData:
+    """Retrieve or create the typed context data object.
+
+    Args:
+        ctx: Click context associated with the current invocation.
+
+    Returns:
+        The CLIContextData instance stored in ctx.obj.
+    """
+    if ctx.obj is None or not isinstance(ctx.obj, CLIContextData):
+        ctx.obj = CLIContextData()
+    return ctx.obj
+
+
 def _record_traceback_choice(ctx: click.Context, *, enabled: bool) -> None:
     """Remember the chosen traceback mode inside the Click context.
 
     Downstream commands need to know whether verbose tracebacks were requested
     so they can honour the user's preference without re-parsing flags. Ensures
-    the context has a dict backing store and persists the boolean under the
-    ``"traceback"`` key.
+    the context has a typed CLIContextData backing store and persists the
+    boolean in the traceback field.
 
     Args:
         ctx: Click context associated with the current invocation.
@@ -127,8 +174,8 @@ def _record_traceback_choice(ctx: click.Context, *, enabled: bool) -> None:
     Note:
         Mutates ``ctx.obj``.
     """
-    ctx.ensure_object(dict)
-    ctx.obj["traceback"] = enabled
+    context_data = _get_or_create_context_data(ctx)
+    context_data.traceback = enabled
 
 
 def _announce_traceback_choice(enabled: bool) -> None:
@@ -322,11 +369,11 @@ def cli(ctx: click.Context, traceback: bool) -> None:
 
     The CLI must provide a switch for verbose tracebacks so developers can
     toggle diagnostic depth without editing configuration files. Ensures a
-    dict-based context, stores the ``traceback`` flag, and mirrors the value
-    into ``lib_cli_exit_tools.config`` so downstream helpers observe the
-    preference. When no subcommand (or options) are provided, the command prints
-    help instead of running the domain stub; otherwise the default action
-    delegates to ``cli_main``.
+    typed CLIContextData context, stores the ``traceback`` flag, and mirrors
+    the value into ``lib_cli_exit_tools.config`` so downstream helpers observe
+    the preference. When no subcommand (or options) are provided, the command
+    prints help instead of running the domain stub; otherwise the default
+    action delegates to ``cli_main``.
 
     Args:
         ctx: Click context for the current invocation.

@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.8.0] - 2025-12-07
+
+### Changed
+- Enforced strict data architecture rules across all source and test files:
+  - Replaced raw dict usage in Click context with typed `CLIContextData` dataclass
+  - Added `ClickContextSettings` dataclass for Click context configuration
+  - Converted `TypedDict` to `@dataclass` in test fixtures for type safety
+- Refactored test suite to clean architecture principles:
+  - `conftest.py`: Centralized fixtures with immutable `CLIConfigSnapshot` dataclass
+  - `test_behaviors.py`: 10 focused tests for core behaviors
+  - `test_cli.py`: 29 tests using real CLI execution via `CliRunner`
+  - `test_metadata.py`: 20 tests validating pyproject.toml synchronization
+  - `test_module_entry.py`: 14 tests for module entry point via `runpy`
+- All 79 tests now marked with `@pytest.mark.os_agnostic` for cross-platform clarity
+- Increased test coverage to 94.51% (88 tests including doctests)
+
+### Fixed
+- Eliminated all raw dict parameter violations in production code
+- Removed dict key access patterns (`ctx.obj["key"]`) in favour of typed field
+  access (`context_data.field`)
+- Fixed pyright type errors in test files with proper type annotations
+
 ## [1.7.0] - 2025-10-13
 ### Added
 - Static metadata portrait generated from ``pyproject.toml`` and exported via

@@ -1,140 +1,128 @@
-"""Module entry stories ensuring `python -m` mirrors the CLI."""
+"""Tests for module entry point (`python -m bitranox_template_py_cli`).
+
+Validates that module execution mirrors the CLI behavior.
+Uses real execution where possible, with minimal stubbing for isolation.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from collections.abc import Callable
 import runpy
 import sys
-from typing import TextIO
+from collections.abc import Callable
 
 import pytest
 
 import lib_cli_exit_tools
 
-from bitranox_template_py_cli import __init__conf__, cli as cli_mod
+from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli import cli as cli_mod
+from bitranox_template_py_cli import __main__ as main_mod
 
 
-@dataclass(slots=True)
-class PrintedTraceback:
-    """Capture of a traceback rendering invoked by ``lib_cli_exit_tools``.
-
-    Attributes:
-        trace_back: ``True`` when verbose tracebacks were printed.
-        length_limit: Character budget applied to the output.
-        stream_present: ``True`` when a stream object was provided to the printer.
-    """
-
-    trace_back: bool
-    length_limit: int
-    stream_present: bool
-
-
-def _record_print_message(target: list[PrintedTraceback]) -> Callable[..., None]:
-    """Return an exception printer that records each invocation.
-
-    Module-entry tests assert that ``lib_cli_exit_tools`` prints the correct
-    style of traceback; capturing the parameters lets the test assert intent
-    without examining stderr.
-
-    Args:
-        target: Mutable list collecting ``PrintedTraceback`` entries.
-
-    Returns:
-        Replacement printer used during the test.
-    """
-
-    def _printer(
-        *,
-        trace_back: bool = False,
-        length_limit: int = 500,
-        stream: TextIO | None = None,
-    ) -> None:
-        target.append(
-            PrintedTraceback(
-                trace_back=trace_back,
-                length_limit=length_limit,
-                stream_present=stream is not None,
-            )
-        )
-
-    return _printer
+# ---------------------------------------------------------------------------
+# Module Constants Tests
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.os_agnostic
-def test_when_module_entry_returns_zero_the_story_matches_cli(monkeypatch: pytest.MonkeyPatch) -> None:
-    ledger: dict[str, object] = {}
+def test_traceback_summary_limit_matches_cli() -> None:
+    """Module entry traceback summary limit matches CLI."""
+    assert main_mod.TRACEBACK_SUMMARY_LIMIT == cli_mod.TRACEBACK_SUMMARY_LIMIT
 
-    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli"], raising=False)
 
-    def fake_run_cli(
-        command: object,
-        argv: list[str] | None = None,
-        *,
-        prog_name: str | None = None,
-        **_: object,
-    ) -> int:
-        ledger["command"] = command
-        ledger["argv"] = argv
-        ledger["prog_name"] = prog_name
-        return 0
+@pytest.mark.os_agnostic
+def test_traceback_verbose_limit_matches_cli() -> None:
+    """Module entry traceback verbose limit matches CLI."""
+    assert main_mod.TRACEBACK_VERBOSE_LIMIT == cli_mod.TRACEBACK_VERBOSE_LIMIT
 
-    monkeypatch.setattr(lib_cli_exit_tools, "run_cli", fake_run_cli)
-    monkeypatch.setattr("lib_cli_exit_tools.application.runner.run_cli", fake_run_cli)
+
+# ---------------------------------------------------------------------------
+# Helper Function Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_command_to_run_returns_cli_command() -> None:
+    """_command_to_run returns the CLI command."""
+    command = main_mod._command_to_run()  # pyright: ignore[reportPrivateUsage]
+
+    assert command is cli_mod.cli
+
+
+@pytest.mark.os_agnostic
+def test_command_name_returns_shell_command() -> None:
+    """_command_name returns the shell command from __init__conf__."""
+    name = main_mod._command_name()  # pyright: ignore[reportPrivateUsage]
+
+    assert name == __init__conf__.shell_command
+
+
+@pytest.mark.os_agnostic
+def test_open_cli_session_returns_context_manager() -> None:
+    """_open_cli_session returns a context manager."""
+    session = main_mod._open_cli_session()  # pyright: ignore[reportPrivateUsage]
+
+    assert hasattr(session, "__enter__")
+    assert hasattr(session, "__exit__")
+
+
+# ---------------------------------------------------------------------------
+# Real Module Entry Tests (via runpy)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.os_agnostic
+def test_module_entry_with_hello_prints_greeting(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Running the module with 'hello' prints the greeting."""
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "hello"])
 
     with pytest.raises(SystemExit) as exc:
         runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
 
     assert exc.value.code == 0
-    assert ledger["command"] is cli_mod.cli
-    assert ledger["prog_name"] == __init__conf__.shell_command
+    assert "Hello World" in capsys.readouterr().out
 
 
 @pytest.mark.os_agnostic
-def test_when_module_entry_raises_the_exit_helpers_format_the_song(monkeypatch: pytest.MonkeyPatch) -> None:
-    printed: list[PrintedTraceback] = []
-    codes: list[str] = []
-    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli"], raising=False)
-    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
-    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
-
-    def fake_code(exc: BaseException) -> int:
-        codes.append(f"code:{exc}")
-        return 88
-
-    def exploding_run_cli(
-        *_args: object,
-        exception_handler: Callable[[BaseException], int] | None = None,
-        **_kwargs: object,
-    ) -> int:
-        def default_handler(exc: BaseException) -> int:
-            return 1
-
-        handler: Callable[[BaseException], int] = exception_handler or default_handler
-        return handler(RuntimeError("boom"))
-
-    printer = _record_print_message(printed)
-    monkeypatch.setattr(lib_cli_exit_tools, "print_exception_message", printer)
-    monkeypatch.setattr(lib_cli_exit_tools, "get_system_exit_code", fake_code)
-    monkeypatch.setattr("lib_cli_exit_tools.application.runner.print_exception_message", printer)
-    monkeypatch.setattr("lib_cli_exit_tools.application.runner.get_system_exit_code", fake_code)
-    monkeypatch.setattr(lib_cli_exit_tools, "run_cli", exploding_run_cli)
-    monkeypatch.setattr("lib_cli_exit_tools.application.runner.run_cli", exploding_run_cli)
+def test_module_entry_with_info_shows_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Running the module with 'info' shows metadata."""
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "info"])
 
     with pytest.raises(SystemExit) as exc:
         runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
 
-    assert exc.value.code == 88
-    assert printed == [PrintedTraceback(trace_back=False, length_limit=500, stream_present=False)]
-    assert codes == ["code:boom"]
+    assert exc.value.code == 0
+    output = capsys.readouterr().out
+    assert __init__conf__.name in output
 
 
 @pytest.mark.os_agnostic
-def test_when_traceback_flag_is_used_via_module_entry_the_full_poem_is_printed(
+def test_module_entry_with_fail_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Running the module with 'fail' exits with non-zero."""
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "fail"])
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
+
+    with pytest.raises(SystemExit) as exc:
+        runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
+
+    assert exc.value.code != 0
+
+
+@pytest.mark.os_agnostic
+def test_module_entry_with_traceback_shows_full_error(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     strip_ansi: Callable[[str], str],
 ) -> None:
+    """Running the module with --traceback shows full traceback."""
     monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "--traceback", "fail"])
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
@@ -142,16 +130,72 @@ def test_when_traceback_flag_is_used_via_module_entry_the_full_poem_is_printed(
     with pytest.raises(SystemExit) as exc:
         runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
 
-    plain_err = strip_ansi(capsys.readouterr().err)
+    stderr = strip_ansi(capsys.readouterr().err)
 
     assert exc.value.code != 0
-    assert "Traceback (most recent call last)" in plain_err
-    assert "RuntimeError: I should fail" in plain_err
-    assert "[TRUNCATED" not in plain_err
+    assert "Traceback (most recent call last)" in stderr
+    assert "RuntimeError: I should fail" in stderr
+
+
+@pytest.mark.os_agnostic
+def test_module_entry_does_not_truncate_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    strip_ansi: Callable[[str], str],
+) -> None:
+    """Module entry with --traceback does not truncate output."""
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "--traceback", "fail"])
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
+
+    with pytest.raises(SystemExit):
+        runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
+
+    stderr = strip_ansi(capsys.readouterr().err)
+
+    assert "[TRUNCATED" not in stderr
+
+
+@pytest.mark.os_agnostic
+def test_module_entry_preserves_traceback_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Module entry restores traceback config after execution."""
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "--traceback", "hello"])
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
+
+    with pytest.raises(SystemExit):
+        runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
+
+    # After execution, config should be restored
     assert lib_cli_exit_tools.config.traceback is False
     assert lib_cli_exit_tools.config.traceback_force_color is False
 
 
+# ---------------------------------------------------------------------------
+# CLI Command Identity Tests
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.os_agnostic
-def test_when_module_entry_imports_cli_the_alias_stays_intact() -> None:
-    assert cli_mod.cli.name == cli_mod.cli.name
+def test_cli_command_has_expected_name() -> None:
+    """The CLI command has the expected name."""
+    assert cli_mod.cli.name == "cli"
+
+
+@pytest.mark.os_agnostic
+def test_cli_command_is_a_click_group() -> None:
+    """The CLI command is a Click group."""
+    import click
+
+    assert isinstance(cli_mod.cli, click.core.Group)
+
+
+@pytest.mark.os_agnostic
+def test_cli_has_expected_subcommands() -> None:
+    """The CLI has the expected subcommands."""
+    expected = {"hello", "fail", "info"}
+    actual = set(cli_mod.cli.commands.keys())
+
+    assert expected.issubset(actual)

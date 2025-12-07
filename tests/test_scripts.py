@@ -5,7 +5,7 @@ from collections.abc import Mapping, Sequence
 import sys
 from dataclasses import dataclass
 from types import ModuleType, SimpleNamespace
-from typing import Callable, Protocol, TypedDict
+from typing import Callable, Protocol
 
 import pytest
 from pytest import MonkeyPatch
@@ -24,7 +24,18 @@ RunCommand = Sequence[str] | str
 ModuleLike = ModuleType | SimpleNamespace
 
 
-class RecordedOptions(TypedDict):
+@dataclass(slots=True)
+class RecordedOptions:
+    """Typed container for run options.
+
+    Attributes:
+        check: Whether to check for non-zero exit codes.
+        capture: Whether to capture output.
+        cwd: Working directory for the command.
+        env: Environment variables for the command.
+        dry_run: Whether this is a dry run.
+    """
+
     check: bool
     capture: bool
     cwd: str | None
@@ -83,13 +94,13 @@ def _remember_runs(history: list[RecordedRun]) -> RunStub:
         history.append(
             RecordedRun(
                 command=cmd,
-                options={
-                    "check": check,
-                    "capture": capture,
-                    "cwd": cwd,
-                    "env": env,
-                    "dry_run": dry_run,
-                },
+                options=RecordedOptions(
+                    check=check,
+                    capture=capture,
+                    cwd=cwd,
+                    env=env,
+                    dry_run=dry_run,
+                ),
             )
         )
         return RunResult(0, "", "")
