@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.8.1] - 2025-12-08
+
+### Changed
+- Bumped `lib_cli_exit_tools` dependency from 2.1.0 to 2.1.1
+- Bumped `import-linter` dev dependency from 2.7 to 2.8
+
+### Fixed
+- Added `PYTHONIOENCODING=utf-8` to CI workflow to prevent encoding issues
+
 ## [1.8.0] - 2025-12-07
 
 ### Changed
