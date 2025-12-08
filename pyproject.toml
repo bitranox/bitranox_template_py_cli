@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "rich-click>=1.9.4",
-    "lib_cli_exit_tools>=2.1.0",
+    "lib_cli_exit_tools>=2.1.1",
 ]
 license = { text = "MIT" }
 authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
@@ -37,7 +37,7 @@ dev = [
   "codecov-cli>=11.2.6",
   "pip-audit>=2.10.0",
   "textual>=6.8.0",
-  "import-linter>=2.7"
+  "import-linter>=2.8"
 ]
 
 [project.scripts]
