@@ -37,15 +37,15 @@ For alternative install paths (pip, pipx, uv, uvx source builds, etc.), see
 [INSTALL.md](INSTALL.md). All supported methods register both the
 `bitranox_template_py_cli` and `bitranox-template-py-cli` commands on your PATH.
 
-### Python 3.13+ Baseline
+### Python 3.10+ Compatibility
 
-- The project targets **Python 3.13 and newer only**. 
-- Runtime dependencies stay on the current stable releases (`rich-click>=1.9.3`
-  and `lib_cli_exit_tools>=2.0.0`) and keeps pytest, ruff, pyright, bandit,
+- The project targets **Python 3.10 and newer**.
+- Runtime dependencies stay on the current stable releases (`rich-click>=1.9.4`
+  and `lib_cli_exit_tools>=2.2.1`) and keeps pytest, ruff, pyright, bandit,
   build, twine, codecov-cli, pip-audit, textual, and import-linter pinned to
   their newest majors.
 - CI workflows exercise GitHub's rolling runner images (`ubuntu-latest`,
-  `macos-latest`, `windows-latest`) and cover CPython 3.13 alongside the latest
+  `macos-latest`, `windows-latest`) and cover CPython 3.10 through the latest
   available 3.x release provided by Actions.
 
 

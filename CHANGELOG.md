@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.9.0] - 2025-12-11
+
+### Changed
+- Broadened Python compatibility from 3.13+ to 3.10+
+- Updated `target-version` in ruff configuration from `py313` to `py310`
+- Updated documentation to reflect Python 3.10+ support
+
 ## [1.8.1] - 2025-12-08
 
 ### Changed
