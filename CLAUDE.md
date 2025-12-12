@@ -22,7 +22,7 @@ When working with Python code:
 - `python_clean_code.md`
 - `python_small_functions_style.md`
 - `python_libraries_to_use.md`
-- `python_lib_structure_template.md`
+- `python_structure_template.md`
 
 ### Additional Guidelines
 - `self_documenting.md`
