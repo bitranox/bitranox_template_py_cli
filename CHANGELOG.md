@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.9.1] - 2025-12-15
+
+### Changed
+- Bumped `lib_cli_exit_tools` dependency from 2.2.1 to 2.2.2
+- Bumped `ruff` dev dependency from 0.14.8 to 0.14.9
+- Bumped `textual` dev dependency from 6.8.0 to 6.9.0
+- Added `rtoml>=0.13.0` dev dependency for TOML parsing
+- Updated GitHub Actions `actions/cache` from v4 to v5 in CI workflow
+- Updated GitHub Actions `actions/upload-artifact` from v5 to v6 in release workflow
+- Reformatted docstrings in `__init__conf__.py` to follow consistent structure
+
 ## [1.9.0] - 2025-12-11
 
 ### Changed

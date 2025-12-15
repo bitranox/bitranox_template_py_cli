@@ -1,24 +1,20 @@
 """Static package metadata surfaced to CLI commands and documentation.
 
-Exposes the current project metadata as simple constants. These values are kept
+Purpose
+-------
+Expose the current project metadata as simple constants. These values are kept
 in sync with ``pyproject.toml`` by development automation (tests, push
 pipelines), so runtime code does not query packaging metadata.
 
-Attributes:
-    name: Distribution name declared in ``pyproject.toml``.
-    title: Human-readable summary shown in CLI help output.
-    version: Current release version pulled from ``pyproject.toml``.
-    homepage: Repository homepage presented to users.
-    author: Author attribution surfaced in CLI output.
-    author_email: Contact email surfaced in CLI output.
-    shell_command: Console-script name published by the package.
+Contents
+--------
+* Module-level constants describing the published package.
+* :func:`print_info` rendering the constants for the CLI ``info`` command.
 
-Functions:
-    print_info: Renders the constants for the CLI ``info`` command.
-
-Note:
-    Lives in the adapters/platform layer; CLI transports import these constants
-    to present authoritative project information without invoking packaging APIs.
+System Role
+-----------
+Lives in the adapters/platform layer; CLI transports import these constants to
+present authoritative project information without invoking packaging APIs.
 """
 
 from __future__ import annotations
@@ -28,7 +24,7 @@ name = "bitranox_template_py_cli"
 #: Human-readable summary shown in CLI help output.
 title = "Template for python apps with registered cli commands"
 #: Current release version pulled from ``pyproject.toml`` by automation.
-version = "1.9.0"
+version = "1.9.1"
 #: Repository homepage presented to users.
 homepage = "https://github.com/bitranox/bitranox_template_py_cli"
 #: Author attribution surfaced in CLI output.
@@ -49,16 +45,18 @@ LAYEREDCONF_SLUG: str = "bitranox-template-py-cli"
 def print_info() -> None:
     """Print the summarised metadata block used by the CLI ``info`` command.
 
-    Provides a single, auditable rendering function so documentation and CLI
-    output always match the system design reference.
+    Why
+        Provides a single, auditable rendering function so documentation and
+        CLI output always match the system design reference.
 
-    Note:
+    Side Effects
         Writes to ``stdout``.
 
-    Example:
-        >>> print_info()  # doctest: +ELLIPSIS
-        Info for bitranox_template_py_cli:
-        ...
+    Examples
+    --------
+    >>> print_info()  # doctest: +ELLIPSIS
+    Info for bitranox_template_py_cli:
+    ...
     """
 
     fields = [
