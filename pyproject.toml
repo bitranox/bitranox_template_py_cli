@@ -1,6 +1,6 @@
 [project]
 name = "bitranox_template_py_cli"
-version = "1.9.1"
+version = "1.9.2"
 description = "Template for python apps with registered cli commands"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,7 +40,6 @@ dev = [
   "pytest-cov>=7.0.0",
   "ruff>=0.14.9",
   "textual>=6.9.0",
-  "tomli>=2.3.0;python_version<'3.11'",
   "twine>=6.2.0",
   "rtoml>=0.13.0",
 ]

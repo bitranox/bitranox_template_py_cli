@@ -37,18 +37,14 @@ jobs:
         shell: python
         run: |
           import os
+          import subprocess
           import sys
           from pathlib import Path
 
-          # tomllib is Python 3.11+; use tomli backport for 3.10
-          if sys.version_info >= (3, 11):
-              import tomllib
-          else:
-              import subprocess
-              subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-q', 'tomli'])
-              import tomli as tomllib
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-q', 'rtoml'])
+          import rtoml
 
-          data = tomllib.loads(Path('pyproject.toml').read_text('utf-8'))
+          data = rtoml.loads(Path('pyproject.toml').read_text('utf-8'))
           project = data['project']['name']
           module = project.replace('-', '_')
           dash = project.replace('_', '-')
@@ -131,10 +127,14 @@ jobs:
         shell: python
         run: |
           import os
-          import tomllib
+          import subprocess
+          import sys
           from pathlib import Path
 
-          data = tomllib.loads(Path('pyproject.toml').read_text('utf-8'))
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-q', 'rtoml'])
+          import rtoml
+
+          data = rtoml.loads(Path('pyproject.toml').read_text('utf-8'))
           project = data['project']['name']
           module = project.replace('-', '_')
           dash = project.replace('_', '-')

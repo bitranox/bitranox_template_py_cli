@@ -6,16 +6,11 @@ Tests real files rather than stubs to ensure actual synchronization.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
-
 import pytest
+import rtoml
 
 from bitranox_template_py_cli import __init__conf__
 
@@ -34,8 +29,7 @@ PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 
 def load_pyproject() -> dict[str, Any]:
     """Load pyproject.toml as a dictionary."""
-    with PYPROJECT_PATH.open("rb") as f:
-        return tomllib.load(f)
+    return rtoml.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------------

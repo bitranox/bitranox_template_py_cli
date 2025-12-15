@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.9.2] - 2025-12-15
+
+### Changed
+- Replaced `tomli`/`tomllib` with `rtoml` for TOML parsing across tests and CI
+- Removed conditional `tomli` dependency (was only needed for Python <3.11)
+- Updated CI workflow to use `rtoml` instead of version-conditional `tomli`/`tomllib`
+
 ## [1.9.1] - 2025-12-15
 
 ### Changed
