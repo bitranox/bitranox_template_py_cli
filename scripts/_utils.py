@@ -1,20 +1,22 @@
 """Shared automation utilities for project scripts.
 
-Collects helper functions used by the ``scripts/`` entry points (build, test,
-release) so git helpers and subprocess wrappers live in one place. The
-behaviour mirrors the operational guidance described in
+Purpose
+-------
+Collect helper functions used by the ``scripts/`` entry points (build, test,
+release) so git helpers and subprocess wrappers live in one place. The behaviour mirrors the operational guidance described in
 ``docs/systemdesign/module_reference.md`` and ``DEVELOPMENT.md``.
 
-Functions:
-    run: Subprocess wrapper returning structured results.
-    get_project_metadata: Loads project metadata from pyproject.toml.
-    sync_metadata_module: Writes __init__conf__.py with current metadata.
-    read_version_from_pyproject: Reads version string from pyproject.toml.
+Contents
+--------
+* ``run`` – subprocess wrapper returning structured results.
+* Metadata helpers (``get_project_metadata`` et al.) for build/test automation.
+* GitHub release helpers and subprocess utilities.
 
-Note:
-    Provides the scripting boundary of the clean architecture: the core library
-    remains framework-agnostic while operational scripts reuse these helpers to
-    avoid duplication and keep CI/CD behaviour consistent with documentation.
+System Role
+-----------
+Provides the scripting boundary of the clean architecture: the core library
+remains framework-agnostic while operational scripts reuse these helpers to
+avoid duplication and keep CI/CD behaviour consistent with documentation.
 """
 
 from __future__ import annotations
@@ -32,6 +34,8 @@ from pathlib import Path
 from subprocess import CompletedProcess
 from typing import Any, Mapping, Sequence, cast
 from urllib.parse import urlparse
+
+import rtoml
 
 
 @dataclass
@@ -87,6 +91,7 @@ class ProjectMetadata:
         prefer scripts whose name matches the project slug/name/import package and
         fall back to the first declared script.
         """
+
         if not self.scripts:
             return None
         candidates = (
@@ -99,6 +104,7 @@ class ProjectMetadata:
 
     def diagnostic_lines(self) -> tuple[str, ...]:
         """Return human-friendly lines that summarise project metadata."""
+
         summary = [
             f"name={self.name}",
             f"slug={self.slug}",
@@ -114,34 +120,6 @@ class ProjectMetadata:
 
 _PYPROJECT_DATA_CACHE: dict[Path, dict[str, object]] = {}
 _METADATA_CACHE: dict[Path, ProjectMetadata] = {}
-_toml_module: Any = None
-
-
-def _get_toml_module() -> Any:
-    """Return tomllib (Python 3.11+) or tomli backport (Python 3.9-3.10).
-
-    Ensures TOML parsing works across Python 3.9+ by using the standard library
-    tomllib on 3.11+ and falling back to the tomli package on earlier versions.
-
-    Returns:
-        Either tomllib or tomli module with identical interfaces.
-
-    Raises:
-        ModuleNotFoundError: If neither tomllib nor tomli can be imported.
-    """
-    global _toml_module
-    if _toml_module is not None:
-        return _toml_module
-
-    # Use tomllib (Python 3.11+) or tomli backport (Python 3.9-3.10)
-    # Both have the same interface, so we can treat them interchangeably
-    try:
-        import tomllib as module  # type: ignore[import-not-found]
-    except ModuleNotFoundError:
-        import tomli as module  # type: ignore[import-not-found,no-redef]
-
-    _toml_module = module
-    return module
 
 
 def run(
@@ -153,22 +131,6 @@ def run(
     env: Mapping[str, str] | None = None,
     dry_run: bool = False,
 ) -> RunResult:
-    """Execute a subprocess command and return structured results.
-
-    Args:
-        cmd: Command as a string (shell mode) or sequence of arguments.
-        check: Raise SystemExit on non-zero return code.
-        capture: Capture stdout/stderr instead of streaming.
-        cwd: Working directory for the subprocess.
-        env: Environment variables for the subprocess.
-        dry_run: Print command without executing.
-
-    Returns:
-        Structured result containing return code, stdout, and stderr.
-
-    Raises:
-        SystemExit: If check is True and command returns non-zero.
-    """
     if isinstance(cmd, str):
         display = cmd
         shell = True
@@ -194,26 +156,11 @@ def run(
 
 
 def cmd_exists(name: str) -> bool:
-    """Check if a command exists in the system PATH.
-
-    Args:
-        name: Command name to search for.
-
-    Returns:
-        True if command exists, False otherwise.
-    """
+    """Check if a command exists in the system PATH."""
     return shutil.which(name) is not None
 
 
 def _normalize_slug(value: str) -> str:
-    """Normalize a string to a URL-friendly slug.
-
-    Args:
-        value: String to normalize.
-
-    Returns:
-        Lowercase slug with non-alphanumeric chars replaced by dashes.
-    """
     slug = re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-").lower()
     return slug or value.replace("_", "-").lower()
 
@@ -221,15 +168,9 @@ def _normalize_slug(value: str) -> str:
 def _package_name_to_display(value: str) -> str:
     """Convert package name to display-friendly app name.
 
-    Args:
-        value: Package name with underscores or hyphens.
-
-    Returns:
-        Title-cased display name.
-
-    Example:
-        >>> _package_name_to_display("check_zpool_status")
-        'Check Zpool Status'
+    Examples:
+        "check_zpool_status" -> "Check ZPool Status"
+        "my-cool-app" -> "My Cool App"
     """
     # Replace underscores and hyphens with spaces
     normalized = value.replace("_", " ").replace("-", " ")
@@ -238,14 +179,8 @@ def _package_name_to_display(value: str) -> str:
 
 
 def _as_str_mapping(value: object) -> dict[str, object]:
-    """Return a shallow copy of mapping entries with string keys.
+    """Return a shallow copy of mapping entries with string keys."""
 
-    Args:
-        value: Object to convert to dict.
-
-    Returns:
-        Dict with only string keys.
-    """
     result: dict[str, object] = {}
     if isinstance(value, dict):
         mapping = cast(dict[object, object], value)
@@ -256,14 +191,8 @@ def _as_str_mapping(value: object) -> dict[str, object]:
 
 
 def _as_str_dict(value: object) -> dict[str, str]:
-    """Return a mapping containing only string keys and string values.
+    """Return a mapping containing only string keys and string values."""
 
-    Args:
-        value: Object to convert to dict.
-
-    Returns:
-        Dict with only string keys and string values.
-    """
     result: dict[str, str] = {}
     if isinstance(value, dict):
         mapping = cast(dict[object, object], value)
@@ -274,14 +203,8 @@ def _as_str_dict(value: object) -> dict[str, str]:
 
 
 def _as_sequence(value: object) -> tuple[object, ...]:
-    """Return a tuple for list/tuple values, otherwise an empty tuple.
+    """Return a tuple for list/tuple values, otherwise an empty tuple."""
 
-    Args:
-        value: Object to convert to tuple.
-
-    Returns:
-        Tuple of items or empty tuple if not a sequence.
-    """
     if isinstance(value, (list, tuple)):
         sequence = cast(Sequence[object], value)
         return tuple(sequence)
@@ -294,10 +217,9 @@ def _load_pyproject(pyproject: Path) -> dict[str, object]:
     if cached is not None:
         return cached
     raw_text = path.read_text(encoding="utf-8")
-    toml_module = _get_toml_module()
     try:
-        parsed_obj = toml_module.loads(raw_text)
-    except toml_module.TOMLDecodeError as exc:  # pragma: no cover - invalid pyproject fails fast
+        parsed_obj = rtoml.loads(raw_text)
+    except rtoml.TomlParsingError as exc:  # pragma: no cover - invalid pyproject fails fast
         msg = f"Unable to parse {path}: {exc}"
         raise ValueError(msg) from exc
     data = {str(key): value for key, value in parsed_obj.items()}
@@ -583,25 +505,21 @@ def _render_metadata_module(project: ProjectMetadata) -> str:
     homepage = project.homepage or project.repo_url or ""
     body = f'''"""Static package metadata surfaced to CLI commands and documentation.
 
-Exposes the current project metadata as simple constants. These values are kept
+Purpose
+-------
+Expose the current project metadata as simple constants. These values are kept
 in sync with ``pyproject.toml`` by development automation (tests, push
 pipelines), so runtime code does not query packaging metadata.
 
-Attributes:
-    name: Distribution name declared in ``pyproject.toml``.
-    title: Human-readable summary shown in CLI help output.
-    version: Current release version pulled from ``pyproject.toml``.
-    homepage: Repository homepage presented to users.
-    author: Author attribution surfaced in CLI output.
-    author_email: Contact email surfaced in CLI output.
-    shell_command: Console-script name published by the package.
+Contents
+--------
+* Module-level constants describing the published package.
+* :func:`print_info` rendering the constants for the CLI ``info`` command.
 
-Functions:
-    print_info: Renders the constants for the CLI ``info`` command.
-
-Note:
-    Lives in the adapters/platform layer; CLI transports import these constants
-    to present authoritative project information without invoking packaging APIs.
+System Role
+-----------
+Lives in the adapters/platform layer; CLI transports import these constants to
+present authoritative project information without invoking packaging APIs.
 """
 
 from __future__ import annotations
@@ -632,16 +550,18 @@ LAYEREDCONF_SLUG: str = {_quote(project.shell_command)}
 def print_info() -> None:
     """Print the summarised metadata block used by the CLI ``info`` command.
 
-    Provides a single, auditable rendering function so documentation and CLI
-    output always match the system design reference.
+    Why
+        Provides a single, auditable rendering function so documentation and
+        CLI output always match the system design reference.
 
-    Note:
+    Side Effects
         Writes to ``stdout``.
 
-    Example:
-        >>> print_info()  # doctest: +ELLIPSIS
-        Info for {project.name}:
-        ...
+    Examples
+    --------
+    >>> print_info()  # doctest: +ELLIPSIS
+    Info for {project.name}:
+    ...
     """
 
     fields = [
@@ -662,11 +582,8 @@ def print_info() -> None:
 
 
 def sync_metadata_module(project: ProjectMetadata) -> None:
-    """Write ``__init__conf__.py`` so the constants mirror ``pyproject.toml``.
+    """Write ``__init__conf__.py`` so the constants mirror ``pyproject.toml``."""
 
-    Args:
-        project: Project metadata to render into the module.
-    """
     content = _render_metadata_module(project)
     module_path = project.metadata_module
     module_path.parent.mkdir(parents=True, exist_ok=True)
@@ -680,14 +597,7 @@ def sync_metadata_module(project: ProjectMetadata) -> None:
 
 
 def read_version_from_pyproject(pyproject: Path = Path("pyproject.toml")) -> str:
-    """Read the version string from pyproject.toml.
-
-    Args:
-        pyproject: Path to pyproject.toml file.
-
-    Returns:
-        Version string from the project metadata.
-    """
+    """Read the version string from pyproject.toml."""
     data = _load_pyproject(pyproject)
     project_table = _as_str_mapping(data.get("project"))
     version_value = project_table.get("version")
@@ -699,12 +609,10 @@ def read_version_from_pyproject(pyproject: Path = Path("pyproject.toml")) -> str
 
 
 def ensure_clean_git_tree() -> None:
-    """Ensure the git working tree has no uncommitted changes.
-
-    Raises:
-        SystemExit: If there are uncommitted changes in the working tree.
-    """
-    dirty = subprocess.call(["bash", "-lc", "! git diff --quiet || ! git diff --cached --quiet"], stdout=subprocess.DEVNULL)
+    """Ensure the git working tree has no uncommitted changes."""
+    dirty = subprocess.call(
+        ["bash", "-lc", "! git diff --quiet || ! git diff --cached --quiet"], stdout=subprocess.DEVNULL
+    )
     if dirty == 0:
         print("[release] Working tree not clean. Commit or stash changes first.", file=sys.stderr)
         raise SystemExit(1)
@@ -750,7 +658,12 @@ def gh_available() -> bool:
 
 def gh_release_exists(tag: str) -> bool:
     """Check if a GitHub release exists for the given tag."""
-    return subprocess.call(["bash", "-lc", f"gh release view {shlex.quote(tag)} >/dev/null 2>&1"], stdout=subprocess.DEVNULL) == 0
+    return (
+        subprocess.call(
+            ["bash", "-lc", f"gh release view {shlex.quote(tag)} >/dev/null 2>&1"], stdout=subprocess.DEVNULL
+        )
+        == 0
+    )
 
 
 def gh_release_create(tag: str, title: str, body: str) -> None:
