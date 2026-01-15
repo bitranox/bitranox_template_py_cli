@@ -30,6 +30,7 @@ import subprocess
 import sys
 import textwrap
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from subprocess import CompletedProcess
 from typing import Any, Mapping, Sequence, cast
@@ -118,8 +119,8 @@ class ProjectMetadata:
         return tuple(summary)
 
 
-_PYPROJECT_DATA_CACHE: dict[Path, dict[str, object]] = {}
-_METADATA_CACHE: dict[Path, ProjectMetadata] = {}
+# Note: Manual caching dicts removed in favor of @lru_cache decorators
+# on _load_pyproject_cached and get_project_metadata
 
 
 def run(
@@ -155,12 +156,23 @@ def run(
     return RunResult(int(proc.returncode or 0), proc.stdout or "", proc.stderr or "")
 
 
+@lru_cache(maxsize=16)
 def cmd_exists(name: str) -> bool:
-    """Check if a command exists in the system PATH."""
+    """Check if a command exists in the system PATH.
+
+    Note:
+        Results are cached. Use cmd_exists.cache_clear() if PATH changes.
+    """
     return shutil.which(name) is not None
 
 
+@lru_cache(maxsize=32)
 def _normalize_slug(value: str) -> str:
+    """Normalize a string to a URL-friendly slug.
+
+    Note:
+        Results are cached for repeated normalizations.
+    """
     slug = re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-").lower()
     return slug or value.replace("_", "-").lower()
 
@@ -211,20 +223,25 @@ def _as_sequence(value: object) -> tuple[object, ...]:
     return ()
 
 
-def _load_pyproject(pyproject: Path) -> dict[str, object]:
-    path = pyproject.resolve()
-    cached = _PYPROJECT_DATA_CACHE.get(path)
-    if cached is not None:
-        return cached
+@lru_cache(maxsize=8)
+def _load_pyproject_cached(path: Path) -> dict[str, object]:
+    """Load and parse pyproject.toml file (cached internal function).
+
+    Note:
+        Results are cached. Use _load_pyproject_cached.cache_clear() to invalidate.
+    """
     raw_text = path.read_text(encoding="utf-8")
     try:
         parsed_obj = rtoml.loads(raw_text)
     except rtoml.TomlParsingError as exc:  # pragma: no cover - invalid pyproject fails fast
         msg = f"Unable to parse {path}: {exc}"
         raise ValueError(msg) from exc
-    data = {str(key): value for key, value in parsed_obj.items()}
-    _PYPROJECT_DATA_CACHE[path] = data
-    return data
+    return {str(key): value for key, value in parsed_obj.items()}
+
+
+def _load_pyproject(pyproject: Path) -> dict[str, object]:
+    """Load pyproject.toml, resolving path for consistent caching."""
+    return _load_pyproject_cached(pyproject.resolve())
 
 
 def _derive_import_package(data: dict[str, Any], fallback: str) -> str:
@@ -400,18 +417,18 @@ def _extract_summary(
     return summary
 
 
-def get_project_metadata(pyproject: Path = Path("pyproject.toml")) -> ProjectMetadata:
-    """Load project metadata from pyproject.toml with caching."""
-    path = pyproject.resolve()
-    cached = _METADATA_CACHE.get(path)
-    if cached is not None:
-        return cached
+@lru_cache(maxsize=4)
+def _get_project_metadata_cached(path: Path) -> ProjectMetadata:
+    """Load project metadata from resolved path (cached internal function).
 
-    data = _load_pyproject(pyproject)
+    Note:
+        Results are cached. Use _get_project_metadata_cached.cache_clear() to invalidate.
+    """
+    data = _load_pyproject(path)
     project_table = _as_str_mapping(data.get("project"))
 
     # Extract name and slug
-    name = _extract_name(project_table, pyproject)
+    name = _extract_name(project_table, path)
     slug = _normalize_slug(name)
 
     # Extract description
@@ -430,7 +447,7 @@ def get_project_metadata(pyproject: Path = Path("pyproject.toml")) -> ProjectMet
     scripts = _derive_scripts(data)
 
     # Extract other metadata
-    version = read_version_from_pyproject(pyproject)
+    version = read_version_from_pyproject(path)
     summary = _extract_summary(project_table, description, name)
     author_name, author_email = _extract_author_info(project_table, repo_owner or name)
 
@@ -438,7 +455,7 @@ def get_project_metadata(pyproject: Path = Path("pyproject.toml")) -> ProjectMet
     shell_command = _determine_shell_command(slug, scripts, name, import_package)
     metadata_module = (Path("src") / import_package / "__init__conf__.py").resolve()
 
-    meta = ProjectMetadata(
+    return ProjectMetadata(
         name=name,
         description=description,
         slug=slug,
@@ -457,8 +474,16 @@ def get_project_metadata(pyproject: Path = Path("pyproject.toml")) -> ProjectMet
         author_email=author_email,
         shell_command=shell_command,
     )
-    _METADATA_CACHE[path] = meta
-    return meta
+
+
+def get_project_metadata(pyproject: Path = Path("pyproject.toml")) -> ProjectMetadata:
+    """Load project metadata from pyproject.toml with caching.
+
+    Note:
+        Results are cached via @lru_cache. Use get_project_metadata.cache_clear()
+        or _get_project_metadata_cached.cache_clear() to invalidate.
+    """
+    return _get_project_metadata_cached(pyproject.resolve())
 
 
 def _extract_name(project_table: dict[str, object], pyproject: Path) -> str:
@@ -610,8 +635,9 @@ def read_version_from_pyproject(pyproject: Path = Path("pyproject.toml")) -> str
 
 def ensure_clean_git_tree() -> None:
     """Ensure the git working tree has no uncommitted changes."""
-    dirty = subprocess.call(["bash", "-lc", "! git diff --quiet || ! git diff --cached --quiet"], stdout=subprocess.DEVNULL)
-    if dirty == 0:
+    unstaged = subprocess.call(["git", "diff", "--quiet"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    staged = subprocess.call(["git", "diff", "--cached", "--quiet"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if unstaged != 0 or staged != 0:
         print("[release] Working tree not clean. Commit or stash changes first.", file=sys.stderr)
         raise SystemExit(1)
 
@@ -632,8 +658,9 @@ def git_tag_exists(name: str) -> bool:
     """Check if a git tag exists locally."""
     return (
         subprocess.call(
-            ["bash", "-lc", f"git rev-parse -q --verify {shlex.quote('refs/tags/' + name)} >/dev/null"],
+            ["git", "rev-parse", "-q", "--verify", f"refs/tags/{name}"],
             stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         == 0
     )
@@ -656,7 +683,14 @@ def gh_available() -> bool:
 
 def gh_release_exists(tag: str) -> bool:
     """Check if a GitHub release exists for the given tag."""
-    return subprocess.call(["bash", "-lc", f"gh release view {shlex.quote(tag)} >/dev/null 2>&1"], stdout=subprocess.DEVNULL) == 0
+    return (
+        subprocess.call(
+            ["gh", "release", "view", tag],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        == 0
+    )
 
 
 def gh_release_create(tag: str, title: str, body: str) -> None:

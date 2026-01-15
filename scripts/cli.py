@@ -174,7 +174,7 @@ def dev_command(dry_run: bool) -> None:
 @main.command(name="clean", help="Remove caches and build artefacts")
 @click.option("--pattern", "patterns", multiple=True, help="Additional glob patterns to delete")
 def clean_command(patterns: tuple[str, ...]) -> None:
-    target_patterns = clean_module.DEFAULT_PATTERNS + tuple(patterns)
+    target_patterns = clean_module.get_clean_patterns() + tuple(patterns)
     clean_module.clean(target_patterns)
 
 
@@ -201,6 +201,13 @@ def test_command(coverage: str | None, verbose: bool, strict_format: bool | None
 @click.option("--verbose", is_flag=True, help="Print executed commands and stdout/stderr")
 def coverage_command(verbose: bool) -> None:
     test_module.run_coverage(verbose=verbose)
+
+
+@main.command(name="test-slow", help="Run integration tests only (slow, not run in CI)")
+@click.option("--verbose", is_flag=True, help="Print executed commands")
+def test_slow_command(verbose: bool) -> None:
+    """Run integration tests marked with @pytest.mark.integration."""
+    test_module.run_tests_slow(verbose=verbose)
 
 
 @main.command(name="build", help="Build wheel/sdist artifacts")

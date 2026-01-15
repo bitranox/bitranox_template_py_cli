@@ -264,9 +264,9 @@ def push(*, remote: str = _DEFAULT_REMOTE, message: str | None = None) -> None:
 
     click.echo("[push] Committing and pushing (single attempt)")
     run(["git", "add", "-A"], capture=False)  # stage all
-    staged = run(["bash", "-lc", "! git diff --cached --quiet"], check=False)
+    staged = run(["git", "diff", "--cached", "--quiet"], check=False)
     commit_message = _resolve_commit_message(message)
-    if staged.code != 0:
+    if staged.code == 0:
         click.echo("[push] No staged changes detected; creating empty commit")
     run(["git", "commit", "--allow-empty", "-m", commit_message], capture=False)  # type: ignore[list-item]
     click.echo(f"[push] Commit message: {commit_message}")

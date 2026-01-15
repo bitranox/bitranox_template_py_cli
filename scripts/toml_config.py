@@ -7,6 +7,7 @@ dict-based access patterns and their associated type issues.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
 
@@ -421,6 +422,7 @@ class PyprojectConfig:
             return cls()
 
 
+@lru_cache(maxsize=4)
 def load_pyproject_config(path: Path = Path("pyproject.toml")) -> PyprojectConfig:
     """Load and parse pyproject.toml into a typed configuration object.
 
@@ -429,5 +431,9 @@ def load_pyproject_config(path: Path = Path("pyproject.toml")) -> PyprojectConfi
 
     Returns:
         PyprojectConfig with all sections parsed, using defaults for missing values
+
+    Note:
+        Results are cached using @lru_cache. Use load_pyproject_config.cache_clear()
+        to invalidate the cache if the file changes during runtime.
     """
-    return PyprojectConfig.from_path(path)
+    return PyprojectConfig.from_path(path.resolve())

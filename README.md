@@ -13,9 +13,13 @@
 [![Known Vulnerabilities](https://snyk.io/test/github/bitranox/bitranox_template_py_cli/badge.svg)](https://snyk.io/test/github/bitranox/bitranox_template_py_cli)
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 
-<agent: fill in short project description and main features>
+Template for Python CLI applications with registered console commands.
+
+**Features:**
 - CLI entry point styled with rich-click (rich output + click ergonomics)
 - Exit-code and messaging helpers powered by lib_cli_exit_tools
+- Modular CLI architecture with focused, single-responsibility modules
+- Full test coverage with pytest and type checking with pyright
 
 ## Install - recommended via UV
 UV - the ultrafast installer - written in Rust (10–20× faster than pip/poetry)

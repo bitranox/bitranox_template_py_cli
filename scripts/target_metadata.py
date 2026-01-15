@@ -106,6 +106,18 @@ def _build_targets() -> tuple[TargetSpec, ...]:
                 ),
             ),
         ),
+        TargetSpec(
+            "test-slow",
+            "Run integration tests (slow, not run in CI)",
+            (
+                ParamSpec(
+                    "TEST_VERBOSE",
+                    "Verbose test output (0|1)",
+                    default=_env_default("TEST_VERBOSE", "0"),
+                    choices=("0", "1"),
+                ),
+            ),
+        ),
         TargetSpec("run", "Run project CLI (defaults to --help)", ()),
         TargetSpec("version-current", "Print version from pyproject.toml", ()),
         TargetSpec(

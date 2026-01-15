@@ -4,18 +4,69 @@ Centralizes fixtures used across multiple test modules:
 - CLI runner instances
 - ANSI code stripping
 - lib_cli_exit_tools configuration preservation
+- Pydantic models for pyproject.toml parsing
 """
-
-from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
+import rtoml
 from click.testing import CliRunner
+from pydantic import BaseModel
 
 import lib_cli_exit_tools
+
+
+# ---------------------------------------------------------------------------
+# Pyproject.toml Pydantic Models
+# ---------------------------------------------------------------------------
+
+
+class PyprojectAuthor(BaseModel):
+    """Pydantic model for a pyproject.toml author entry."""
+
+    name: str
+    email: str | None = None
+
+
+class PyprojectUrls(BaseModel):
+    """Pydantic model for pyproject.toml URLs section."""
+
+    Homepage: str | None = None
+
+
+class PyprojectProject(BaseModel):
+    """Pydantic model for the [project] section of pyproject.toml."""
+
+    name: str
+    description: str
+    version: str
+    authors: list[PyprojectAuthor]
+    urls: PyprojectUrls | None = None
+    scripts: dict[str, str] | None = None
+
+
+class Pyproject(BaseModel):
+    """Pydantic model for pyproject.toml structure."""
+
+    project: PyprojectProject
+
+
+def load_pyproject(pyproject_path: Path) -> Pyproject:
+    """Load and validate pyproject.toml as a Pydantic model.
+
+    Args:
+        pyproject_path: Path to pyproject.toml file.
+
+    Returns:
+        Validated Pyproject model instance.
+    """
+    data = rtoml.loads(pyproject_path.read_text(encoding="utf-8"))
+    return Pyproject.model_validate(data)
+
 
 # ---------------------------------------------------------------------------
 # Constants

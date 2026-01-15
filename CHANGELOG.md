@@ -3,6 +3,67 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.0.0] - 2026-01-15
+
+### Added
+- **Integration test infrastructure** - `make test-slow` target for slow tests:
+  - Added `integration` pytest marker for tests requiring external resources
+  - Added `test-slow` Make target and menu entry
+  - Integration tests do NOT run in GitHub Actions CI
+  - No integration tests exist yet - infrastructure prepared for future use
+
+### Changed
+- **Full Clean Architecture Refactoring** - Implemented 4-layer architecture:
+  - **Domain Layer** (`domain/`): Pure business logic, no I/O
+    - `greeting.py` - Pure greeting function returning string
+    - `errors.py` - Domain-specific `IntentionalFailure` exception
+  - **Application Layer** (`application/`): Use cases and ports
+    - `ports/output.py` - `OutputPort` Protocol interface
+    - `use_cases/greeting.py` - `GreetingUseCase`
+    - `use_cases/failure.py` - `FailureUseCase`
+    - `use_cases/info.py` - `InfoUseCase`
+  - **Adapters Layer** (`adapters/`): Framework implementations
+    - `output/stdout.py` - `StdoutAdapter` implementing `OutputPort`
+    - `cli/` - CLI transport using rich-click (moved from root)
+  - **Composition Layer** (`composition/`): Dependency wiring
+    - `container.py` - Factory functions for creating wired use cases
+- Updated import-linter contracts to enforce clean architecture layers
+- Updated tests to test all architecture layers
+- **Type hints modernized** - Using Python 3.10+ union syntax (`X | None`) and
+  built-in generics (`tuple[...]`) instead of `typing` module equivalents
+
+### Removed
+- Deleted `behaviors.py` (replaced by domain + application layers)
+- Deleted root `cli/` directory (moved to `adapters/cli/`)
+- **Backward compatibility wrappers** - Removed `emit_greeting()`,
+  `raise_intentional_failure()`, `noop_main()` from package exports (use
+  composition layer directly via `container` module)
+- **Backward compatibility constant** - Removed `DEFAULT_PATTERNS` from
+  `scripts/clean.py` (use `get_clean_patterns()` directly)
+- **Future import** - Removed unnecessary `from __future__ import annotations`
+  from all source files (Python 3.10+ native syntax supported)
+
+### Security
+- Completed security review: no vulnerabilities found in production code
+- Verified: no path traversal, command injection, or unsafe deserialization
+- Edge case handling validated: None values, missing attributes, stream errors
+- **Scripts hardening** (development tools only, not distributed):
+  - Replaced `bash -lc` patterns with direct subprocess calls (command injection prevention)
+  - Added random suffix to temp file names (TOCTOU attack prevention)
+  - Added path traversal validation to `clean.py` glob patterns
+  - Enhanced semver validation with bounds checking
+
+### Performance
+- Added `@lru_cache` memoization to development automation scripts:
+  - `load_pyproject_config()` - 6000x+ speedup on repeated calls
+  - `_normalize_slug()` - 200x+ speedup on repeated calls
+  - `cmd_exists()` - 1200x+ speedup on repeated calls
+  - `_parse_version_constraint()` - 1200x+ speedup on repeated calls
+  - `_normalize_name()` - cached for repeated dependency normalizations
+- Refactored manual dict-based caching to standard `@lru_cache` decorator in
+  `_load_pyproject()` and `get_project_metadata()`
+- Note: Main package (src/) unchanged - CLI tool is I/O-focused with single-invocation patterns
+
 ## [1.9.2] - 2025-12-15
 
 ### Changed

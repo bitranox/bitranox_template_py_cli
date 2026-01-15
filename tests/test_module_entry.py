@@ -4,66 +4,17 @@ Validates that module execution mirrors the CLI behavior.
 Uses real execution where possible, with minimal stubbing for isolation.
 """
 
-from __future__ import annotations
-
 import runpy
 import sys
 from collections.abc import Callable
 
+import click
 import pytest
 
 import lib_cli_exit_tools
 
 from bitranox_template_py_cli import __init__conf__
-from bitranox_template_py_cli import cli as cli_mod
-from bitranox_template_py_cli import __main__ as main_mod
-
-
-# ---------------------------------------------------------------------------
-# Module Constants Tests
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.os_agnostic
-def test_traceback_summary_limit_matches_cli() -> None:
-    """Module entry traceback summary limit matches CLI."""
-    assert main_mod.TRACEBACK_SUMMARY_LIMIT == cli_mod.TRACEBACK_SUMMARY_LIMIT
-
-
-@pytest.mark.os_agnostic
-def test_traceback_verbose_limit_matches_cli() -> None:
-    """Module entry traceback verbose limit matches CLI."""
-    assert main_mod.TRACEBACK_VERBOSE_LIMIT == cli_mod.TRACEBACK_VERBOSE_LIMIT
-
-
-# ---------------------------------------------------------------------------
-# Helper Function Tests
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.os_agnostic
-def test_command_to_run_returns_cli_command() -> None:
-    """_command_to_run returns the CLI command."""
-    command = main_mod._command_to_run()  # pyright: ignore[reportPrivateUsage]
-
-    assert command is cli_mod.cli
-
-
-@pytest.mark.os_agnostic
-def test_command_name_returns_shell_command() -> None:
-    """_command_name returns the shell command from __init__conf__."""
-    name = main_mod._command_name()  # pyright: ignore[reportPrivateUsage]
-
-    assert name == __init__conf__.shell_command
-
-
-@pytest.mark.os_agnostic
-def test_open_cli_session_returns_context_manager() -> None:
-    """_open_cli_session returns a context manager."""
-    session = main_mod._open_cli_session()  # pyright: ignore[reportPrivateUsage]
-
-    assert hasattr(session, "__enter__")
-    assert hasattr(session, "__exit__")
+from bitranox_template_py_cli.adapters.cli import cli
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +85,7 @@ def test_module_entry_with_traceback_shows_full_error(
 
     assert exc.value.code != 0
     assert "Traceback (most recent call last)" in stderr
-    assert "RuntimeError: I should fail" in stderr
+    assert "IntentionalFailure: I should fail" in stderr
 
 
 @pytest.mark.os_agnostic
@@ -181,21 +132,19 @@ def test_module_entry_preserves_traceback_config(
 @pytest.mark.os_agnostic
 def test_cli_command_has_expected_name() -> None:
     """The CLI command has the expected name."""
-    assert cli_mod.cli.name == "cli"
+    assert cli.name == "cli"
 
 
 @pytest.mark.os_agnostic
 def test_cli_command_is_a_click_group() -> None:
     """The CLI command is a Click group."""
-    import click
-
-    assert isinstance(cli_mod.cli, click.core.Group)
+    assert isinstance(cli, click.core.Group)
 
 
 @pytest.mark.os_agnostic
 def test_cli_has_expected_subcommands() -> None:
     """The CLI has the expected subcommands."""
     expected = {"hello", "fail", "info"}
-    actual = set(cli_mod.cli.commands.keys())
+    actual = set(cli.commands.keys())
 
     assert expected.issubset(actual)

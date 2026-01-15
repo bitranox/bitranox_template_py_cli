@@ -1,19 +1,32 @@
-"""Public package surface exposing greeting, failure, and metadata hooks."""
+"""Public package surface exposing domain, application, and adapter layers.
 
-from __future__ import annotations
+This package follows clean architecture with four layers:
+- Domain: Pure business logic (greeting, errors)
+- Application: Use cases and ports
+- Adapters: Framework implementations (CLI, output)
+- Composition: Dependency wiring
 
-from .behaviors import (
-    CANONICAL_GREETING,
-    emit_greeting,
-    noop_main,
-    raise_intentional_failure,
-)
+Commonly used symbols are re-exported at package level for convenience.
+"""
+
+# Domain exports
+from .domain.greeting import CANONICAL_GREETING, get_greeting
+from .domain.errors import IntentionalFailure
+
+# Composition exports
+from .composition import container
+
+# Metadata exports
 from .__init__conf__ import print_info
 
+
 __all__ = [
+    # Domain
     "CANONICAL_GREETING",
-    "emit_greeting",
-    "noop_main",
+    "get_greeting",
+    "IntentionalFailure",
+    # Composition
+    "container",
+    # Metadata
     "print_info",
-    "raise_intentional_failure",
 ]

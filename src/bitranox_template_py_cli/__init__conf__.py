@@ -24,7 +24,7 @@ name = "bitranox_template_py_cli"
 #: Human-readable summary shown in CLI help output.
 title = "Template for python apps with registered cli commands"
 #: Current release version pulled from ``pyproject.toml`` by automation.
-version = "1.9.2"
+version = "2.0.0"
 #: Repository homepage presented to users.
 homepage = "https://github.com/bitranox/bitranox_template_py_cli"
 #: Author attribution surfaced in CLI output.

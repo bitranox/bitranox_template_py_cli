@@ -28,6 +28,7 @@ import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
 
@@ -50,11 +51,17 @@ class DependencyInfo:
     upper_bound: str = ""  # Upper version bound if specified (e.g., "<9" means "9")
 
 
+@lru_cache(maxsize=64)
 def _normalize_name(name: str) -> str:
-    """Normalize package name for comparison (PEP 503)."""
+    """Normalize package name for comparison (PEP 503).
+
+    Note:
+        Results are cached for repeated normalizations.
+    """
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+@lru_cache(maxsize=128)
 def _parse_version_constraint(spec: str) -> tuple[str, str, str, str]:
     """Parse a dependency spec into (name, constraint, minimum_version, upper_bound).
 

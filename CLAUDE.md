@@ -51,12 +51,42 @@ bitranox_template_py_cli/
 │   └── _utils.py              # Shared utilities
 ├── src/
 │   └── bitranox_template_py_cli/  # Main Python package
-│       ├── __init__.py        # Package initialization
-│       ├── __init__conf__.py  # Configuration loader
-│       ├── __main__.py        # CLI entry point
-│       ├── cli.py             # CLI implementation
-│       ├── behaviors.py       # Core behaviors/business logic
-│       └── py.typed           # PEP 561 marker
+│       ├── __init__.py        # Package initialization (public API exports)
+│       ├── __init__conf__.py  # Static metadata constants
+│       ├── __main__.py        # Module entry point
+│       ├── py.typed           # PEP 561 marker
+│       ├── domain/            # Layer 1: Pure domain logic
+│       │   ├── __init__.py
+│       │   ├── greeting.py    # Greeting domain (pure, no I/O)
+│       │   └── errors.py      # Domain errors
+│       ├── application/       # Layer 2: Use cases and ports
+│       │   ├── __init__.py
+│       │   ├── ports/         # Protocol interfaces
+│       │   │   ├── __init__.py
+│       │   │   └── output.py  # OutputPort Protocol
+│       │   └── use_cases/     # Application use cases
+│       │       ├── __init__.py
+│       │       ├── greeting.py
+│       │       ├── failure.py
+│       │       └── info.py
+│       ├── adapters/          # Layer 3: Framework implementations
+│       │   ├── __init__.py
+│       │   ├── output/        # Output adapters
+│       │   │   ├── __init__.py
+│       │   │   └── stdout.py  # StdoutAdapter
+│       │   └── cli/           # CLI transport
+│       │       ├── __init__.py
+│       │       ├── constants.py
+│       │       ├── traceback.py
+│       │       ├── context.py
+│       │       ├── root.py
+│       │       ├── main.py
+│       │       └── commands/
+│       │           ├── __init__.py
+│       │           └── info.py
+│       └── composition/       # Layer 4: Dependency wiring
+│           ├── __init__.py
+│           └── container.py   # Factory functions
 ├── tests/                     # Test suite
 ├── .env.example               # Example environment variables
 ├── CLAUDE.md                  # Claude Code guidelines (this file)
@@ -73,8 +103,8 @@ bitranox_template_py_cli/
 ## Versioning & Releases
 
 - **Single Source of Truth**: Package version is in `pyproject.toml` (`[project].version`)
-- **Version Bumps**: update `pyproject.toml` , `CHANGELOG.md` and update the constants in `src/../__init__conf__.py` according to `pyproject.toml`  
-    - Automation rewrites `src/lib_cli_exit_tools/__init__conf__.py` from `pyproject.toml`, so runtime code imports generated constants instead of querying `importlib.metadata`.
+- **Version Bumps**: update `pyproject.toml` , `CHANGELOG.md` and update the constants in `src/../__init__conf__.py` according to `pyproject.toml`
+    - Automation rewrites `src/bitranox_template_py_cli/__init__conf__.py` from `pyproject.toml`, so runtime code imports generated constants instead of querying `importlib.metadata`.
     - After updating project metadata (version, summary, URLs, authors) run `make test` (or `python -m scripts.test`) to regenerate the metadata module before committing.
 - **Release Tags**: Format is `vX.Y.Z` (push tags for CI to build and publish)
 
@@ -96,6 +126,7 @@ bitranox_template_py_cli/
 | `release`         | Tag vX.Y.Z, push, sync packaging, run gh release if available                  |
 | `run`             | Run module entry (`python -m ... --help`)                                      |
 | `test`            | Lint, format, type-check, run tests with coverage, upload to Codecov           |
+| `test-slow`       | Run integration tests only (marked with `@pytest.mark.integration`, not in CI) |
 | `version-current` | Print current version from `pyproject.toml`                                    |
 
 ## Coding Style & Naming Conventions
@@ -104,41 +135,74 @@ Follow the guidelines in `python_clean_code.md` for all Python code.
 
 ## Architecture Overview
 
+This project follows **Clean Architecture** with four layers:
+
+### Layer 1: Domain (`domain/`)
+Pure business logic with no I/O, no logging, no framework dependencies.
+- `greeting.py`: Pure greeting logic (returns string, no side effects)
+- `errors.py`: Domain-specific exceptions (`IntentionalFailure`)
+
+### Layer 2: Application (`application/`)
+Use cases and ports (Protocol interfaces).
+- `ports/output.py`: `OutputPort` Protocol for text output
+- `use_cases/greeting.py`: `GreetingUseCase` - emits greeting via output port
+- `use_cases/failure.py`: `FailureUseCase` - raises domain error
+- `use_cases/info.py`: `InfoUseCase` - outputs metadata
+
+### Layer 3: Adapters (`adapters/`)
+Framework implementations of ports.
+- `output/stdout.py`: `StdoutAdapter` implements `OutputPort`
+- `cli/`: CLI transport using rich-click
+
+### Layer 4: Composition (`composition/`)
+Dependency wiring that creates use cases with their adapters.
+- `container.py`: Factory functions (`create_greeting_use_case()`, etc.)
+
+### Import Rules
+- **Dependencies point inward**: Adapters → Application → Domain
+- **Domain is pure**: No imports from outer layers
+- **Enforced by import-linter**: See `pyproject.toml` contracts
+
 Apply principles from `python_clean_architecture.md` when designing and implementing features.
 
 ## Security & Configuration
 
+### Secrets Management
 - `.env` files are for local tooling only (CodeCov tokens, etc.)
 - **NEVER** commit secrets to version control
-- Rich logging should sanitize payloads before rendering
+- Store production tokens in GitHub Secrets, not in repository files
+- Use `.env.example` as a template (safe to commit)
 
-## Documentation & Translations
+### Security Review Status
+Last reviewed: 2026-01-15
 
-### Web Documentation
-- Update only English docs under `/website/docs`
-- Other languages are translated automatically
-- When in doubt, ask before modifying non-English documentation
+| Category | Status |
+|----------|--------|
+| Path Traversal | ✅ None found |
+| Command Injection | ✅ Mitigated (scripts only) |
+| Input Validation | ✅ Click + Pydantic |
+| Race Conditions | ✅ None (no threading) |
+| Unsafe Deserialization | ✅ None |
 
-### App UI Strings (i18n)
-- Update only `sources/_locales/en` for string changes
-- Other languages are translated automatically
-- When in doubt, ask before modifying non-English locales
+### Known Limitations
+- `scripts/_utils.py`: Uses `shell=True` for string commands (internal use only, not exposed to user input)
+
+## Performance
+
+### lru_cache Analysis
+Last reviewed: 2026-01-15
+
+**No caching optimizations needed.** Analysis found:
+- No expensive pure functions (domain functions return constants)
+- No repeated computations in hot paths
+- Single invocation pattern (once per CLI command)
+- Clean architecture requires fresh instances (caching conflicts with DI)
+
+This is expected for a CLI tool focused on I/O rather than computation.
 
 ## Commit & Push Policy
 
-### Pre-Push Requirements
 - **Always run `make test` before pushing** to avoid lint/test breakage
 - Ensure all tests pass and code is properly formatted
-
-### Post-Push Monitoring
-- Monitor GitHub Actions for errors after pushing
-- Attempt to correct any CI/CD errors that appear
-
-## Claude Code Workflow
-
-When working on this project:
-1. Read relevant system prompts at session start
-2. Apply appropriate coding guidelines based on file type
-3. Run `make test` before commits
-4. Follow versioning guidelines for releases
-5. Monitor CI after pushing changes
+- Monitor GitHub Actions after pushing
+- **NEVER add Claude as co-author in commits** - no `Co-Authored-By` lines

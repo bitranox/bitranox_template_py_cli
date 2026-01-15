@@ -44,8 +44,9 @@ def get_clean_patterns(pyproject: Path = Path("pyproject.toml")) -> tuple[str, .
     return _FALLBACK_PATTERNS
 
 
-# For backwards compatibility
-DEFAULT_PATTERNS = get_clean_patterns()
+def _is_safe_pattern(pattern: str) -> bool:
+    """Validate that a glob pattern doesn't attempt path traversal."""
+    return ".." not in pattern and not pattern.startswith("/")
 
 
 def clean(patterns: Iterable[str] | None = None) -> None:
@@ -54,11 +55,18 @@ def clean(patterns: Iterable[str] | None = None) -> None:
     Args:
         patterns: Glob patterns to remove. If None, reads from pyproject.toml
                   or uses built-in defaults.
+
+    Note:
+        Patterns containing '..' or starting with '/' are rejected to prevent
+        path traversal attacks.
     """
     if patterns is None:
         patterns = get_clean_patterns()
 
     for pattern in patterns:
+        if not _is_safe_pattern(pattern):
+            print(f"[clean] Skipping unsafe pattern: {pattern}")
+            continue
         for path in Path.cwd().glob(pattern):
             if path.is_dir():
                 shutil.rmtree(path, ignore_errors=True)

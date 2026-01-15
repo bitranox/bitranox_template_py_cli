@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import secrets
 import shutil
 import subprocess
 import sys
@@ -49,7 +50,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_TARGET = PROJECT.coverage_source
 PACKAGE_SRC = Path("src") / PROJECT.import_package
 
-__all__ = ["run_tests", "run_coverage", "COVERAGE_TARGET"]
+__all__ = ["run_tests", "run_tests_slow", "run_coverage", "COVERAGE_TARGET"]
 
 _TRUTHY = {"1", "true", "yes", "on"}
 _FALSY = {"0", "false", "no", "off"}
@@ -828,7 +829,7 @@ def _run_pytest_step(
     if enable_coverage:
         click.echo("[coverage] enabled")
         with tempfile.TemporaryDirectory() as tmp:
-            cov_file = Path(tmp) / ".coverage"
+            cov_file = Path(tmp) / f".coverage.{secrets.token_hex(8)}"
             click.echo(f"[coverage] file={cov_file}")
             env = os.environ | {"COVERAGE_FILE": str(cov_file), "COVERAGE_NO_SQL": "1"}
             pytest_result = run_fn(
@@ -877,7 +878,7 @@ def run_coverage(*, verbose: bool = False) -> None:
     base_env = _build_default_env(config.src_path) | {"COVERAGE_NO_SQL": "1"}
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        coverage_file = Path(tmpdir) / ".coverage"
+        coverage_file = Path(tmpdir) / f".coverage.{secrets.token_hex(8)}"
         env = base_env | {"COVERAGE_FILE": str(coverage_file)}
 
         coverage_cmd = [sys.executable, "-m", "coverage", "run", "-m", "pytest", config.pytest_verbosity]
@@ -993,6 +994,49 @@ def run_tests(
             click.echo("Checks finished (coverage upload skipped or failed)")
     else:
         click.echo(f"Checks finished ({config.coverage_report_file} missing, upload skipped)")
+
+
+def run_tests_slow(*, verbose: bool = False) -> None:
+    """Run integration tests only (slow tests not run in CI).
+
+    This function runs only tests marked with @pytest.mark.integration.
+    It skips all linting, type-checking, and security scans for faster
+    iteration on integration tests.
+
+    Args:
+        verbose: Enable verbose output
+    """
+    env_verbose = os.getenv("TEST_VERBOSE", "").lower()
+    if not verbose and env_verbose in _TRUTHY:
+        verbose = True
+
+    sync_metadata_module(PROJECT)
+    bootstrap_dev()
+
+    config = TestConfig.from_pyproject(PROJECT_ROOT / "pyproject.toml")
+
+    click.echo("[test-slow] Running integration tests (marked with @pytest.mark.integration)")
+
+    pytest_cmd = [
+        "python",
+        "-m",
+        "pytest",
+        "-m",
+        "integration",
+        config.pytest_verbosity,
+    ]
+
+    run_fn = _make_run_fn(verbose)
+    result = run_fn(pytest_cmd, capture=False, label="pytest-integration", check=False)
+
+    # Exit code 5 means "no tests collected" - expected when no integration tests exist
+    if result.code == 0:
+        click.echo("[test-slow] Integration tests passed")
+    elif result.code == 5:
+        click.echo("[test-slow] No integration tests found (this is expected if none exist yet)")
+    else:
+        click.echo("[test-slow] Integration tests failed", err=True)
+        raise SystemExit(result.code)
 
 
 def main() -> None:

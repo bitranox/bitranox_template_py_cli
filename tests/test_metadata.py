@@ -4,15 +4,12 @@ Validates that the package metadata constants match their source in pyproject.to
 Tests real files rather than stubs to ensure actual synchronization.
 """
 
-from __future__ import annotations
-
 from pathlib import Path
-from typing import Any
 
 import pytest
-import rtoml
 
 from bitranox_template_py_cli import __init__conf__
+from conftest import Pyproject, load_pyproject
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -27,9 +24,9 @@ PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 # ---------------------------------------------------------------------------
 
 
-def load_pyproject() -> dict[str, Any]:
-    """Load pyproject.toml as a dictionary."""
-    return rtoml.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
+def get_pyproject() -> Pyproject:
+    """Load and validate pyproject.toml as a typed Pydantic model."""
+    return load_pyproject(PYPROJECT_PATH)
 
 
 # ---------------------------------------------------------------------------
@@ -40,60 +37,61 @@ def load_pyproject() -> dict[str, Any]:
 @pytest.mark.os_agnostic
 def test_name_matches_pyproject() -> None:
     """The package name matches pyproject.toml."""
-    pyproject = load_pyproject()
+    pyproject = get_pyproject()
 
-    assert __init__conf__.name == pyproject["project"]["name"]
+    assert __init__conf__.name == pyproject.project.name
 
 
 @pytest.mark.os_agnostic
 def test_title_matches_pyproject_description() -> None:
     """The title matches pyproject.toml description."""
-    pyproject = load_pyproject()
+    pyproject = get_pyproject()
 
-    assert __init__conf__.title == pyproject["project"]["description"]
+    assert __init__conf__.title == pyproject.project.description
 
 
 @pytest.mark.os_agnostic
 def test_version_matches_pyproject() -> None:
     """The version matches pyproject.toml."""
-    pyproject = load_pyproject()
+    pyproject = get_pyproject()
 
-    assert __init__conf__.version == pyproject["project"]["version"]
+    assert __init__conf__.version == pyproject.project.version
 
 
 @pytest.mark.os_agnostic
 def test_homepage_matches_pyproject_urls() -> None:
     """The homepage matches pyproject.toml URLs."""
-    pyproject = load_pyproject()
+    pyproject = get_pyproject()
 
-    assert __init__conf__.homepage == pyproject["project"]["urls"]["Homepage"]
+    assert pyproject.project.urls is not None
+    assert __init__conf__.homepage == pyproject.project.urls.Homepage
 
 
 @pytest.mark.os_agnostic
 def test_author_matches_pyproject() -> None:
     """The author matches first pyproject.toml author."""
-    pyproject = load_pyproject()
-    authors = pyproject["project"]["authors"]
+    pyproject = get_pyproject()
+    authors = pyproject.project.authors
 
     assert authors, "pyproject.toml must have at least one author"
-    assert __init__conf__.author == authors[0]["name"]
+    assert __init__conf__.author == authors[0].name
 
 
 @pytest.mark.os_agnostic
 def test_author_email_matches_pyproject() -> None:
     """The author email matches first pyproject.toml author."""
-    pyproject = load_pyproject()
-    authors = pyproject["project"]["authors"]
+    pyproject = get_pyproject()
+    authors = pyproject.project.authors
 
     assert authors, "pyproject.toml must have at least one author"
-    assert __init__conf__.author_email == authors[0]["email"]
+    assert __init__conf__.author_email == authors[0].email
 
 
 @pytest.mark.os_agnostic
 def test_shell_command_is_registered_script() -> None:
     """The shell command is a registered console script."""
-    pyproject = load_pyproject()
-    scripts = pyproject["project"].get("scripts", {})
+    pyproject = get_pyproject()
+    scripts = pyproject.project.scripts or {}
 
     assert __init__conf__.shell_command in scripts
 
@@ -104,8 +102,8 @@ def test_shell_command_is_registered_script() -> None:
 
 
 @pytest.mark.os_agnostic
-def test_print_info_outputs_to_stdout(capsys: pytest.CaptureFixture[str]) -> None:
-    """print_info writes to stdout."""
+def test_print_info_writes_to_stdout_only(capsys: pytest.CaptureFixture[str]) -> None:
+    """print_info writes output to stdout and nothing to stderr."""
     __init__conf__.print_info()
 
     captured = capsys.readouterr()
@@ -115,52 +113,38 @@ def test_print_info_outputs_to_stdout(capsys: pytest.CaptureFixture[str]) -> Non
 
 
 @pytest.mark.os_agnostic
-def test_print_info_includes_package_name(capsys: pytest.CaptureFixture[str]) -> None:
-    """print_info output includes the package name."""
+@pytest.mark.parametrize(
+    "expected_content",
+    [
+        pytest.param(__init__conf__.name, id="package_name"),
+        pytest.param(__init__conf__.version, id="version"),
+        pytest.param("name", id="label_name"),
+        pytest.param("title", id="label_title"),
+        pytest.param("version", id="label_version"),
+        pytest.param("homepage", id="label_homepage"),
+        pytest.param("author", id="label_author"),
+        pytest.param("author_email", id="label_author_email"),
+        pytest.param("shell_command", id="label_shell_command"),
+    ],
+)
+def test_print_info_includes_expected_content(
+    capsys: pytest.CaptureFixture[str],
+    expected_content: str,
+) -> None:
+    """print_info output includes expected values and labels."""
+    __init__conf__.print_info()
+    output = capsys.readouterr().out
+
+    assert expected_content in output
+
+
+@pytest.mark.os_agnostic
+def test_print_info_shows_header(capsys: pytest.CaptureFixture[str]) -> None:
+    """print_info output begins with a header containing the package name."""
     __init__conf__.print_info()
 
     output = capsys.readouterr().out
 
-    assert __init__conf__.name in output
-
-
-@pytest.mark.os_agnostic
-def test_print_info_includes_version(capsys: pytest.CaptureFixture[str]) -> None:
-    """print_info output includes the version."""
-    __init__conf__.print_info()
-
-    output = capsys.readouterr().out
-
-    assert __init__conf__.version in output
-
-
-@pytest.mark.os_agnostic
-def test_print_info_includes_all_field_labels(capsys: pytest.CaptureFixture[str]) -> None:
-    """print_info output includes all field labels."""
-    __init__conf__.print_info()
-
-    output = capsys.readouterr().out
-
-    expected_labels = ["name", "title", "version", "homepage", "author", "author_email", "shell_command"]
-    for label in expected_labels:
-        assert label in output
-
-
-@pytest.mark.os_agnostic
-def test_print_info_shows_header() -> None:
-    """print_info shows a header with the package name."""
-    import io
-    import sys
-
-    buffer = io.StringIO()
-    old_stdout = sys.stdout
-    sys.stdout = buffer
-    try:
-        __init__conf__.print_info()
-    finally:
-        sys.stdout = old_stdout
-
-    output = buffer.getvalue()
     assert f"Info for {__init__conf__.name}:" in output
 
 
@@ -213,25 +197,30 @@ def test_pyproject_exists() -> None:
 @pytest.mark.os_agnostic
 def test_pyproject_has_project_section() -> None:
     """pyproject.toml has a [project] section."""
-    pyproject = load_pyproject()
+    pyproject = get_pyproject()
 
-    assert "project" in pyproject
+    # Pydantic validation ensures project exists; accessing it confirms
+    assert pyproject.project is not None
 
 
 @pytest.mark.os_agnostic
 def test_pyproject_has_required_fields() -> None:
     """pyproject.toml has all required project fields."""
-    pyproject = load_pyproject()
-    project = pyproject["project"]
+    pyproject = get_pyproject()
+    project = pyproject.project
 
-    required = ["name", "version", "description", "authors", "urls"]
-    for field in required:
-        assert field in project, f"Missing required field: {field}"
+    # Pydantic validates required fields; verify they have values
+    assert project.name
+    assert project.version
+    assert project.description
+    assert project.authors
+    assert project.urls is not None
 
 
 @pytest.mark.os_agnostic
 def test_pyproject_has_homepage_url() -> None:
     """pyproject.toml has a Homepage URL."""
-    pyproject = load_pyproject()
+    pyproject = get_pyproject()
 
-    assert "Homepage" in pyproject["project"]["urls"]
+    assert pyproject.project.urls is not None
+    assert pyproject.project.urls.Homepage is not None

@@ -78,12 +78,19 @@ def release(*, remote: str = _DEFAULT_REMOTE) -> None:
 
 
 def _ensure_clean() -> None:
-    if run(["bash", "-lc", "! git diff --quiet || ! git diff --cached --quiet"], check=False).code == 0:
+    unstaged = run(["git", "diff", "--quiet"], check=False).code
+    staged = run(["git", "diff", "--cached", "--quiet"], check=False).code
+    if unstaged != 0 or staged != 0:
         raise SystemExit("[release] Working tree not clean. Commit or stash changes first.")
 
 
 def _looks_like_semver(v: str) -> bool:
-    return bool(re.match(r"^[0-9]+\.[0-9]+\.[0-9]+$", v))
+    """Validate semantic version format (X.Y.Z with reasonable bounds)."""
+    match = re.match(r"^([0-9]{1,5})\.([0-9]{1,5})\.([0-9]{1,5})$", v)
+    if not match:
+        return False
+    major, minor, patch = (int(x) for x in match.groups())
+    return max(major, minor, patch) < 100000
 
 
 if __name__ == "__main__":  # pragma: no cover
