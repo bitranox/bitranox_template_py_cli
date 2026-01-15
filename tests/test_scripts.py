@@ -216,7 +216,7 @@ def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
         seen.append(name)
         if name.endswith(".__main__"):
             return SimpleNamespace()
-        if name.endswith(".cli"):
+        if name.endswith(".adapters.cli.main"):
             return SimpleNamespace(main=_run_cli_main)
         raise AssertionError(f"unexpected import {name}")
 
@@ -226,9 +226,9 @@ def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
     result = runner.invoke(cli.main, ["run"])
     assert result.exit_code == 0
     package = run_cli.PROJECT.import_package
-    assert f"{package}.cli" in seen
+    assert f"{package}.adapters.cli.main" in seen
     if len(seen) == 2:
-        assert seen == [f"{package}.__main__", f"{package}.cli"]
+        assert seen == [f"{package}.__main__", f"{package}.adapters.cli.main"]
 
 
 @pytest.mark.os_agnostic
