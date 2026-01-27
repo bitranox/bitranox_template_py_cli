@@ -1,0 +1,203 @@
+"""CLI configuration overrides via ``--set SECTION.KEY=VALUE``.
+
+Provides parsing, coercion, and deep-merge of ad-hoc configuration
+overrides passed on the command line. Overrides are applied after all
+file-based and environment-based configuration layers, giving them
+the highest precedence short of per-command flags.
+
+Contents:
+    * :class:`ConfigOverride` - Parsed override with section, key path, and value.
+    * :func:`parse_override` - Split ``SECTION.KEY=VALUE`` into a ConfigOverride.
+    * :func:`coerce_value` - JSON-parse with string fallback.
+    * :func:`apply_overrides` - Deep-merge overrides into a Config instance.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+import orjson
+
+from lib_layered_config import Config
+
+
+@dataclass(frozen=True, slots=True)
+class ConfigOverride:
+    """A single parsed configuration override.
+
+    Attributes:
+        section: Top-level TOML section (e.g., ``lib_log_rich``).
+        key_path: Dot-separated sub-key path within the section (e.g., ``console_level``
+            or ``payload_limits.message_max_chars``).
+        value: Coerced Python value to set.
+    """
+
+    section: str
+    key_path: tuple[str, ...]
+    value: Any
+
+
+def parse_override(raw: str) -> ConfigOverride:
+    """Split a ``SECTION.KEY[.SUBKEY...]=VALUE`` string into a ConfigOverride.
+
+    The first dot separates the top-level section from the key path.
+    The first ``=`` separates the full dotted path from the value.
+    Values are coerced via :func:`coerce_value`.
+
+    Args:
+        raw: Raw override string (e.g., ``lib_log_rich.console_level=DEBUG``).
+
+    Returns:
+        Parsed ConfigOverride with section, key_path tuple, and coerced value.
+
+    Raises:
+        ValueError: If the string lacks ``=``, has no dot in the key, or has
+            empty section/key components.
+
+    Examples:
+        >>> override = parse_override("lib_log_rich.console_level=DEBUG")
+        >>> override.section
+        'lib_log_rich'
+        >>> override.key_path
+        ('console_level',)
+        >>> override.value
+        'DEBUG'
+
+        >>> override = parse_override("lib_log_rich.payload_limits.max_chars=8192")
+        >>> override.key_path
+        ('payload_limits', 'max_chars')
+        >>> override.value
+        8192
+    """
+    if "=" not in raw:
+        raise ValueError(f"Invalid override {raw!r}: must contain '='")
+
+    path_part, value_str = raw.split("=", maxsplit=1)
+
+    if "." not in path_part:
+        raise ValueError(f"Invalid override {raw!r}: key must contain at least one dot (SECTION.KEY)")
+
+    parts = path_part.split(".")
+    section = parts[0]
+    key_parts = tuple(parts[1:])
+
+    if not section:
+        raise ValueError(f"Invalid override {raw!r}: section name is empty")
+    if not all(key_parts):
+        raise ValueError(f"Invalid override {raw!r}: key path contains empty component")
+
+    return ConfigOverride(
+        section=section,
+        key_path=key_parts,
+        value=coerce_value(value_str),
+    )
+
+
+def coerce_value(raw: str) -> Any:
+    """Coerce a raw string value using JSON parsing with string fallback.
+
+    Attempts ``orjson.loads`` first (handling booleans, numbers, null, arrays,
+    objects). Falls back to the raw string if JSON parsing fails.
+
+    Args:
+        raw: Raw value string from CLI.
+
+    Returns:
+        Parsed Python value (bool, int, float, None, list, dict) or the
+        original string.
+
+    Examples:
+        >>> coerce_value("true")
+        True
+        >>> coerce_value("42")
+        42
+        >>> coerce_value("3.14")
+        3.14
+        >>> coerce_value("null")
+        >>> coerce_value('["a","b"]')
+        ['a', 'b']
+        >>> coerce_value("DEBUG")
+        'DEBUG'
+        >>> coerce_value("")
+        ''
+    """
+    if raw == "":
+        return ""
+    try:
+        return orjson.loads(raw)
+    except (orjson.JSONDecodeError, ValueError):
+        return raw
+
+
+def _nest_override(target: dict[str, Any], section: str, key_path: tuple[str, ...], value: Any) -> None:
+    """Build a nested override dict from section, key path, and value.
+
+    Creates intermediate dicts as needed. The resulting dict structure
+    is passed to ``Config.with_overrides()`` for merge.
+
+    Args:
+        target: Mutable override dictionary being built.
+        section: Top-level section key.
+        key_path: Sequence of sub-keys leading to the target.
+        value: Value to set at the target location.
+
+    Examples:
+        >>> d: dict[str, Any] = {}
+        >>> _nest_override(d, "s", ("a",), 2)
+        >>> d["s"]["a"]
+        2
+        >>> d2: dict[str, Any] = {}
+        >>> _nest_override(d2, "new", ("x", "y"), 3)
+        >>> d2["new"]["x"]["y"]
+        3
+    """
+    node = target.setdefault(section, {})
+    for part in key_path[:-1]:
+        node = node.setdefault(part, {})
+    node[key_path[-1]] = value
+
+
+def apply_overrides(config: Config, raw_overrides: tuple[str, ...]) -> Config:
+    """Deep-merge CLI overrides into a Config instance.
+
+    Parses each raw override string, builds a nested override dict,
+    and delegates to ``Config.with_overrides()`` for the merge.
+
+    Args:
+        config: Original immutable Config from file/env layers.
+        raw_overrides: Tuple of ``SECTION.KEY=VALUE`` strings from ``--set``.
+
+    Returns:
+        New Config instance with overrides applied, or the original if
+        ``raw_overrides`` is empty.
+
+    Raises:
+        ValueError: If any override string is malformed.
+
+    Examples:
+        >>> from lib_layered_config import Config
+        >>> cfg = Config({"s": {"k": 1}}, {"s.k": {"layer": "default", "path": None, "key": "s.k"}})
+        >>> result = apply_overrides(cfg, ("s.k=2",))
+        >>> result["s"]["k"]
+        2
+        >>> apply_overrides(cfg, ()) is cfg
+        True
+    """
+    if not raw_overrides:
+        return config
+
+    overrides: dict[str, Any] = {}
+    for raw in raw_overrides:
+        parsed = parse_override(raw)
+        _nest_override(overrides, parsed.section, parsed.key_path, parsed.value)
+
+    return config.with_overrides(overrides)
+
+
+__all__ = [
+    "ConfigOverride",
+    "parse_override",
+    "coerce_value",
+    "apply_overrides",
+]
