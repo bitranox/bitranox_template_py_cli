@@ -12,11 +12,11 @@ from lib_layered_config import Config
 
 import lib_cli_exit_tools
 
-from bitranox_template_cli_app_config_log_mail.adapters import cli as cli_mod
-from bitranox_template_cli_app_config_log_mail.adapters.cli.traceback import TracebackState
-from bitranox_template_cli_app_config_log_mail import __init__conf__
-from bitranox_template_cli_app_config_log_mail.adapters.config import loader as config_mod
-from bitranox_template_cli_app_config_log_mail.adapters.config import deploy as config_deploy_mod
+from bitranox_template_py_cli.adapters import cli as cli_mod
+from bitranox_template_py_cli.adapters.cli.traceback import TracebackState
+from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli.adapters.config import loader as config_mod
+from bitranox_template_py_cli.adapters.config import deploy as config_deploy_mod
 
 
 @dataclass(slots=True)
@@ -494,7 +494,7 @@ def test_when_config_deploy_supports_multiple_targets(
 ) -> None:
     """Verify config-deploy accepts multiple --target options."""
     from pathlib import Path
-    from bitranox_template_cli_app_config_log_mail.domain.enums import DeployTarget
+    from bitranox_template_py_cli.domain.enums import DeployTarget
 
     path1 = tmp_path / "config1.toml"
     path2 = tmp_path / "config2.toml"
@@ -789,8 +789,8 @@ def test_when_restore_is_disabled_the_traceback_choice_remains(
 @pytest.mark.os_agnostic
 def test_when_smtp_overrides_have_no_values_it_returns_same_config() -> None:
     """When no overrides are set, apply_to returns the same config instance."""
-    from bitranox_template_cli_app_config_log_mail.adapters.cli.commands.email import SmtpConfigOverrides
-    from bitranox_template_cli_app_config_log_mail.adapters.email.sender import EmailConfig
+    from bitranox_template_py_cli.adapters.cli.commands.email import SmtpConfigOverrides
+    from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 
     config = EmailConfig(smtp_hosts=["smtp.example.com:587"], from_address="a@b.com")
     overrides = SmtpConfigOverrides()
@@ -803,8 +803,8 @@ def test_when_smtp_overrides_have_no_values_it_returns_same_config() -> None:
 @pytest.mark.os_agnostic
 def test_when_smtp_overrides_include_host_it_applies_override() -> None:
     """When smtp_hosts is set, apply_to replaces hosts and keeps other fields unchanged."""
-    from bitranox_template_cli_app_config_log_mail.adapters.cli.commands.email import SmtpConfigOverrides
-    from bitranox_template_cli_app_config_log_mail.adapters.email.sender import EmailConfig
+    from bitranox_template_py_cli.adapters.cli.commands.email import SmtpConfigOverrides
+    from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 
     config = EmailConfig(
         smtp_hosts=["smtp.original.com:587"],
@@ -823,8 +823,8 @@ def test_when_smtp_overrides_include_host_it_applies_override() -> None:
 @pytest.mark.os_agnostic
 def test_when_smtp_overrides_include_multiple_fields_it_applies_all() -> None:
     """When multiple overrides are set, apply_to replaces all specified fields."""
-    from bitranox_template_cli_app_config_log_mail.adapters.cli.commands.email import SmtpConfigOverrides
-    from bitranox_template_cli_app_config_log_mail.adapters.email.sender import EmailConfig
+    from bitranox_template_py_cli.adapters.cli.commands.email import SmtpConfigOverrides
+    from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 
     config = EmailConfig(
         smtp_hosts=["smtp.original.com:587"],
@@ -1478,7 +1478,7 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
 @pytest.mark.os_agnostic
 def test_when_profile_contains_path_traversal_it_rejects(clear_config_cache: None) -> None:
     """Profile names containing path traversal sequences must be rejected."""
-    from bitranox_template_cli_app_config_log_mail.adapters.config.loader import get_config
+    from bitranox_template_py_cli.adapters.config.loader import get_config
 
     with pytest.raises(ValueError, match="Invalid profile name"):
         get_config(profile="../etc")
@@ -1487,7 +1487,7 @@ def test_when_profile_contains_path_traversal_it_rejects(clear_config_cache: Non
 @pytest.mark.os_agnostic
 def test_when_profile_is_dot_dot_it_rejects(clear_config_cache: None) -> None:
     """A bare '..' profile must be rejected."""
-    from bitranox_template_cli_app_config_log_mail.adapters.config.loader import get_config
+    from bitranox_template_py_cli.adapters.config.loader import get_config
 
     with pytest.raises(ValueError, match="Invalid profile name"):
         get_config(profile="..")
@@ -1496,7 +1496,7 @@ def test_when_profile_is_dot_dot_it_rejects(clear_config_cache: None) -> None:
 @pytest.mark.os_agnostic
 def test_when_profile_contains_slash_it_rejects(clear_config_cache: None) -> None:
     """Profile names with slashes must be rejected."""
-    from bitranox_template_cli_app_config_log_mail.adapters.config.loader import get_config
+    from bitranox_template_py_cli.adapters.config.loader import get_config
 
     with pytest.raises(ValueError, match="Invalid profile name"):
         get_config(profile="foo/bar")
@@ -1505,7 +1505,7 @@ def test_when_profile_contains_slash_it_rejects(clear_config_cache: None) -> Non
 @pytest.mark.os_agnostic
 def test_when_profile_is_valid_alphanumeric_it_accepts(clear_config_cache: None) -> None:
     """Alphanumeric profiles with hyphens and underscores must be accepted."""
-    from bitranox_template_cli_app_config_log_mail.adapters.config.loader import get_config
+    from bitranox_template_py_cli.adapters.config.loader import get_config
 
     # Should not raise — the config may or may not exist, but validation passes
     config = get_config(profile="staging-v2")
@@ -1515,8 +1515,8 @@ def test_when_profile_is_valid_alphanumeric_it_accepts(clear_config_cache: None)
 @pytest.mark.os_agnostic
 def test_when_deploy_receives_invalid_profile_it_rejects(monkeypatch: pytest.MonkeyPatch) -> None:
     """deploy_configuration must reject path traversal profiles."""
-    from bitranox_template_cli_app_config_log_mail.adapters.config.deploy import deploy_configuration
-    from bitranox_template_cli_app_config_log_mail.domain.enums import DeployTarget
+    from bitranox_template_py_cli.adapters.config.deploy import deploy_configuration
+    from bitranox_template_py_cli.domain.enums import DeployTarget
 
     with pytest.raises(ValueError, match="Invalid profile name"):
         deploy_configuration(targets=[DeployTarget.USER], profile="../../x")
@@ -1821,7 +1821,7 @@ def test_when_email_smtp_fails_it_exits_with_code_69(
     )
 
     with patch(
-        "bitranox_template_cli_app_config_log_mail.adapters.cli.commands.email.send_email",
+        "bitranox_template_py_cli.adapters.cli.commands.email.send_email",
         side_effect=RuntimeError("SMTP connection refused"),
     ):
         result: Result = cli_runner.invoke(
@@ -1854,7 +1854,7 @@ def test_when_email_send_returns_false_it_exits_with_code_69(
     )
 
     with patch(
-        "bitranox_template_cli_app_config_log_mail.adapters.cli.commands.email.send_email",
+        "bitranox_template_py_cli.adapters.cli.commands.email.send_email",
         return_value=False,
     ):
         result: Result = cli_runner.invoke(
@@ -1887,7 +1887,7 @@ def test_when_email_has_unexpected_error_it_exits_with_code_1(
     )
 
     with patch(
-        "bitranox_template_cli_app_config_log_mail.adapters.cli.commands.email.send_email",
+        "bitranox_template_py_cli.adapters.cli.commands.email.send_email",
         side_effect=TypeError("unexpected type error"),
     ):
         result: Result = cli_runner.invoke(

@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from bitranox_template_cli_app_config_log_mail.adapters.config.loader import get_config, get_default_config_path
-from bitranox_template_cli_app_config_log_mail.adapters.config.deploy import deploy_configuration
-from bitranox_template_cli_app_config_log_mail.adapters.config.display import display_config
-from bitranox_template_cli_app_config_log_mail.adapters.email.sender import load_email_config_from_dict, send_email, send_notification
-from bitranox_template_cli_app_config_log_mail.adapters.logging.setup import init_logging
+from bitranox_template_py_cli.adapters.config.loader import get_config, get_default_config_path
+from bitranox_template_py_cli.adapters.config.deploy import deploy_configuration
+from bitranox_template_py_cli.adapters.config.display import display_config
+from bitranox_template_py_cli.adapters.email.sender import load_email_config_from_dict, send_email, send_notification
+from bitranox_template_py_cli.adapters.logging.setup import init_logging
 
 if TYPE_CHECKING:
-    from bitranox_template_cli_app_config_log_mail.application.ports import (
+    from bitranox_template_py_cli.application.ports import (
         DeployConfiguration,
         DisplayConfig,
         GetConfig,

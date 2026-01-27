@@ -20,26 +20,26 @@ present authoritative project information without invoking packaging APIs.
 from __future__ import annotations
 
 #: Distribution name declared in ``pyproject.toml``.
-name = "bitranox_template_cli_app_config_log_mail"
+name = "bitranox_template_py_cli"
 #: Human-readable summary shown in CLI help output.
 title = "Template CLI application with configuration management and structured logging"
 #: Current release version pulled from ``pyproject.toml`` by automation.
 version = "1.1.0"
 #: Repository homepage presented to users.
-homepage = "https://github.com/bitranox/bitranox_template_cli_app_config_log_mail"
+homepage = "https://github.com/bitranox/bitranox_template_py_cli"
 #: Author attribution surfaced in CLI output.
 author = "bitranox"
 #: Contact email surfaced in CLI output.
 author_email = "bitranox@gmail.com"
 #: Console-script name published by the package.
-shell_command = "bitranox-template-cli-app-config-log-mail"
+shell_command = "bitranox-template-py-cli"
 
 #: Vendor identifier for lib_layered_config paths (macOS/Windows)
 LAYEREDCONF_VENDOR: str = "bitranox"
 #: Application display name for lib_layered_config paths (macOS/Windows)
-LAYEREDCONF_APP: str = "Bitranox Template Cli App Config Log Mail"
+LAYEREDCONF_APP: str = "Bitranox Template Py Cli"
 #: Configuration slug for lib_layered_config Linux paths and environment variables
-LAYEREDCONF_SLUG: str = "bitranox-template-cli-app-config-log-mail"
+LAYEREDCONF_SLUG: str = "bitranox-template-py-cli"
 
 
 def print_info() -> None:
@@ -55,7 +55,7 @@ def print_info() -> None:
     Examples
     --------
     >>> print_info()  # doctest: +ELLIPSIS
-    Info for bitranox_template_cli_app_config_log_mail:
+    Info for bitranox_template_py_cli:
     ...
     """
 

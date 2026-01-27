@@ -14,9 +14,9 @@
 #   Format: <SLUG>___<SECTION>__<KEY>=<VALUE>
 #
 #   Examples:
-#     BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_USERNAME=user@example.com
-#     BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_PASSWORD=secret
-#     BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__FROM_ADDRESS=alerts@example.com
+#     BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_USERNAME=user@example.com
+#     BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_PASSWORD=secret
+#     BITRANOX_TEMPLATE_PY_CLI___EMAIL__FROM_ADDRESS=alerts@example.com
 #
 # .env File Support
 # -----------------
@@ -37,7 +37,7 @@
 # Purpose: SMTP servers to use for email delivery (tried in order)
 # Type: array of strings in "host[:port]" format
 # Default: [] (empty, must be configured to send email)
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_HOSTS=smtp.example.com:587,smtp-backup.example.com:587
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_HOSTS=smtp.example.com:587,smtp-backup.example.com:587
 # .env: EMAIL__SMTP_HOSTS=smtp.example.com:587,smtp-backup.example.com:587
 # Note: Port 587 is standard for STARTTLS, 465 for implicit TLS, 25 for plain
 smtp_hosts = []
@@ -45,14 +45,14 @@ smtp_hosts = []
 # Purpose: Default sender address for outgoing emails, or "" if not configured
 # Type: string (valid email address or empty string)
 # Default: "" (not set, must be configured or passed via --from)
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__FROM_ADDRESS=noreply@example.com
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__FROM_ADDRESS=noreply@example.com
 # .env: EMAIL__FROM_ADDRESS=noreply@example.com
 from_address = ""
 
 # Purpose: Default recipient addresses for outgoing emails
 # Type: array of strings (valid email addresses)
 # Default: [] (empty, must be configured or passed via --to)
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__RECIPIENTS=admin@example.com,ops@example.com
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__RECIPIENTS=admin@example.com,ops@example.com
 # .env: EMAIL__RECIPIENTS=admin@example.com,ops@example.com
 # Note: When set, emails will be sent to these addresses unless overridden via --to
 recipients = []
@@ -60,7 +60,7 @@ recipients = []
 # Purpose: SMTP authentication username
 # Type: string
 # Default: "" (no authentication)
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_USERNAME=noreply@example.com
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_USERNAME=noreply@example.com
 # .env: EMAIL__SMTP_USERNAME=noreply@example.com
 # Note: Both username and password must be set to enable authentication
 smtp_username = ""
@@ -68,7 +68,7 @@ smtp_username = ""
 # Purpose: SMTP authentication password
 # Type: string
 # Default: "" (no authentication)
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_PASSWORD=your-app-password
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_PASSWORD=your-app-password
 # .env: EMAIL__SMTP_PASSWORD=your-app-password
 # Note: Store in environment variable or user config, not in defaults
 smtp_password = ""
@@ -76,7 +76,7 @@ smtp_password = ""
 # Purpose: Enable STARTTLS negotiation before authentication
 # Type: boolean
 # Default: true
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__USE_STARTTLS=true
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__USE_STARTTLS=true
 # .env: EMAIL__USE_STARTTLS=true
 # Note: Standard for port 587; disable for implicit TLS (port 465)
 use_starttls = true
@@ -84,14 +84,14 @@ use_starttls = true
 # Purpose: Socket timeout in seconds for SMTP operations
 # Type: float
 # Default: 30.0
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__TIMEOUT=30.0
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__TIMEOUT=30.0
 # .env: EMAIL__TIMEOUT=30.0
 timeout = 30.0
 
 # Purpose: Behavior when attachment files are missing
 # Type: boolean
 # Default: true (raise FileNotFoundError)
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__RAISE_ON_MISSING_ATTACHMENTS=true
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__RAISE_ON_MISSING_ATTACHMENTS=true
 # .env: EMAIL__RAISE_ON_MISSING_ATTACHMENTS=true
 # Note: When false, logs warning and continues without attachment
 raise_on_missing_attachments = true
@@ -99,7 +99,7 @@ raise_on_missing_attachments = true
 # Purpose: Behavior when recipient email addresses are invalid
 # Type: boolean
 # Default: true (raise ValueError)
-# Environment Variable: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__RAISE_ON_INVALID_RECIPIENT=true
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__RAISE_ON_INVALID_RECIPIENT=true
 # .env: EMAIL__RAISE_ON_INVALID_RECIPIENT=true
 # Note: When false, logs warning and skips invalid addresses
 raise_on_invalid_recipient = true

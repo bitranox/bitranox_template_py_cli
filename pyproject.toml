@@ -1,5 +1,5 @@
 [project]
-name = "bitranox_template_cli_app_config_log_mail"
+name = "bitranox_template_py_cli"
 version = "1.1.0"
 description = "Template CLI application with configuration management and structured logging"
 readme = "README.md"
@@ -30,9 +30,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/bitranox/bitranox_template_cli_app_config_log_mail"
-Repository = "https://github.com/bitranox/bitranox_template_cli_app_config_log_mail.git"
-Issues = "https://github.com/bitranox/bitranox_template_cli_app_config_log_mail/issues"
+Homepage = "https://github.com/bitranox/bitranox_template_py_cli"
+Repository = "https://github.com/bitranox/bitranox_template_py_cli.git"
+Issues = "https://github.com/bitranox/bitranox_template_py_cli/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -59,8 +59,8 @@ dev = [
 ]
 
 [project.scripts]
-bitranox_template_cli_app_config_log_mail = "bitranox_template_cli_app_config_log_mail.adapters.cli:main"
-bitranox-template-cli-app-config-log-mail = "bitranox_template_cli_app_config_log_mail.adapters.cli:main"
+bitranox_template_py_cli = "bitranox_template_py_cli.adapters.cli:main"
+bitranox-template-py-cli = "bitranox_template_py_cli.adapters.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.28.0"]
@@ -69,8 +69,8 @@ build-backend = "hatchling.build"
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bitranox_template_cli_app_config_log_mail"]
-include = ["src/bitranox_template_cli_app_config_log_mail/py.typed", "src/bitranox_template_cli_app_config_log_mail/adapters/config/defaultconfig.toml"]
+packages = ["src/bitranox_template_py_cli"]
+include = ["src/bitranox_template_py_cli/py.typed", "src/bitranox_template_py_cli/adapters/config/defaultconfig.toml"]
 
 [tool.ruff]
 line-length = 160
@@ -109,7 +109,7 @@ markers = [
 branch = true
 parallel = false
 data_file = ".coverage.unit"
-source = ["src/bitranox_template_cli_app_config_log_mail"]
+source = ["src/bitranox_template_py_cli"]
 
 [tool.coverage.report]
 omit = [
@@ -156,18 +156,18 @@ pytest-verbosity = "-vv"
 coverage-report-file = "coverage.xml"
 src-path = "src"
 [tool.importlinter]
-root_package = "bitranox_template_cli_app_config_log_mail"
+root_package = "bitranox_template_py_cli"
 exclude_type_checking_imports = true
 
 [[tool.importlinter.contracts]]
 name = "Domain is pure (no adapter dependencies)"
 type = "forbidden"
 source_modules = [
-  "bitranox_template_cli_app_config_log_mail.domain",
+  "bitranox_template_py_cli.domain",
 ]
 forbidden_modules = [
-  "bitranox_template_cli_app_config_log_mail.adapters",
-  "bitranox_template_cli_app_config_log_mail.composition",
+  "bitranox_template_py_cli.adapters",
+  "bitranox_template_py_cli.composition",
 ]
 
 [[tool.importlinter.contracts]]
@@ -175,13 +175,13 @@ name = "Clean Architecture layers"
 type = "layers"
 layers = [
   # Composition wires adapters - can import everything
-  "bitranox_template_cli_app_config_log_mail.composition",
+  "bitranox_template_py_cli.composition",
   # Adapters implement ports - can import application and domain
-  "bitranox_template_cli_app_config_log_mail.adapters",
+  "bitranox_template_py_cli.adapters",
   # Application defines ports - can import domain
-  "bitranox_template_cli_app_config_log_mail.application",
+  "bitranox_template_py_cli.application",
   # Domain is pure - bottom layer
-  "bitranox_template_cli_app_config_log_mail.domain",
+  "bitranox_template_py_cli.domain",
 ]
 
 [tool.pip-audit]

@@ -12,8 +12,8 @@ import pytest
 
 import lib_cli_exit_tools
 
-from bitranox_template_cli_app_config_log_mail import __init__conf__
-from bitranox_template_cli_app_config_log_mail.adapters import cli as cli_mod
+from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli.adapters import cli as cli_mod
 
 
 @dataclass(slots=True)
@@ -67,7 +67,7 @@ def test_when_module_entry_returns_zero_the_story_matches_cli(monkeypatch: pytes
     """Verify python -m invocation delegates to CLI with correct args."""
     ledger: dict[str, object] = {}
 
-    monkeypatch.setattr(sys, "argv", ["bitranox_template_cli_app_config_log_mail"], raising=False)
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli"], raising=False)
 
     def fake_run_cli(
         command: object,
@@ -85,7 +85,7 @@ def test_when_module_entry_returns_zero_the_story_matches_cli(monkeypatch: pytes
     monkeypatch.setattr("lib_cli_exit_tools.application.runner.run_cli", fake_run_cli)
 
     with pytest.raises(SystemExit) as exc:
-        runpy.run_module("bitranox_template_cli_app_config_log_mail.__main__", run_name="__main__")
+        runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
 
     assert exc.value.code == 0
     assert ledger["command"] is cli_mod.cli
@@ -97,7 +97,7 @@ def test_when_module_entry_raises_the_exit_helpers_format_the_song(monkeypatch: 
     """Verify exceptions are formatted by lib_cli_exit_tools helpers."""
     printed: list[PrintedTraceback] = []
     codes: list[str] = []
-    monkeypatch.setattr(sys, "argv", ["bitranox_template_cli_app_config_log_mail"], raising=False)
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli"], raising=False)
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
 
@@ -120,7 +120,7 @@ def test_when_module_entry_raises_the_exit_helpers_format_the_song(monkeypatch: 
     monkeypatch.setattr("lib_cli_exit_tools.application.runner.run_cli", exploding_run_cli)
 
     with pytest.raises(SystemExit) as exc:
-        runpy.run_module("bitranox_template_cli_app_config_log_mail.__main__", run_name="__main__")
+        runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
 
     assert exc.value.code == 88
     assert printed == [PrintedTraceback(trace_back=False, length_limit=500, stream_present=False)]
@@ -134,12 +134,12 @@ def test_when_traceback_flag_is_used_via_module_entry_the_full_poem_is_printed(
     strip_ansi: Callable[[str], str],
 ) -> None:
     """Verify --traceback via module entry prints full traceback on error."""
-    monkeypatch.setattr(sys, "argv", ["bitranox_template_cli_app_config_log_mail", "--traceback", "fail"])
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "--traceback", "fail"])
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
 
     with pytest.raises(SystemExit) as exc:
-        runpy.run_module("bitranox_template_cli_app_config_log_mail.__main__", run_name="__main__")
+        runpy.run_module("bitranox_template_py_cli.__main__", run_name="__main__")
 
     plain_err = strip_ansi(capsys.readouterr().err)
 

@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
-from bitranox_template_cli_app_config_log_mail.adapters.email.sender import (
+from bitranox_template_py_cli.adapters.email.sender import (
     EmailConfig,
     load_email_config_from_dict,
     send_email,
@@ -926,8 +926,8 @@ def test_send_notification_raises_when_no_recipients_anywhere() -> None:
 @pytest.fixture
 def smtp_config_from_env() -> EmailConfig:
     """Load SMTP configuration via lib_layered_config for integration tests."""
-    from bitranox_template_cli_app_config_log_mail.adapters.config.loader import get_config
-    from bitranox_template_cli_app_config_log_mail.adapters.email.sender import load_email_config_from_dict
+    from bitranox_template_py_cli.adapters.config.loader import get_config
+    from bitranox_template_py_cli.adapters.email.sender import load_email_config_from_dict
 
     get_config.cache_clear()
     config = get_config()
@@ -946,7 +946,7 @@ def test_real_smtp_sends_email(smtp_config_from_env: EmailConfig) -> None:
     result = send_email(
         config=smtp_config_from_env,
         recipients=smtp_config_from_env.recipients,
-        subject="Test Email from bitranox_template_cli_app_config_log_mail",
+        subject="Test Email from bitranox_template_py_cli",
         body="This is a test email sent from the integration test suite.\n\nIf you receive this, the email functionality is working correctly.",
     )
 
@@ -960,7 +960,7 @@ def test_real_smtp_sends_html_email(smtp_config_from_env: EmailConfig) -> None:
     result = send_email(
         config=smtp_config_from_env,
         recipients=smtp_config_from_env.recipients,
-        subject="Test HTML Email from bitranox_template_cli_app_config_log_mail",
+        subject="Test HTML Email from bitranox_template_py_cli",
         body="This is the plain text version.",
         body_html="<html><body><h1>Test Email</h1><p>This is a <strong>HTML</strong> test email.</p></body></html>",
     )
@@ -975,7 +975,7 @@ def test_real_smtp_sends_notification(smtp_config_from_env: EmailConfig) -> None
     result = send_notification(
         config=smtp_config_from_env,
         recipients=smtp_config_from_env.recipients,
-        subject="Test Notification from bitranox_template_cli_app_config_log_mail",
+        subject="Test Notification from bitranox_template_py_cli",
         message="This is a test notification.\n\nSystem: All tests passing!",
     )
 

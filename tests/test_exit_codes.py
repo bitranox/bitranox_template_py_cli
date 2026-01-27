@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bitranox_template_cli_app_config_log_mail.adapters.cli.exit_codes import ExitCode
+from bitranox_template_py_cli.adapters.cli.exit_codes import ExitCode
 
 
 @pytest.mark.os_agnostic

@@ -1,19 +1,19 @@
-# bitranox_template_cli_app_config_log_mail
+# bitranox_template_py_cli
 
 <!-- Badges -->
-[![CI](https://github.com/bitranox/bitranox_template_cli_app_config_log_mail/actions/workflows/default_cicd_public.yml/badge.svg)](https://github.com/bitranox/bitranox_template_cli_app_config_log_mail/actions/workflows/default_cicd_public.yml)
-[![CodeQL](https://github.com/bitranox/bitranox_template_cli_app_config_log_mail/actions/workflows/codeql.yml/badge.svg)](https://github.com/bitranox/bitranox_template_cli_app_config_log_mail/actions/workflows/codeql.yml)
+[![CI](https://github.com/bitranox/bitranox_template_py_cli/actions/workflows/default_cicd_public.yml/badge.svg)](https://github.com/bitranox/bitranox_template_py_cli/actions/workflows/default_cicd_public.yml)
+[![CodeQL](https://github.com/bitranox/bitranox_template_py_cli/actions/workflows/codeql.yml/badge.svg)](https://github.com/bitranox/bitranox_template_py_cli/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Open in Codespaces](https://img.shields.io/badge/Codespaces-Open-blue?logo=github&logoColor=white&style=flat-square)](https://codespaces.new/bitranox/bitranox_template_cli_app_config_log_mail?quickstart=1)
-[![PyPI](https://img.shields.io/pypi/v/bitranox_template_cli_app_config_log_mail.svg)](https://pypi.org/project/bitranox_template_cli_app_config_log_mail/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/bitranox_template_cli_app_config_log_mail.svg)](https://pypi.org/project/bitranox_template_cli_app_config_log_mail/)
+[![Open in Codespaces](https://img.shields.io/badge/Codespaces-Open-blue?logo=github&logoColor=white&style=flat-square)](https://codespaces.new/bitranox/bitranox_template_py_cli?quickstart=1)
+[![PyPI](https://img.shields.io/pypi/v/bitranox_template_py_cli.svg)](https://pypi.org/project/bitranox_template_py_cli/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/bitranox_template_py_cli.svg)](https://pypi.org/project/bitranox_template_py_cli/)
 [![Code Style: Ruff](https://img.shields.io/badge/Code%20Style-Ruff-46A3FF?logo=ruff&labelColor=000)](https://docs.astral.sh/ruff/)
-[![codecov](https://codecov.io/gh/bitranox/bitranox_template_cli_app_config_log_mail/graph/badge.svg?token=UFBaUDIgRk)](https://codecov.io/gh/bitranox/bitranox_template_cli_app_config_log_mail)
-[![Maintainability](https://qlty.sh/badges/041ba2c1-37d6-40bb-85a0-ec5a8a0aca0c/maintainability.svg)](https://qlty.sh/gh/bitranox/projects/bitranox_template_cli_app_config_log_mail)
-[![Known Vulnerabilities](https://snyk.io/test/github/bitranox/bitranox_template_cli_app_config_log_mail/badge.svg)](https://snyk.io/test/github/bitranox/bitranox_template_cli_app_config_log_mail)
+[![codecov](https://codecov.io/gh/bitranox/bitranox_template_py_cli/graph/badge.svg?token=UFBaUDIgRk)](https://codecov.io/gh/bitranox/bitranox_template_py_cli)
+[![Maintainability](https://qlty.sh/badges/041ba2c1-37d6-40bb-85a0-ec5a8a0aca0c/maintainability.svg)](https://qlty.sh/gh/bitranox/projects/bitranox_template_py_cli)
+[![Known Vulnerabilities](https://snyk.io/test/github/bitranox/bitranox_template_py_cli/badge.svg)](https://snyk.io/test/github/bitranox/bitranox_template_py_cli)
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 
-`bitranox_template_cli_app_config_log_mail` is a template CLI application demonstrating configuration management and structured logging. It showcases rich-click for ergonomics and lib_cli_exit_tools for exits, providing a solid foundation for building CLI applications.
+`bitranox_template_py_cli` is a template CLI application demonstrating configuration management and structured logging. It showcases rich-click for ergonomics and lib_cli_exit_tools for exits, providing a solid foundation for building CLI applications.
 - CLI entry point styled with rich-click (rich output + click ergonomics).
 - Layered configuration system with lib_layered_config (defaults → app → host → user → .env → env).
 - Rich structured logging with lib_log_rich (console, journald, eventlog, Graylog/GELF).
@@ -33,12 +33,12 @@ source .venv/bin/activate
 # Windows (PowerShell)
 .venv\Scripts\Activate.ps1
 # install via uv from PyPI
-uv pip install bitranox_template_cli_app_config_log_mail
+uv pip install bitranox_template_py_cli
 ```
 
 For alternative install paths (pip, pipx, uv, uvx source builds, etc.), see
 [INSTALL.md](INSTALL.md). All supported methods register both the
-`bitranox_template_cli_app_config_log_mail` and `bitranox-template-cli-app-config-log-mail` commands on your PATH.
+`bitranox_template_py_cli` and `bitranox-template-py-cli` commands on your PATH.
 
 ### Python 3.10+ Baseline
 
@@ -60,24 +60,24 @@ The CLI leverages [rich-click](https://github.com/ewels/rich-click) so help outp
 
 ```bash
 # Display package information
-bitranox-template-cli-app-config-log-mail info
+bitranox-template-py-cli info
 
 # Test commands for development
-bitranox-template-cli-app-config-log-mail hello
-bitranox-template-cli-app-config-log-mail fail
-bitranox-template-cli-app-config-log-mail --traceback fail
+bitranox-template-py-cli hello
+bitranox-template-py-cli fail
+bitranox-template-py-cli --traceback fail
 
 # Configuration management
-bitranox-template-cli-app-config-log-mail config                    # Show current configuration
-bitranox-template-cli-app-config-log-mail config --format json      # Show as JSON
-bitranox-template-cli-app-config-log-mail config --section lib_log_rich  # Show specific section
-bitranox-template-cli-app-config-log-mail config --profile production   # Show configuration for production profile
-bitranox-template-cli-app-config-log-mail config-deploy --target user    # Deploy config to user directory
-bitranox-template-cli-app-config-log-mail config-deploy --target user --profile production  # Deploy to production profile
+bitranox-template-py-cli config                    # Show current configuration
+bitranox-template-py-cli config --format json      # Show as JSON
+bitranox-template-py-cli config --section lib_log_rich  # Show specific section
+bitranox-template-py-cli config --profile production   # Show configuration for production profile
+bitranox-template-py-cli config-deploy --target user    # Deploy config to user directory
+bitranox-template-py-cli config-deploy --target user --profile production  # Deploy to production profile
 
 # All commands work with any entry point
-python -m bitranox_template_cli_app_config_log_mail info
-uvx bitranox_template_cli_app_config_log_mail info
+python -m bitranox_template_py_cli info
+uvx bitranox_template_py_cli info
 ```
 
 ### Email Sending
@@ -95,15 +95,15 @@ Environment variables use the format: `<PREFIX>___<SECTION>__<KEY>=value`
 - Double underscore (`__`) separates SECTION from KEY
 
 ```bash
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_HOSTS="smtp.gmail.com:587,smtp.backup.com:587"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__FROM_ADDRESS="alerts@myapp.com"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_USERNAME="your-email@gmail.com"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_PASSWORD="your-app-password"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__USE_STARTTLS="true"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__TIMEOUT="60.0"
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_HOSTS="smtp.gmail.com:587,smtp.backup.com:587"
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__FROM_ADDRESS="alerts@myapp.com"
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_USERNAME="your-email@gmail.com"
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_PASSWORD="your-app-password"
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__USE_STARTTLS="true"
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__TIMEOUT="60.0"
 ```
 
-**Configuration File** (`~/.config/bitranox-template-cli-app-config-log-mail/config.toml`):
+**Configuration File** (`~/.config/bitranox-template-py-cli/config.toml`):
 ```toml
 [email]
 smtp_hosts = ["smtp.gmail.com:587", "smtp.backup.com:587"]  # Fallback to backup if primary fails
@@ -117,8 +117,8 @@ timeout = 60.0
 **`.env` File:**
 ```bash
 # Email configuration for local testing
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_HOSTS=smtp.gmail.com:587
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__FROM_ADDRESS=noreply@example.com
+BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_HOSTS=smtp.gmail.com:587
+BITRANOX_TEMPLATE_PY_CLI___EMAIL__FROM_ADDRESS=noreply@example.com
 ```
 
 #### Gmail Configuration Example
@@ -126,23 +126,23 @@ BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__FROM_ADDRESS=noreply@example.
 For Gmail, create an [App Password](https://support.google.com/accounts/answer/185833) instead of using your account password:
 
 ```bash
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_HOSTS=smtp.gmail.com:587
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__FROM_ADDRESS=your-email@gmail.com
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_USERNAME=your-email@gmail.com
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_PASSWORD=your-16-char-app-password
+BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_HOSTS=smtp.gmail.com:587
+BITRANOX_TEMPLATE_PY_CLI___EMAIL__FROM_ADDRESS=your-email@gmail.com
+BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_USERNAME=your-email@gmail.com
+BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_PASSWORD=your-16-char-app-password
 ```
 
 #### Send Simple Email
 
 ```bash
 # Send basic email to one recipient
-bitranox-template-cli-app-config-log-mail send-email \
+bitranox-template-py-cli send-email \
     --to recipient@example.com \
     --subject "Test Email" \
     --body "Hello from bitranox!"
 
 # Send to multiple recipients
-bitranox-template-cli-app-config-log-mail send-email \
+bitranox-template-py-cli send-email \
     --to user1@example.com \
     --to user2@example.com \
     --subject "Team Update" \
@@ -152,7 +152,7 @@ bitranox-template-cli-app-config-log-mail send-email \
 #### Send HTML Email with Attachments
 
 ```bash
-bitranox-template-cli-app-config-log-mail send-email \
+bitranox-template-py-cli send-email \
     --to recipient@example.com \
     --subject "Monthly Report" \
     --body "Please find the monthly report attached." \
@@ -167,13 +167,13 @@ For simple plain-text notifications, use the convenience command:
 
 ```bash
 # Single recipient
-bitranox-template-cli-app-config-log-mail send-notification \
+bitranox-template-py-cli send-notification \
     --to ops@example.com \
     --subject "Deployment Success" \
     --message "Application deployed successfully to production at $(date)"
 
 # Multiple recipients
-bitranox-template-cli-app-config-log-mail send-notification \
+bitranox-template-py-cli send-notification \
     --to admin1@example.com \
     --to admin2@example.com \
     --subject "System Alert" \
@@ -183,7 +183,7 @@ bitranox-template-cli-app-config-log-mail send-notification \
 #### Programmatic Email Usage
 
 ```python
-from bitranox_template_cli_app_config_log_mail.composition import EmailConfig, send_email, send_notification
+from bitranox_template_py_cli.composition import EmailConfig, send_email, send_notification
 
 # Configure email
 config = EmailConfig(
@@ -248,18 +248,18 @@ The application uses [lib_layered_config](https://github.com/bitranox/lib_layere
 #### Configuration Locations
 
 Platform-specific paths:
-- **Linux (user)**: `~/.config/bitranox-template-cli-app-config-log-mail/config.toml`
-- **Linux (app)**: `/etc/xdg/bitranox-template-cli-app-config-log-mail/config.toml`
-- **Linux (host)**: `/etc/bitranox-template-cli-app-config-log-mail/hosts/{hostname}.toml`
-- **macOS (user)**: `~/Library/Application Support/bitranox/Bitranox Template CLI App Config Log Mail/config.toml`
-- **Windows (user)**: `%APPDATA%\bitranox\Bitranox Template CLI App Config Log Mail\config.toml`
+- **Linux (user)**: `~/.config/bitranox-template-py-cli/config.toml`
+- **Linux (app)**: `/etc/xdg/bitranox-template-py-cli/config.toml`
+- **Linux (host)**: `/etc/bitranox-template-py-cli/hosts/{hostname}.toml`
+- **macOS (user)**: `~/Library/Application Support/bitranox/Bitranox Template Py Cli/config.toml`
+- **Windows (user)**: `%APPDATA%\bitranox\Bitranox Template Py Cli\config.toml`
 
 #### Profile-Specific Configuration
 
 Profiles allow environment-specific configuration (e.g., production, staging, test). When a profile is specified, configuration is loaded from profile-specific subdirectories:
 
-- **Linux (user, profile=production)**: `~/.config/bitranox-template-cli-app-config-log-mail/profile/production/config.toml`
-- **Linux (app, profile=staging)**: `/etc/xdg/bitranox-template-cli-app-config-log-mail/profile/staging/config.toml`
+- **Linux (user, profile=production)**: `~/.config/bitranox-template-py-cli/profile/production/config.toml`
+- **Linux (app, profile=staging)**: `/etc/xdg/bitranox-template-py-cli/profile/staging/config.toml`
 
 Use profiles to maintain separate configurations for different environments while keeping a common base configuration.
 
@@ -267,41 +267,41 @@ Use profiles to maintain separate configurations for different environments whil
 
 ```bash
 # Show merged configuration from all sources
-bitranox-template-cli-app-config-log-mail config
+bitranox-template-py-cli config
 
 # Show as JSON for scripting
-bitranox-template-cli-app-config-log-mail config --format json
+bitranox-template-py-cli config --format json
 
 # Show specific section only
-bitranox-template-cli-app-config-log-mail config --section lib_log_rich
+bitranox-template-py-cli config --section lib_log_rich
 
 # Show configuration for a specific profile
-bitranox-template-cli-app-config-log-mail config --profile production
+bitranox-template-py-cli config --profile production
 
 # Combine options
-bitranox-template-cli-app-config-log-mail config --profile staging --format json --section email
+bitranox-template-py-cli config --profile staging --format json --section email
 ```
 
 #### Deploy Configuration Files
 
 ```bash
 # Create user configuration file
-bitranox-template-cli-app-config-log-mail config-deploy --target user
+bitranox-template-py-cli config-deploy --target user
 
 # Deploy to system-wide location (requires privileges)
-sudo bitranox-template-cli-app-config-log-mail config-deploy --target app
+sudo bitranox-template-py-cli config-deploy --target app
 
 # Deploy to multiple locations at once
-bitranox-template-cli-app-config-log-mail config-deploy --target user --target host
+bitranox-template-py-cli config-deploy --target user --target host
 
 # Overwrite existing configuration
-bitranox-template-cli-app-config-log-mail config-deploy --target user --force
+bitranox-template-py-cli config-deploy --target user --force
 
 # Deploy to a specific profile directory
-bitranox-template-cli-app-config-log-mail config-deploy --target user --profile production
+bitranox-template-py-cli config-deploy --target user --profile production
 
 # Deploy production profile and overwrite if exists
-bitranox-template-cli-app-config-log-mail config-deploy --target user --profile production --force
+bitranox-template-py-cli config-deploy --target user --profile production --force
 ```
 
 #### Environment Variable Overrides
@@ -310,8 +310,8 @@ Configuration can be overridden via environment variables using two methods:
 
 **Method 1: Native lib_log_rich variables (highest precedence)**
 ```bash
-LOG_CONSOLE_LEVEL=DEBUG bitranox-template-cli-app-config-log-mail hello
-LOG_ENABLE_GRAYLOG=true LOG_GRAYLOG_ENDPOINT="logs.example.com:12201" bitranox-template-cli-app-config-log-mail hello
+LOG_CONSOLE_LEVEL=DEBUG bitranox-template-py-cli hello
+LOG_ENABLE_GRAYLOG=true LOG_GRAYLOG_ENDPOINT="logs.example.com:12201" bitranox-template-py-cli hello
 ```
 
 **Method 2: Application-prefixed variables**
@@ -319,7 +319,7 @@ LOG_ENABLE_GRAYLOG=true LOG_GRAYLOG_ENDPOINT="logs.example.com:12201" bitranox-t
 Format: `<PREFIX>___<SECTION>__<KEY>=value`
 
 ```bash
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___LIB_LOG_RICH__CONSOLE_LEVEL=DEBUG bitranox-template-cli-app-config-log-mail hello
+BITRANOX_TEMPLATE_PY_CLI___LIB_LOG_RICH__CONSOLE_LEVEL=DEBUG bitranox-template-py-cli hello
 ```
 
 #### .env File Support
@@ -340,7 +340,7 @@ The application automatically discovers and loads `.env` files from the current 
 You can import the documented helpers directly:
 
 ```python
-import bitranox_template_cli_app_config_log_mail as btcacl
+import bitranox_template_py_cli as btcacl
 
 print(btcacl.build_greeting())
 btcacl.print_info()

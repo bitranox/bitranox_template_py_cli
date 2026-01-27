@@ -8,12 +8,12 @@ from typing import Any
 import pytest
 from lib_layered_config import Config
 
-from bitranox_template_cli_app_config_log_mail.adapters.config.display import (
+from bitranox_template_py_cli.adapters.config.display import (
     _format_value,  # pyright: ignore[reportPrivateUsage]
     _print_section,  # pyright: ignore[reportPrivateUsage]
     display_config,
 )
-from bitranox_template_cli_app_config_log_mail.domain.enums import OutputFormat
+from bitranox_template_py_cli.domain.enums import OutputFormat
 
 
 # ======================== _format_value ========================

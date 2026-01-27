@@ -1,22 +1,22 @@
-# Default configuration for bitranox_template_cli_app_config_log_mail
+# Default configuration for bitranox_template_py_cli
 #
 # This file contains the default configuration that ships with the application.
 # Additional settings can be placed in defaultconfig.d/*.toml
 #
 # Settings can be overridden via:
 #   - Application-level config (Linux):
-#        - /etc/xdg/bitranox-template-cli-app-config-log-mail/config.[toml|yaml|json]
-#        - /etc/xdg/bitranox-template-cli-app-config-log-mail/config.d/*.[toml|yaml|json]
+#        - /etc/xdg/bitranox-template-py-cli/config.[toml|yaml|json]
+#        - /etc/xdg/bitranox-template-py-cli/config.d/*.[toml|yaml|json]
 #   - Host-level config (macOS):
-#        - /Library/Application Support/bitranox/Bitranox Template Cli App Config Log Mail/config.[toml|yaml|json]
-#        - /Library/Application Support/bitranox/Bitranox Template Cli App Config Log Mail/config.d/*.[toml|yaml|json]
+#        - /Library/Application Support/bitranox/Bitranox Template Py Cli/config.[toml|yaml|json]
+#        - /Library/Application Support/bitranox/Bitranox Template Py Cli/config.d/*.[toml|yaml|json]
 #   - User-level config (Linux):
-#        - ~/.config/bitranox-template-cli-app-config-log-mail/config.[toml|yaml|json]
-#        - ~/.config/bitranox-template-cli-app-config-log-mail/config.d/*.[toml|yaml|json]
+#        - ~/.config/bitranox-template-py-cli/config.[toml|yaml|json]
+#        - ~/.config/bitranox-template-py-cli/config.d/*.[toml|yaml|json]
 #   - User-level config (macOS):
-#        - ~/Library/Application Support/bitranox/Bitranox Template Cli App Config Log Mail/config.[toml|yaml|json]
+#        - ~/Library/Application Support/bitranox/Bitranox Template Py Cli/config.[toml|yaml|json]
 #   - .env files: .env in current directory or parent directories
-#   - Environment variables: Prefix with BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___
+#   - Environment variables: Prefix with BITRANOX_TEMPLATE_PY_CLI___
 #
 # Precedence (lowest to highest): defaults → app → host → user → dotenv → env
 #
@@ -39,8 +39,8 @@
 #   and double underscore (__) to separate SECTION from KEY.
 #
 #   Examples as environment variables:
-#     BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___MY_SECTION__SOME_KEY=some_value
-#     BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___LIB_LOG_RICH__CONSOLE_LEVEL=DEBUG
-#     BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL___EMAIL__SMTP_PASSWORD=secret
+#     BITRANOX_TEMPLATE_PY_CLI___MY_SECTION__SOME_KEY=some_value
+#     BITRANOX_TEMPLATE_PY_CLI___LIB_LOG_RICH__CONSOLE_LEVEL=DEBUG
+#     BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_PASSWORD=secret
 #
 # Value coercion: "true"/"false" → bool, "null"/"none" → None, numbers → int/float

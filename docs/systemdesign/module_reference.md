@@ -7,20 +7,20 @@ Complete (v1.0.0)
 ## Related Files
 
 ### Domain Layer
-* src/bitranox_template_cli_app_config_log_mail/domain/behaviors.py
-* src/bitranox_template_cli_app_config_log_mail/domain/enums.py
+* src/bitranox_template_py_cli/domain/behaviors.py
+* src/bitranox_template_py_cli/domain/enums.py
 
 ### Application Layer
-* src/bitranox_template_cli_app_config_log_mail/application/ports.py (callable Protocol definitions for adapter functions)
+* src/bitranox_template_py_cli/application/ports.py (callable Protocol definitions for adapter functions)
 
 ### Adapters Layer
-* src/bitranox_template_cli_app_config_log_mail/adapters/config/loader.py
-* src/bitranox_template_cli_app_config_log_mail/adapters/config/deploy.py
-* src/bitranox_template_cli_app_config_log_mail/adapters/config/display.py
-* src/bitranox_template_cli_app_config_log_mail/adapters/config/overrides.py
-* src/bitranox_template_cli_app_config_log_mail/adapters/email/sender.py
-* src/bitranox_template_cli_app_config_log_mail/adapters/logging/setup.py
-* src/bitranox_template_cli_app_config_log_mail/adapters/cli/ (package)
+* src/bitranox_template_py_cli/adapters/config/loader.py
+* src/bitranox_template_py_cli/adapters/config/deploy.py
+* src/bitranox_template_py_cli/adapters/config/display.py
+* src/bitranox_template_py_cli/adapters/config/overrides.py
+* src/bitranox_template_py_cli/adapters/email/sender.py
+* src/bitranox_template_py_cli/adapters/logging/setup.py
+* src/bitranox_template_py_cli/adapters/cli/ (package)
   - __init__.py (public facade)
   - constants.py (shared constants)
   - exit_codes.py (POSIX exit codes — ExitCode IntEnum)
@@ -35,16 +35,16 @@ Complete (v1.0.0)
   - commands/logging.py (logdemo)
 
 ### Composition Layer
-* src/bitranox_template_cli_app_config_log_mail/composition/__init__.py
+* src/bitranox_template_py_cli/composition/__init__.py
 
 ### Entry Points
-* src/bitranox_template_cli_app_config_log_mail/__main__.py
-* src/bitranox_template_cli_app_config_log_mail/__init__.py
-* src/bitranox_template_cli_app_config_log_mail/__init__conf__.py
+* src/bitranox_template_py_cli/__main__.py
+* src/bitranox_template_py_cli/__init__.py
+* src/bitranox_template_py_cli/__init__conf__.py
 
 ### Deployment Templates
-* src/bitranox_template_cli_app_config_log_mail/defaultconfig.d/50-mail.toml
-* src/bitranox_template_cli_app_config_log_mail/defaultconfig.d/90-logging.toml
+* src/bitranox_template_py_cli/defaultconfig.d/50-mail.toml
+* src/bitranox_template_py_cli/defaultconfig.d/90-logging.toml
 
 ### Tests
 * tests/test_behaviors.py
@@ -136,7 +136,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
 * **Signature:** ``build_greeting() -> str``
 * **Input:** None.
 * **Output:** Returns ``"Hello World"`` as a string.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/domain/behaviors.py
+* **Location:** src/bitranox_template_py_cli/domain/behaviors.py
 
 ### adapters.cli.traceback.apply_traceback_preferences
 
@@ -145,7 +145,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
 * **Parameters:**
   - ``enabled`` (``bool``) — ``True`` enables full tracebacks with colour.
 * **Output:** Updates ``lib_cli_exit_tools.config.traceback`` and ``traceback_force_color``.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/cli/traceback.py
+* **Location:** src/bitranox_template_py_cli/adapters/cli/traceback.py
 
 ### adapters.cli.traceback.snapshot_traceback_state / restore_traceback_state
 
@@ -155,7 +155,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
   - ``restore_traceback_state(state: TracebackState) -> None``
 * **Input:** None for snapshot; ``TracebackState`` dataclass for restore.
 * **Output:** ``TracebackState`` dataclass (traceback_enabled, force_color) for snapshot; None for restore.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/cli/traceback.py
+* **Location:** src/bitranox_template_py_cli/adapters/cli/traceback.py
 
 ### adapters.cli.context.store_cli_context
 
@@ -167,7 +167,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
   - ``config`` (``Config``, keyword-only) — Loaded layered configuration object.
   - ``profile`` (``str | None``, keyword-only, default ``None``) — Optional configuration profile name.
 * **Output:** None (sets ``context.obj`` to a ``CLIContext`` dataclass).
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/cli/context.py
+* **Location:** src/bitranox_template_py_cli/adapters/cli/context.py
 
 ### adapters.cli.context.get_cli_context
 
@@ -177,7 +177,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
   - ``ctx`` (``click.Context``) — Click context containing CLI state.
 * **Output:** ``CLIContext`` dataclass with typed access to CLI state.
 * **Raises:** ``RuntimeError`` if CLI context was not properly initialized.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/cli/context.py
+* **Location:** src/bitranox_template_py_cli/adapters/cli/context.py
 
 ### adapters.cli.exit_codes.ExitCode
 
@@ -185,7 +185,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
 * **Type:** ``IntEnum`` with members: SUCCESS (0), GENERAL_ERROR (1), FILE_NOT_FOUND (2), PERMISSION_DENIED (13), INVALID_ARGUMENT (22), SMTP_FAILURE (69), CONFIG_ERROR (78), TIMEOUT (110), SIGNAL_INT (130), BROKEN_PIPE (141), SIGNAL_TERM (143).
 * **Usage:** CLI command error handlers raise ``SystemExit(ExitCode.XXX)`` instead of ``SystemExit(1)``.
 * **Note:** Signal codes (130, 141, 143) are informational constants — ``lib_cli_exit_tools`` handles signal-to-exit-code translation automatically.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/cli/exit_codes.py
+* **Location:** src/bitranox_template_py_cli/adapters/cli/exit_codes.py
 
 ### adapters.config.overrides.apply_overrides
 
@@ -196,7 +196,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
   - ``raw_overrides`` (``tuple[str, ...]``) — Tuple of ``SECTION.KEY=VALUE`` strings from ``--set``.
 * **Output:** New Config with overrides applied, or the original if ``raw_overrides`` is empty.
 * **Raises:** ``ValueError`` if any override string is malformed.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/config/overrides.py
+* **Location:** src/bitranox_template_py_cli/adapters/config/overrides.py
 
 ### adapters.config.display.display_config
 
@@ -208,7 +208,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
   - ``section`` (``str | None``, keyword-only, default ``None``) — Optional section filter.
 * **Output:** Writes formatted configuration to stdout. Sensitive values are redacted.
 * **Raises:** ``ValueError`` if a requested section doesn't exist or is empty.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/config/display.py
+* **Location:** src/bitranox_template_py_cli/adapters/config/display.py
 
 ### adapters.cli.root.cli
 
@@ -220,7 +220,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
   - ``profile`` (``str | None``, default ``None``) — Named profile to load.
   - ``set_overrides`` (``tuple[str, ...]``, default ``()``) — Configuration override strings.
 * **Output:** None (delegates to subcommands or shows help).
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/cli/root.py
+* **Location:** src/bitranox_template_py_cli/adapters/cli/root.py
 
 ### adapters.cli.main.main
 
@@ -230,7 +230,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
   - ``argv`` (``Sequence[str] | None``, default ``None``) — Optional CLI arguments. ``None`` uses ``sys.argv``.
   - ``restore_traceback`` (``bool``, keyword-only, default ``True``) — Whether to restore prior traceback configuration after execution.
 * **Output:** Integer exit code (0 on success, mapped error codes otherwise).
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/cli/main.py
+* **Location:** src/bitranox_template_py_cli/adapters/cli/main.py
 
 ### adapters.cli.constants
 
@@ -239,14 +239,14 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
   - ``CLICK_CONTEXT_SETTINGS`` (``dict``) — Help option names: ``["-h", "--help"]``.
   - ``TRACEBACK_SUMMARY_LIMIT`` (``int``, ``500``) — Character budget for truncated tracebacks.
   - ``TRACEBACK_VERBOSE_LIMIT`` (``int``, ``10_000``) — Character budget for verbose tracebacks.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/adapters/cli/constants.py
+* **Location:** src/bitranox_template_py_cli/adapters/cli/constants.py
 
 ### __main__
 
 * **Purpose:** Thin shim providing ``python -m`` entry point; delegates to ``adapters.cli.main()``.
 * **Input:** None.
 * **Output:** Exit code from ``cli.main``.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/__main__.py
+* **Location:** src/bitranox_template_py_cli/__main__.py
 
 ### __init__conf__.print_info
 
@@ -254,7 +254,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
 * **Signature:** ``print_info() -> None``
 * **Input:** None.
 * **Output:** Writes the hard-coded metadata block to ``stdout``.
-* **Location:** src/bitranox_template_cli_app_config_log_mail/__init__conf__.py
+* **Location:** src/bitranox_template_py_cli/__init__conf__.py
 
 ### Package Exports
 
@@ -267,7 +267,7 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
 
 ### Root Command Group
 
-**Command:** ``bitranox-template-cli-app-config-log-mail``
+**Command:** ``bitranox-template-py-cli``
 
 Shows help when invoked without a subcommand (``invoke_without_command=True``).
 
@@ -281,7 +281,7 @@ Shows help when invoked without a subcommand (``invoke_without_command=True``).
 
 ### info
 
-**Command:** ``bitranox-template-cli-app-config-log-mail info``
+**Command:** ``bitranox-template-py-cli info``
 **Location:** adapters/cli/commands/info.py
 
 Print resolved package metadata (name, version, homepage, author, etc.).
@@ -294,7 +294,7 @@ Print resolved package metadata (name, version, homepage, author, etc.).
 
 ### hello
 
-**Command:** ``bitranox-template-cli-app-config-log-mail hello``
+**Command:** ``bitranox-template-py-cli hello``
 **Location:** adapters/cli/commands/info.py
 
 Emit the canonical greeting (``"Hello World"``).
@@ -307,7 +307,7 @@ Emit the canonical greeting (``"Hello World"``).
 
 ### fail
 
-**Command:** ``bitranox-template-cli-app-config-log-mail fail``
+**Command:** ``bitranox-template-py-cli fail``
 **Location:** adapters/cli/commands/info.py
 
 Trigger an intentional ``RuntimeError("I should fail")`` for testing error handling.
@@ -320,7 +320,7 @@ Trigger an intentional ``RuntimeError("I should fail")`` for testing error handl
 
 ### config
 
-**Command:** ``bitranox-template-cli-app-config-log-mail config``
+**Command:** ``bitranox-template-py-cli config``
 **Location:** adapters/cli/commands/config.py
 
 Display the current merged configuration from all sources.
@@ -336,7 +336,7 @@ Display the current merged configuration from all sources.
 
 ### config-deploy
 
-**Command:** ``bitranox-template-cli-app-config-log-mail config-deploy``
+**Command:** ``bitranox-template-py-cli config-deploy``
 **Location:** adapters/cli/commands/config.py
 
 Deploy default configuration to system or user directories.
@@ -352,7 +352,7 @@ Deploy default configuration to system or user directories.
 
 ### config-generate-examples
 
-**Command:** ``bitranox-template-cli-app-config-log-mail config-generate-examples``
+**Command:** ``bitranox-template-py-cli config-generate-examples``
 **Location:** adapters/cli/commands/config.py
 
 Generate example configuration files in a target directory.
@@ -367,7 +367,7 @@ Generate example configuration files in a target directory.
 
 ### send-email
 
-**Command:** ``bitranox-template-cli-app-config-log-mail send-email``
+**Command:** ``bitranox-template-py-cli send-email``
 **Location:** adapters/cli/commands/email.py
 
 Send an email using configured SMTP settings.
@@ -393,7 +393,7 @@ Send an email using configured SMTP settings.
 
 ### send-notification
 
-**Command:** ``bitranox-template-cli-app-config-log-mail send-notification``
+**Command:** ``bitranox-template-py-cli send-notification``
 **Location:** adapters/cli/commands/email.py
 
 Send a simple plain-text notification email.
@@ -417,7 +417,7 @@ Send a simple plain-text notification email.
 
 ### logdemo
 
-**Command:** ``bitranox-template-cli-app-config-log-mail logdemo``
+**Command:** ``bitranox-template-py-cli logdemo``
 **Location:** adapters/cli/commands/logging.py
 
 Run a logging demonstration to preview log output.
@@ -510,11 +510,11 @@ Run a logging demonstration to preview log output.
 
 **Manual Testing Steps:**
 
-1. ``bitranox-template-cli-app-config-log-mail`` -> prints CLI help (no default action).
-2. ``bitranox-template-cli-app-config-log-mail hello`` -> prints greeting.
-3. ``bitranox-template-cli-app-config-log-mail fail`` -> prints truncated traceback.
-4. ``bitranox-template-cli-app-config-log-mail --traceback fail`` -> prints full rich traceback.
-5. ``python -m bitranox_template_cli_app_config_log_mail --traceback fail`` -> matches console output.
+1. ``bitranox-template-py-cli`` -> prints CLI help (no default action).
+2. ``bitranox-template-py-cli hello`` -> prints greeting.
+3. ``bitranox-template-py-cli fail`` -> prints truncated traceback.
+4. ``bitranox-template-py-cli --traceback fail`` -> prints full rich traceback.
+5. ``python -m bitranox_template_py_cli --traceback fail`` -> matches console output.
 
 **Automated Tests:**
 

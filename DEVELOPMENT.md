@@ -109,9 +109,9 @@ COVERAGE=on make test        # force coverage and generate coverage.xml/codecov.
 ### Versioning & Metadata
 
 - Single source of truth for package metadata is `pyproject.toml` (`[project]`).
-- The library reads its own metadata from static constants (see `src/bitranox_template_cli_app_config_log_mail/__init__conf__.py`).
+- The library reads its own metadata from static constants (see `src/bitranox_template_py_cli/__init__conf__.py`).
 - Do not duplicate the version in code; bump only `pyproject.toml` and update `CHANGELOG.md`.
-- Console script name is discovered from entry points; defaults to `bitranox-template-cli-app-config-log-mail`.
+- Console script name is discovered from entry points; defaults to `bitranox-template-py-cli`.
 
 ### Dependency Auditing
 

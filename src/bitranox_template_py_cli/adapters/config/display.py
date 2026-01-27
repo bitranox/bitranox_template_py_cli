@@ -83,17 +83,17 @@ def display_config(
         using ``lib_layered_config``'s redaction API.
 
     Example:
-        >>> from bitranox_template_cli_app_config_log_mail.adapters.config.loader import get_config
+        >>> from bitranox_template_py_cli.adapters.config.loader import get_config
         >>> config = get_config()  # doctest: +SKIP
         >>> display_config(config)  # doctest: +SKIP
         [lib_log_rich]
-          service = "bitranox_template_cli_app_config_log_mail"
+          service = "bitranox_template_py_cli"
           environment = "prod"
 
         >>> display_config(config, format=OutputFormat.JSON)  # doctest: +SKIP
         {
           "lib_log_rich": {
-            "service": "bitranox_template_cli_app_config_log_mail",
+            "service": "bitranox_template_py_cli",
             "environment": "prod"
           }
         }

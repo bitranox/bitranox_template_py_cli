@@ -161,15 +161,15 @@ def _capture_sync(record: list[ProjectMetadata]) -> Callable[[ProjectMetadata], 
 def test_get_project_metadata_fields() -> None:
     """Verify get_project_metadata returns expected fields."""
     meta = _utils.get_project_metadata()
-    assert meta.name == "bitranox_template_cli_app_config_log_mail"
-    assert meta.slug == "bitranox-template-cli-app-config-log-mail"
-    assert meta.import_package == "bitranox_template_cli_app_config_log_mail"
-    assert meta.coverage_source == "src/bitranox_template_cli_app_config_log_mail"
-    assert meta.github_tarball_url("1.2.3").endswith("/bitranox/bitranox_template_cli_app_config_log_mail/archive/refs/tags/v1.2.3.tar.gz")
+    assert meta.name == "bitranox_template_py_cli"
+    assert meta.slug == "bitranox-template-py-cli"
+    assert meta.import_package == "bitranox_template_py_cli"
+    assert meta.coverage_source == "src/bitranox_template_py_cli"
+    assert meta.github_tarball_url("1.2.3").endswith("/bitranox/bitranox_template_py_cli/archive/refs/tags/v1.2.3.tar.gz")
     assert meta.version
     assert meta.summary
     assert meta.author_name
-    assert meta.metadata_module.as_posix().endswith("src/bitranox_template_cli_app_config_log_mail/__init__conf__.py")
+    assert meta.metadata_module.as_posix().endswith("src/bitranox_template_py_cli/__init__conf__.py")
 
 
 @pytest.mark.slow

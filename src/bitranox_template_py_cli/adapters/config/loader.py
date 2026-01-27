@@ -9,7 +9,7 @@ Contents:
     * :func:`get_default_config_path` – returns path to bundled default config
 
     Configuration identifiers (vendor, app, slug) are imported from
-    :mod:`bitranox_template_cli_app_config_log_mail.__init__conf__` as LAYEREDCONF_* constants.
+    :mod:`bitranox_template_py_cli.__init__conf__` as LAYEREDCONF_* constants.
 
 System Role:
     Acts as the configuration adapter layer, bridging lib_layered_config with the

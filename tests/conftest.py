@@ -124,7 +124,7 @@ def clear_config_cache() -> Iterator[None]:
     Note: Only clears before, not after, to avoid errors when the function
     has been monkeypatched during the test (losing cache_clear method).
     """
-    from bitranox_template_cli_app_config_log_mail.adapters.config import loader as config_mod
+    from bitranox_template_py_cli.adapters.config import loader as config_mod
 
     config_mod.get_config.cache_clear()
     yield
@@ -150,7 +150,7 @@ def inject_config(
     Monkeypatches get_config to return a pre-built real Config object,
     avoiding filesystem I/O while exercising the real Config API.
     """
-    from bitranox_template_cli_app_config_log_mail.adapters.config import loader as config_mod
+    from bitranox_template_py_cli.adapters.config import loader as config_mod
 
     def _inject(config: Config) -> None:
         def _fake_get_config(**_kwargs: Any) -> Config:

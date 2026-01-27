@@ -172,7 +172,7 @@ def _package_name_to_display(value: str) -> str:
     """Convert package name to display-friendly app name.
 
     Examples:
-        "bitranox_template_cli_app_config_log_mail" -> "Bitranox Template Cli App Config Log Mail"
+        "bitranox_template_py_cli" -> "Bitranox Template Py Cli"
         "my-cool-app" -> "My Cool App"
     """
     # Replace underscores and hyphens with spaces

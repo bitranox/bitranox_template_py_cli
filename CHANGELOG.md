@@ -6,10 +6,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [1.1.0] - 2026-01-27
 
-- _Describe changes here._
-
-## [Unreleased]
-
 ### Changed
 - Replaced `MockConfig` in-memory adapter with real `Config` objects in all tests (`config_factory` / `inject_config` fixtures)
 - Replaced `MagicMock` Config objects in CLI email tests with real `Config` instances
