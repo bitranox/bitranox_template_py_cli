@@ -70,6 +70,8 @@ def cli_config(ctx: click.Context, format: str, section: str | None, profile: st
             "Displaying configuration",
             extra={"format": output_format.value, "section": section, "profile": effective_profile},
         )
+        lib_log_rich.runtime.flush()
+        print()
         try:
             display_config(effective_config, format=output_format, section=section)
         except ValueError as exc:

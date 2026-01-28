@@ -18,35 +18,147 @@ from __future__ import annotations
 from typing import Any, cast
 
 import orjson
+from rich.console import Console
+from rich.text import Text
 
 from lib_layered_config import Config, redact_mapping
+from lib_layered_config.domain.config import SourceInfo
 
 from ...domain.enums import OutputFormat
 
+_REDACTED = "***REDACTED***"
+_ENV_LAYERS = frozenset({"dotenv", "env"})
+_SECTION_INDENT = "    "
+_TOPLEVEL_INDENT = ""
+_console = Console(highlight=False)
 
-def _format_value(key: str, value: Any) -> str:
-    """Format a config value for human-readable TOML-like display."""
+
+def _is_env_layer(layer: str | None) -> bool:
+    """Return True for layers that use env-style ``key=value`` formatting."""
+    return layer in _ENV_LAYERS
+
+
+def _format_raw_value(value: Any) -> str:
+    """Format a config value without key prefix.
+
+    Args:
+        value: The configuration value to format.
+
+    Returns:
+        Formatted string representation of the value.
+    """
     if isinstance(value, list):
-        return f"  {key} = {orjson.dumps(value).decode()}"
+        return orjson.dumps(value).decode()
     if isinstance(value, str):
-        return f'  {key} = "{value}"'
-    return f"  {key} = {value}"
+        return f'"{value}"'
+    return f"{value}"
 
 
-def _print_section(section_name: str, data: dict[str, Any]) -> None:
+def _format_value(key: str, value: Any, *, env_style: bool = False, indent: str = "  ") -> str:  # pyright: ignore[reportUnusedFunction]
+    """Format a config value for human-readable display.
+
+    TOML sources use ``key = value`` (spaces around ``=``).
+    Dotenv/env sources use ``key=value`` (no spaces).
+    """
+    separator = "=" if env_style else " = "
+    return f"{indent}{key}{separator}{_format_raw_value(value)}"
+
+
+def _styled_entry(key: str, value: Any, *, env_style: bool = False, indent: str = "  ") -> Text:
+    """Build a Rich Text object for a styled config key-value line.
+
+    Args:
+        key: Configuration key name.
+        value: Configuration value.
+        env_style: Use ``key=value`` (no spaces) for dotenv/env sources.
+        indent: Leading whitespace before the key.
+
+    Returns:
+        A styled ``Text`` object ready for Console output.
+    """
+    text = Text(indent)
+    text.append(key, style="bold")
+    if env_style:
+        text.append("=")
+    else:
+        text.append(" = ", style="dim")
+    raw = _format_raw_value(value)
+    if isinstance(value, str) and value == _REDACTED:
+        text.append(raw, style="dim red")
+    elif isinstance(value, str):
+        text.append(raw, style="green")
+    else:
+        text.append(raw, style="yellow")
+    return text
+
+
+def _format_source_line(info: SourceInfo, indent: str = "  ") -> str:
+    """Build a source comment string from an origin info dict.
+
+    Args:
+        info: Origin metadata dict with ``layer`` and ``path`` keys.
+        indent: Leading whitespace before the comment.
+
+    Returns:
+        A comment string like ``# source: defaults (path/to/file.toml)``
+        or ``# source: env`` when no path is available.
+    """
+    layer = info["layer"]
+    path = info["path"]
+    if path is not None:
+        return f"{indent}# source: {layer} ({path})"
+    return f"{indent}# source: {layer}"
+
+
+def _format_source(config: Config, dotted_key: str, indent: str = "  ") -> str | None:  # pyright: ignore[reportUnusedFunction]
+    """Build a source comment from provenance metadata.
+
+    Args:
+        config: Configuration object with provenance tracking.
+        dotted_key: Fully-qualified dotted key (e.g. ``email.smtp_hosts``).
+        indent: Leading whitespace before the comment.
+
+    Returns:
+        A comment string like ``# source: defaults (path/to/file.toml)``
+        or ``# source: env`` when no path is available. Returns ``None``
+        when no provenance metadata exists for the key.
+    """
+    info = config.origin(dotted_key)
+    if info is None:
+        return None
+    return _format_source_line(info, indent)
+
+
+def _print_section(
+    section_name: str,
+    data: dict[str, Any],
+    config: Config | None = None,
+) -> None:
     """Print a configuration section, recursing into nested dicts as TOML sub-sections.
 
     Args:
         section_name: Dotted section path (e.g. ``lib_log_rich`` or
             ``lib_log_rich.payload_limits``).
         data: Key-value pairs for this section.
+        config: Optional Config object for provenance comments. When provided,
+            each leaf value is preceded by a ``# source:`` comment line.
     """
-    print(f"\n[{section_name}]")
+    header = Text(f"\n[{section_name}]")
+    header.stylize("bold cyan")
+    _console.print(header)
     for key, value in data.items():
         if isinstance(value, dict):
-            _print_section(f"{section_name}.{key}", cast(dict[str, Any], value))
+            _print_section(f"{section_name}.{key}", cast(dict[str, Any], value), config)
         else:
-            print(_format_value(key, value))
+            layer: str | None = None
+            if config is not None:
+                dotted_key = f"{section_name}.{key}"
+                info = config.origin(dotted_key)
+                if info is not None:
+                    _console.print(_format_source_line(info, _SECTION_INDENT), style="yellow")
+                    layer = info["layer"]
+            _console.print(_styled_entry(key, value, env_style=_is_env_layer(layer), indent=_SECTION_INDENT))
+            _console.print()
 
 
 def display_config(
@@ -87,8 +199,8 @@ def display_config(
         >>> config = get_config()  # doctest: +SKIP
         >>> display_config(config)  # doctest: +SKIP
         [lib_log_rich]
-          service = "bitranox_template_py_cli"
-          environment = "prod"
+            service = "bitranox_template_py_cli"
+            environment = "prod"
 
         >>> display_config(config, format=OutputFormat.JSON)  # doctest: +SKIP
         {
@@ -125,18 +237,29 @@ def _display_human(config: Config, section: str | None) -> None:
         redacted_section = redact_mapping({section: section_data})
         redacted_value = redacted_section[section]
         if isinstance(redacted_value, dict):
-            _print_section(section, cast(dict[str, Any], redacted_value))
+            _print_section(section, cast(dict[str, Any], redacted_value), config)
         else:
-            print(f"\n[{section}]")
-            print(f"  {redacted_value}")
+            info = config.origin(section)
+            layer: str | None = None
+            if info is not None:
+                _console.print(_format_source_line(info, _TOPLEVEL_INDENT), style="yellow")
+                layer = info["layer"]
+            _console.print(_styled_entry(section, redacted_value, env_style=_is_env_layer(layer), indent=_TOPLEVEL_INDENT))
+            _console.print()
     else:
         data: dict[str, Any] = config.as_dict(redact=True)
-        for section_name, section_value in data.items():
-            if isinstance(section_value, dict):
-                _print_section(section_name, cast(dict[str, Any], section_value))
-            else:
-                print(f"\n[{section_name}]")
-                print(f"  {section_value}")
+        for key, value in data.items():
+            if not isinstance(value, dict):
+                info = config.origin(key)
+                layer_name: str | None = None
+                if info is not None:
+                    _console.print(_format_source_line(info, _TOPLEVEL_INDENT), style="yellow")
+                    layer_name = info["layer"]
+                _console.print(_styled_entry(key, value, env_style=_is_env_layer(layer_name), indent=_TOPLEVEL_INDENT))
+                _console.print()
+        for name, value in data.items():
+            if isinstance(value, dict):
+                _print_section(name, cast(dict[str, Any], value), config)
 
 
 __all__ = [

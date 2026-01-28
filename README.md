@@ -20,23 +20,42 @@
 - Exit-code and messaging helpers powered by lib_cli_exit_tools.
 - Metadata helpers ready for packaging, testing, and release automation.
 
-## Install - recommended via UV
-UV - the ultrafast installer - written in Rust (10–20× faster than pip/poetry)
+## Install - recommended via uv
+
+[uv](https://docs.astral.sh/uv/) is an ultrafast Python package manager written in Rust (10-20x faster than pip/poetry).
+
+### Install uv (if not already installed) 
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### One-shot run (no install needed)
 
 ```bash
-# recommended Install via uv 
-pip install --upgrade uv
-# Create and activate a virtual environment (optional but recommended)
-uv venv
-# macOS/Linux
-source .venv/bin/activate
-# Windows (PowerShell)
-.venv\Scripts\Activate.ps1
-# install via uv from PyPI
+uvx bitranox_template_py_cli@latest --help
+```
+
+### Persistent install as CLI tool
+
+```bash
+# install the CLI tool (isolated environment, added to PATH)
+uv tool install bitranox_template_py_cli
+
+# upgrade to latest
+uv tool upgrade bitranox_template_py_cli
+```
+
+### Install as project dependency
+
+```bash
+uv venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
 uv pip install bitranox_template_py_cli
 ```
 
-For alternative install paths (pip, pipx, uv, uvx source builds, etc.), see
+For alternative install paths (pip, pipx, source builds, etc.), see
 [INSTALL.md](INSTALL.md). All supported methods register both the
 `bitranox_template_py_cli` and `bitranox-template-py-cli` commands on your PATH.
 
@@ -62,7 +81,7 @@ The CLI leverages [rich-click](https://github.com/ewels/rich-click) so help outp
 # Display package information
 bitranox-template-py-cli info
 
-# Test commands for development
+# Greeting and error-handling demos
 bitranox-template-py-cli hello
 bitranox-template-py-cli fail
 bitranox-template-py-cli --traceback fail
@@ -71,9 +90,38 @@ bitranox-template-py-cli --traceback fail
 bitranox-template-py-cli config                    # Show current configuration
 bitranox-template-py-cli config --format json      # Show as JSON
 bitranox-template-py-cli config --section lib_log_rich  # Show specific section
-bitranox-template-py-cli config --profile production   # Show configuration for production profile
-bitranox-template-py-cli config-deploy --target user    # Deploy config to user directory
-bitranox-template-py-cli config-deploy --target user --profile production  # Deploy to production profile
+bitranox-template-py-cli config --profile production   # Use a named profile
+bitranox-template-py-cli config-deploy --target user   # Deploy config to user directory
+bitranox-template-py-cli config-deploy --target user --profile production
+bitranox-template-py-cli config-generate-examples --destination ./examples
+
+# Override configuration at runtime (repeatable --set)
+bitranox-template-py-cli --set lib_log_rich.console_level=DEBUG config
+bitranox-template-py-cli --set email.smtp_hosts='["smtp.example.com:587"]' config --format json
+
+# Logging demo
+bitranox-template-py-cli logdemo
+bitranox-template-py-cli --set lib_log_rich.console_level=DEBUG logdemo
+
+# Send email
+bitranox-template-py-cli send-email \
+    --to recipient@example.com \
+    --subject "Test Email" \
+    --body "Hello from bitranox!"
+
+# Send email with HTML body and attachments
+bitranox-template-py-cli send-email \
+    --to recipient@example.com \
+    --subject "Monthly Report" \
+    --body "See attached." \
+    --body-html "<h1>Report</h1><p>Details in the PDF.</p>" \
+    --attachment report.pdf
+
+# Send plain-text notification
+bitranox-template-py-cli send-notification \
+    --to ops@example.com \
+    --subject "Deploy OK" \
+    --message "Application deployed successfully"
 
 # All commands work with any entry point
 python -m bitranox_template_py_cli info
