@@ -15,7 +15,6 @@ from ._utils import (
     git_branch,
     read_version_from_pyproject,
     run,
-    sync_metadata_module,
 )
 
 __all__ = ["push"]
@@ -302,7 +301,6 @@ def push(*, remote: str = _DEFAULT_REMOTE, message: str | None = None) -> None:
     _check_installed_dependencies()
 
     metadata = get_project_metadata()
-    sync_metadata_module(metadata)
     version = read_version_from_pyproject(Path("pyproject.toml")) or "unknown"
     click.echo("[push] project diagnostics: " + ", ".join(metadata.diagnostic_lines()))
     click.echo(f"[push] version={version}")

@@ -1,10 +1,11 @@
 """Configuration display and deployment CLI commands.
 
-Provides commands to inspect and deploy application configuration.
+Provides commands to inspect, deploy, and generate example configuration.
 
 Contents:
     * :func:`cli_config` - Display merged configuration.
     * :func:`cli_config_deploy` - Deploy configuration to target locations.
+    * :func:`cli_config_generate_examples` - Generate example configuration files.
 """
 
 from __future__ import annotations
@@ -208,7 +209,20 @@ def _report_deployment_result(deployed_paths: list[Path], profile: str | None) -
 @click.option("--force", is_flag=True, default=False, help="Overwrite existing files")
 @click.pass_context
 def cli_config_generate_examples(ctx: click.Context, destination: str, force: bool) -> None:
-    """Generate example configuration files in a target directory."""
+    """Generate example configuration files in a target directory.
+
+    Creates example TOML configuration files showing all available options
+    with their default values and documentation comments. Useful for learning
+    the configuration structure, creating initial configuration files, or
+    documenting available settings.
+
+    By default, existing files are not overwritten. Use --force to overwrite.
+
+    Example:
+        >>> from click.testing import CliRunner
+        >>> runner = CliRunner()
+        >>> # Real invocation tested in test_cli_config.py
+    """
     extra = {"command": "config-generate-examples", "destination": destination, "force": force}
     with lib_log_rich.runtime.bind(job_id="cli-config-generate-examples", extra=extra):
         logger.info("Generating example configuration files", extra={"destination": destination, "force": force})

@@ -211,3 +211,84 @@ def inject_config(
         monkeypatch.setattr(config_mod, "get_config", _fake_get_config)
 
     return _inject
+
+
+@pytest.fixture
+def inject_email_services(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
+    """Inject memory email adapters into CLI context for testing.
+
+    Call the returned function to activate the injection. This patches
+    ``store_cli_context`` where it's used (root.py) to inject memory adapters
+    for send_email, send_notification, and load_email_config_from_dict.
+
+    Example:
+        def test_email(inject_email_services, email_spy, ...):
+            inject_email_services()
+            result = cli_runner.invoke(...)
+            assert len(email_spy.sent_emails) == 1
+    """
+    from bitranox_template_py_cli.adapters.cli import context as ctx_mod
+    from bitranox_template_py_cli.adapters.cli import root as root_mod
+    from bitranox_template_py_cli.adapters.memory import (
+        load_email_config_from_dict_in_memory,
+        send_email_in_memory,
+        send_notification_in_memory,
+    )
+
+    original_store = ctx_mod.store_cli_context
+
+    def _inject() -> None:
+        def patched_store(
+            ctx: Any,
+            *,
+            traceback: bool,
+            config: Any,
+            profile: str | None = None,
+            set_overrides: tuple[str, ...] = (),
+            **kwargs: Any,
+        ) -> None:
+            return original_store(
+                ctx,
+                traceback=traceback,
+                config=config,
+                profile=profile,
+                set_overrides=set_overrides,
+                send_email=send_email_in_memory,
+                send_notification=send_notification_in_memory,
+                load_email_config_from_dict=load_email_config_from_dict_in_memory,
+            )
+
+        # Patch where it's used (root.py has its own reference via import)
+        monkeypatch.setattr(root_mod, "store_cli_context", patched_store)
+
+    return _inject
+
+
+@pytest.fixture
+def email_spy() -> Iterator[Any]:
+    """Provide the global email spy with auto-cleanup.
+
+    The spy captures all calls to memory email adapters. Use to assert
+    on sent emails/notifications and to simulate failures or exceptions.
+
+    Example:
+        def test_failure(email_spy, ...):
+            email_spy.should_fail = True
+            result = cli_runner.invoke(...)
+            assert result.exit_code == 69  # SMTP_FAILURE
+
+        def test_exception(email_spy, ...):
+            email_spy.raise_exception = TypeError("unexpected")
+            result = cli_runner.invoke(...)
+            assert result.exit_code == 1  # GENERAL_ERROR
+    """
+    from bitranox_template_py_cli.adapters.memory.email import get_email_spy
+
+    spy = get_email_spy()
+    spy.clear()
+    spy.should_fail = False
+    spy.raise_exception = None
+    yield spy
+    spy.clear()
+    spy.should_fail = False
+    spy.raise_exception = None

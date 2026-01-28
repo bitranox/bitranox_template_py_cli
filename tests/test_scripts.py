@@ -8,7 +8,7 @@ real subprocess execution.
 from __future__ import annotations
 
 import sys
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import ModuleType, SimpleNamespace
 from typing import Protocol, TypedDict
@@ -19,7 +19,7 @@ from pytest import MonkeyPatch
 
 import scripts.test as test_script
 from scripts import _test_steps, _utils, build, cli, dev, install, run_cli
-from scripts._utils import ProjectMetadata, RunResult
+from scripts._utils import RunResult
 
 RunCommand = Sequence[str] | str
 ModuleLike = ModuleType | SimpleNamespace
@@ -141,15 +141,6 @@ def _first_command(runs: list[RecordedRun]) -> RunCommand:
     return runs[0].command
 
 
-def _capture_sync(record: list[ProjectMetadata]) -> Callable[[ProjectMetadata], None]:
-    """Return a sync stub that records metadata sync invocations."""
-
-    def _sync(project: ProjectMetadata) -> None:
-        record.append(project)
-
-    return _sync
-
-
 @pytest.mark.os_agnostic
 def test_get_project_metadata_fields() -> None:
     """Verify get_project_metadata returns expected fields."""
@@ -171,9 +162,7 @@ def test_get_project_metadata_fields() -> None:
 def test_build_script_uses_metadata(monkeypatch: MonkeyPatch) -> None:
     """Verify build script invokes python -m build."""
     recorded: list[RecordedRun] = []
-    synced: list[ProjectMetadata] = []
     monkeypatch.setattr(build, "run", _remember_runs(recorded))
-    monkeypatch.setattr(test_script, "sync_metadata_module", _capture_sync(synced))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["build"])
     assert result.exit_code == 0
@@ -185,9 +174,7 @@ def test_build_script_uses_metadata(monkeypatch: MonkeyPatch) -> None:
 def test_dev_script_installs_dev_extras(monkeypatch: MonkeyPatch) -> None:
     """Verify dev script installs package with dev extras."""
     recorded: list[RecordedRun] = []
-    synced: list[ProjectMetadata] = []
     monkeypatch.setattr(dev, "run", _remember_runs(recorded))
-    monkeypatch.setattr(test_script, "sync_metadata_module", _capture_sync(synced))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["dev"])
     assert result.exit_code == 0
@@ -200,9 +187,7 @@ def test_dev_script_installs_dev_extras(monkeypatch: MonkeyPatch) -> None:
 def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
     """Verify install script runs pip install -e."""
     recorded: list[RecordedRun] = []
-    synced: list[ProjectMetadata] = []
     monkeypatch.setattr(install, "run", _remember_runs(recorded))
-    monkeypatch.setattr(test_script, "sync_metadata_module", _capture_sync(synced))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["install"])
     assert result.exit_code == 0
@@ -215,7 +200,6 @@ def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
 def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
     """Verify run_cli dynamically imports the package CLI module."""
     seen: list[str] = []
-    synced: list[ProjectMetadata] = []
 
     def _run_cli_main(_args: Sequence[str] | None = None) -> int:
         return 0
@@ -229,7 +213,6 @@ def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
         raise AssertionError(f"unexpected import {name}")
 
     monkeypatch.setattr(run_cli, "import_module", fake_import)
-    monkeypatch.setattr(test_script, "sync_metadata_module", _capture_sync(synced))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["run"])
     assert result.exit_code == 0
@@ -252,12 +235,10 @@ def test_test_script_uses_pyproject_configuration(monkeypatch: MonkeyPatch) -> N
         return False
 
     monkeypatch.setattr(test_script, "bootstrap_dev", _noop)
-    synced: list[ProjectMetadata] = []
     monkeypatch.setattr(_utils, "cmd_exists", _always_false)
     stub = _remember_runs(recorded)
     monkeypatch.setattr(test_script, "run", stub)
     monkeypatch.setattr(_test_steps, "run", stub)
-    monkeypatch.setattr(test_script, "sync_metadata_module", _capture_sync(synced))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["test"])
     assert result.exit_code == 0
@@ -271,4 +252,3 @@ def test_test_script_uses_pyproject_configuration(monkeypatch: MonkeyPatch) -> N
             pytest_commands.append(command_list)
     assert pytest_commands, "pytest not invoked"
     assert any(f"--cov={test_script.COVERAGE_TARGET}" in " ".join(sequence) for sequence in pytest_commands)
-    assert synced

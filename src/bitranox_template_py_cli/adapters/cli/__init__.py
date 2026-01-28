@@ -3,8 +3,7 @@
 Re-exports all public symbols from submodules for convenient access.
 
 Contents:
-    * Traceback state management from :mod:`.traceback`
-    * Click context helpers from :mod:`.context`
+    * Click context helpers and traceback state management from :mod:`.context`
     * Root command group from :mod:`.root`
     * Entry point from :mod:`.main`
     * All command functions from :mod:`.commands`
@@ -28,15 +27,15 @@ from .commands import (
     cli_send_notification,
 )
 from .constants import CLICK_CONTEXT_SETTINGS, TRACEBACK_SUMMARY_LIMIT, TRACEBACK_VERBOSE_LIMIT
-from .context import store_cli_context
-from .main import main
-from .root import cli
-from .traceback import (
+from .context import (
     TracebackState,
     apply_traceback_preferences,
     restore_traceback_state,
     snapshot_traceback_state,
+    store_cli_context,
 )
+from .main import main
+from .root import cli
 
 __all__ = [
     # Constants

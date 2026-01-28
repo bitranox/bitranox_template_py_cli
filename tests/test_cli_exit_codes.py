@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from click.testing import CliRunner, Result
@@ -11,6 +11,9 @@ from lib_layered_config import Config
 
 from bitranox_template_py_cli.adapters import cli as cli_mod
 from bitranox_template_py_cli.adapters.config import deploy as config_deploy_mod
+
+if TYPE_CHECKING:
+    from bitranox_template_py_cli.adapters.memory.email import EmailSpy
 
 
 @pytest.mark.os_agnostic
@@ -81,12 +84,10 @@ def test_when_email_smtp_fails_it_exits_with_code_69(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
     inject_config: Callable[[Config], None],
+    inject_email_services: Callable[[], None],
+    email_spy: EmailSpy,
 ) -> None:
-    """Send-email DeliveryError (SMTP failure) must exit with SMTP_FAILURE (69)."""
-    from unittest.mock import patch
-
-    from bitranox_template_py_cli.domain.errors import DeliveryError
-
+    """Send-email failure must exit with SMTP_FAILURE (69)."""
     inject_config(
         config_factory(
             {
@@ -97,18 +98,16 @@ def test_when_email_smtp_fails_it_exits_with_code_69(
             }
         )
     )
+    inject_email_services()
+    email_spy.should_fail = True
 
-    with patch(
-        "bitranox_template_py_cli.adapters.cli.commands.email.send_email",
-        side_effect=DeliveryError("SMTP connection refused"),
-    ):
-        result: Result = cli_runner.invoke(
-            cli_mod.cli,
-            ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
-        )
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
+    )
 
     assert result.exit_code == 69
-    assert "SMTP connection refused" in (result.output + (result.stderr or ""))
+    assert "failed" in (result.output + (result.stderr or "")).lower()
 
 
 @pytest.mark.os_agnostic
@@ -116,10 +115,10 @@ def test_when_email_send_returns_false_it_exits_with_code_69(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
     inject_config: Callable[[Config], None],
+    inject_email_services: Callable[[], None],
+    email_spy: EmailSpy,
 ) -> None:
     """Send-email returning False must exit with SMTP_FAILURE (69)."""
-    from unittest.mock import patch
-
     inject_config(
         config_factory(
             {
@@ -130,18 +129,16 @@ def test_when_email_send_returns_false_it_exits_with_code_69(
             }
         )
     )
+    inject_email_services()
+    email_spy.should_fail = True
 
-    with patch(
-        "bitranox_template_py_cli.adapters.cli.commands.email.send_email",
-        return_value=False,
-    ):
-        result: Result = cli_runner.invoke(
-            cli_mod.cli,
-            ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
-        )
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
+    )
 
     assert result.exit_code == 69
-    assert "sending failed" in (result.output + (result.stderr or ""))
+    assert "sending failed" in (result.output + (result.stderr or "")).lower()
 
 
 @pytest.mark.os_agnostic
@@ -149,10 +146,10 @@ def test_when_email_has_unexpected_error_it_exits_with_code_1(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
     inject_config: Callable[[Config], None],
+    inject_email_services: Callable[[], None],
+    email_spy: EmailSpy,
 ) -> None:
     """Send-email unexpected Exception must exit with GENERAL_ERROR (1)."""
-    from unittest.mock import patch
-
     inject_config(
         config_factory(
             {
@@ -163,15 +160,13 @@ def test_when_email_has_unexpected_error_it_exits_with_code_1(
             }
         )
     )
+    inject_email_services()
+    email_spy.raise_exception = TypeError("unexpected type error")
 
-    with patch(
-        "bitranox_template_py_cli.adapters.cli.commands.email.send_email",
-        side_effect=TypeError("unexpected type error"),
-    ):
-        result: Result = cli_runner.invoke(
-            cli_mod.cli,
-            ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
-        )
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
+    )
 
     assert result.exit_code == 1
     assert "unexpected type error" in (result.output + (result.stderr or ""))

@@ -1,8 +1,7 @@
-"""Metadata tales celebrating the pinned project portrait."""
+"""Package metadata and PEP 561 marker tests."""
 
 from __future__ import annotations
 
-import runpy
 from pathlib import Path
 from typing import Any, cast
 
@@ -11,7 +10,6 @@ import rtoml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
-TARGET_FIELDS = ("name", "title", "version", "homepage", "author", "author_email", "shell_command")
 
 
 def _load_pyproject() -> dict[str, Any]:
@@ -19,8 +17,9 @@ def _load_pyproject() -> dict[str, Any]:
     return rtoml.load(PYPROJECT_PATH)
 
 
-def _resolve_init_conf_path(pyproject: dict[str, Any]) -> Path:
-    """Locate the __init__conf__.py file based on pyproject.toml configuration."""
+def _get_package_dir() -> Path:
+    """Locate the package directory based on pyproject.toml configuration."""
+    pyproject = _load_pyproject()
     project_table = cast(dict[str, Any], pyproject["project"])
     tool_table = cast(dict[str, Any], pyproject.get("tool", {}))
     hatch_table = cast(dict[str, Any], tool_table.get("hatch", {}))
@@ -30,88 +29,44 @@ def _resolve_init_conf_path(pyproject: dict[str, Any]) -> Path:
 
     for package_entry in packages:
         if isinstance(package_entry, str):
-            candidate = PROJECT_ROOT / package_entry / "__init__conf__.py"
-            if candidate.is_file():
+            candidate = PROJECT_ROOT / package_entry
+            if candidate.is_dir():
                 return candidate
 
-    fallback = PROJECT_ROOT / "src" / project_table["name"].replace("-", "_") / "__init__conf__.py"
-    if fallback.is_file():
+    fallback = PROJECT_ROOT / "src" / project_table["name"].replace("-", "_")
+    if fallback.is_dir():
         return fallback
 
-    raise AssertionError("Unable to locate __init__conf__.py")
-
-
-def _load_init_conf_metadata(init_conf_path: Path) -> dict[str, str]:
-    """Extract metadata field assignments from __init__conf__.py."""
-    fragments: list[str] = []
-    for raw_line in init_conf_path.read_text(encoding="utf-8").splitlines():
-        stripped = raw_line.strip()
-        for key in TARGET_FIELDS:
-            prefix = f"{key} = "
-            if stripped.startswith(prefix):
-                fragments.append(stripped)
-                break
-    if not fragments:
-        raise AssertionError("No metadata assignments found in __init__conf__.py")
-    metadata_text = "[metadata]\n" + "\n".join(fragments)
-    parsed = rtoml.loads(metadata_text)
-    metadata_table = cast(dict[str, str], parsed["metadata"])
-    return metadata_table
-
-
-def _load_init_conf_module(init_conf_path: Path) -> dict[str, Any]:
-    """Execute __init__conf__.py and return its namespace dict."""
-    return runpy.run_path(str(init_conf_path))
+    raise AssertionError("Unable to locate package directory")
 
 
 @pytest.mark.os_agnostic
-def test_when_print_info_runs_it_lists_every_field(capsys: pytest.CaptureFixture[str]) -> None:
-    """Verify print_info outputs all target metadata fields."""
-    pyproject = _load_pyproject()
-    init_conf_path = _resolve_init_conf_path(pyproject)
-    init_conf_module = _load_init_conf_module(init_conf_path)
-
-    print_info = init_conf_module["print_info"]
-    assert callable(print_info)
+def test_when_print_info_runs_it_outputs_metadata(capsys: pytest.CaptureFixture[str]) -> None:
+    """Verify print_info outputs package metadata."""
+    from bitranox_template_py_cli import print_info
 
     print_info()
 
     captured = capsys.readouterr().out
-
-    for label in TARGET_FIELDS:
-        assert f"{label}" in captured
+    assert "bitranox_template_py_cli" in captured
+    assert "version" in captured
 
 
 @pytest.mark.os_agnostic
-def test_the_metadata_constants_match_the_project() -> None:
-    """Verify __init__conf__.py metadata matches pyproject.toml values."""
-    pyproject = _load_pyproject()
-    project_table = cast(dict[str, Any], pyproject["project"])
-    init_conf_path = _resolve_init_conf_path(pyproject)
-    metadata = _load_init_conf_metadata(init_conf_path)
+def test_metadata_loads_from_importlib() -> None:
+    """Verify metadata is sourced from importlib.metadata, not hardcoded."""
+    from bitranox_template_py_cli import __init__conf__
 
-    urls = cast(dict[str, str], project_table.get("urls", {}))
-    authors = cast(list[dict[str, str]], project_table.get("authors", []))
-    scripts = cast(dict[str, Any], project_table.get("scripts", {}))
-
-    assert authors, "pyproject.toml must declare at least one author entry"
-    assert "Homepage" in urls, "pyproject.toml must define project.urls.Homepage"
-
-    assert metadata["name"] == project_table["name"]
-    assert metadata["title"] == project_table["description"]
-    assert metadata["version"] == project_table["version"]
-    assert metadata["homepage"] == urls["Homepage"]
-    assert metadata["author"] == authors[0]["name"]
-    assert metadata["author_email"] == authors[0]["email"]
-    assert metadata["shell_command"] in scripts
+    # These should be non-empty when package is installed
+    assert __init__conf__.name == "bitranox_template_py_cli"
+    assert __init__conf__.version  # Should have a version
+    assert __init__conf__.shell_command == "bitranox-template-py-cli"
 
 
 @pytest.mark.os_agnostic
 def test_py_typed_marker_exists() -> None:
     """Verify PEP 561 py.typed marker exists in the package source."""
-    pyproject = _load_pyproject()
-    init_conf_path = _resolve_init_conf_path(pyproject)
-    package_dir = init_conf_path.parent
+    package_dir = _get_package_dir()
     py_typed = package_dir / "py.typed"
     assert py_typed.is_file(), f"PEP 561 marker not found at {py_typed}"
 

@@ -69,15 +69,18 @@ def deploy_configuration(
     Note:
         Platform-specific paths (without profile):
         - Linux (app): /etc/xdg/{slug}/config.toml
-        - Linux (host): /etc/xdg/{slug}/config.toml
+        - Linux (host): /etc/xdg/{slug}/hosts/{hostname}.toml
         - Linux (user): ~/.config/{slug}/config.toml
         - macOS (app): /Library/Application Support/{vendor}/{app}/config.toml
+        - macOS (host): /Library/Application Support/{vendor}/{app}/hosts/{hostname}.toml
         - macOS (user): ~/Library/Application Support/{vendor}/{app}/config.toml
         - Windows (app): C:\ProgramData\{vendor}\{app}\config.toml
+        - Windows (host): C:\ProgramData\{vendor}\{app}\hosts\{hostname}.toml
         - Windows (user): %APPDATA%\{vendor}\{app}\config.toml
 
         Platform-specific paths (with profile='production'):
         - Linux (user): ~/.config/{slug}/profile/production/config.toml
+        - Linux (host): /etc/xdg/{slug}/profile/production/hosts/{hostname}.toml
         - etc.
 
     Example:

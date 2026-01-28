@@ -1,59 +1,50 @@
-"""SmtpConfigOverrides unit tests."""
+"""Override filtering unit tests."""
 
 from __future__ import annotations
 
 import pytest
 
-from bitranox_template_py_cli.adapters.cli.commands.email import SmtpConfigOverrides
+from bitranox_template_py_cli.adapters.cli.commands.email import filter_sentinels
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 
 
 @pytest.mark.os_agnostic
-def test_when_smtp_overrides_have_no_values_it_returns_same_config() -> None:
-    """When no overrides are set, apply_to returns the same config instance."""
-    config = EmailConfig(smtp_hosts=["smtp.example.com:587"], from_address="a@b.com")
-    overrides = SmtpConfigOverrides()
-
-    result = overrides.apply_to(config)
-
-    assert result is config
-
-
-@pytest.mark.os_agnostic
-def test_when_smtp_overrides_include_host_it_applies_override() -> None:
-    """When smtp_hosts is set, apply_to replaces hosts and keeps other fields unchanged."""
-    config = EmailConfig(
-        smtp_hosts=["smtp.original.com:587"],
-        from_address="sender@example.com",
-        timeout=30.0,
-    )
-    overrides = SmtpConfigOverrides(smtp_hosts=("smtp.override.com:465",))
-
-    result = overrides.apply_to(config)
-
-    assert result.smtp_hosts == ["smtp.override.com:465"]
-    assert result.from_address == "sender@example.com"
-    assert result.timeout == 30.0
-
-
-@pytest.mark.os_agnostic
-def test_when_smtp_overrides_include_multiple_fields_it_applies_all() -> None:
-    """When multiple overrides are set, apply_to replaces all specified fields."""
-    config = EmailConfig(
-        smtp_hosts=["smtp.original.com:587"],
-        from_address="sender@example.com",
-        use_starttls=True,
-        timeout=30.0,
-    )
-    overrides = SmtpConfigOverrides(
-        smtp_hosts=("smtp.new.com:465",),
-        use_starttls=False,
+def testfilter_sentinels_removes_none_and_empty_tuple() -> None:
+    """filter_sentinels filters out None and empty tuple sentinels."""
+    result = filter_sentinels(
+        smtp_hosts=(),
+        smtp_username=None,
         timeout=60.0,
     )
 
-    result = overrides.apply_to(config)
+    assert result == {"timeout": 60.0}
+
+
+@pytest.mark.os_agnostic
+def testfilter_sentinels_converts_tuples_to_lists() -> None:
+    """filter_sentinels converts non-empty tuples to lists for model_copy."""
+    result = filter_sentinels(smtp_hosts=("smtp.example.com:587",))
+
+    assert result == {"smtp_hosts": ["smtp.example.com:587"]}
+
+
+@pytest.mark.os_agnostic
+def test_model_copy_with_filtered_overrides_preserves_other_fields() -> None:
+    """model_copy with filtered overrides preserves non-overridden fields."""
+    config = EmailConfig(
+        smtp_hosts=["smtp.original.com:587"],
+        from_address="sender@example.com",
+        timeout=30.0,
+    )
+    overrides = filter_sentinels(
+        smtp_hosts=("smtp.new.com:465",),
+        smtp_username=None,
+        use_starttls=False,
+    )
+
+    result = config.model_copy(update=overrides)
 
     assert result.smtp_hosts == ["smtp.new.com:465"]
     assert result.use_starttls is False
-    assert result.timeout == 60.0
     assert result.from_address == "sender@example.com"
+    assert result.timeout == 30.0

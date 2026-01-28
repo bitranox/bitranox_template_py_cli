@@ -62,10 +62,9 @@ For alternative install paths (pip, pipx, source builds, etc.), see
 ### Python 3.10+ Baseline
 
 - The project targets **Python 3.10 and newer**.
-- Runtime dependencies stay on the current stable releases (`rich-click>=1.9.6`
-  and `lib_cli_exit_tools>=2.2.4`) and keeps pytest, ruff, pyright, bandit,
-  build, twine, codecov-cli, pip-audit, textual, and import-linter pinned to
-  their newest majors.
+- Runtime dependencies require current stable releases (`rich-click>=1.9.6`
+  and `lib_cli_exit_tools>=2.2.4`). Dev dependencies (pytest, ruff, pyright,
+  bandit, etc.) specify minimum version constraints to ensure compatibility.
 - CI workflows exercise GitHub's rolling runner images (`ubuntu-latest`,
   `macos-latest`, `windows-latest`) and cover CPython 3.10 through 3.13
   alongside the latest available 3.x release provided by Actions.
@@ -405,7 +404,7 @@ The application uses [lib_layered_config](https://github.com/bitranox/lib_layere
 Platform-specific paths:
 - **Linux (user)**: `~/.config/bitranox-template-py-cli/config.toml`
 - **Linux (app)**: `/etc/xdg/bitranox-template-py-cli/config.toml`
-- **Linux (host)**: `/etc/bitranox-template-py-cli/hosts/{hostname}.toml`
+- **Linux (host)**: `/etc/xdg/bitranox-template-py-cli/hosts/{hostname}.toml`
 - **macOS (user)**: `~/Library/Application Support/bitranox/Bitranox Template Py Cli/config.toml`
 - **Windows (user)**: `%APPDATA%\bitranox\Bitranox Template Py Cli\config.toml`
 
@@ -458,6 +457,30 @@ bitranox-template-py-cli config-deploy --target user --profile production
 # Deploy production profile and overwrite if exists
 bitranox-template-py-cli config-deploy --target user --profile production --force
 ```
+
+#### Generate Example Configuration Files
+
+Create example TOML configuration files showing all available options with their default values and documentation comments. Useful for:
+- Learning the configuration structure
+- Creating initial configuration files
+- Documenting available settings
+
+```bash
+# Generate examples in a specific directory
+bitranox-template-py-cli config-generate-examples --destination ./examples
+
+# Overwrite existing example files
+bitranox-template-py-cli config-generate-examples --destination ./examples --force
+
+# Generate examples in current directory
+bitranox-template-py-cli config-generate-examples --destination .
+```
+
+The generated files include:
+- `config.toml` - Main configuration file with all sections
+- `config.d/*.toml` - Additional modular configuration files (email, logging, etc.)
+
+Each file contains commented documentation explaining available options and their default values.
 
 #### Environment Variable Overrides
 

@@ -18,8 +18,7 @@ from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
 from bitranox_template_py_cli.adapters.logging.setup import init_logging
 
 from .constants import CLICK_CONTEXT_SETTINGS
-from .context import store_cli_context
-from .traceback import apply_traceback_preferences
+from .context import apply_traceback_preferences, store_cli_context
 
 
 def _apply_cli_overrides(config: Config, set_overrides: tuple[str, ...]) -> Config:

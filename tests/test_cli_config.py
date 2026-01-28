@@ -581,6 +581,161 @@ def test_when_config_generate_examples_missing_destination_it_fails(
     assert "Missing option" in result.output or "required" in result.output.lower()
 
 
+@pytest.mark.os_agnostic
+def test_when_config_generate_examples_with_force_it_passes_force_flag(
+    cli_runner: CliRunner,
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify config-generate-examples passes --force flag to generate_examples."""
+    captured_force: list[bool] = []
+    created_file = tmp_path / "example.toml"
+    created_file.touch()
+
+    def mock_generate_examples(
+        destination: str | Path, *, slug: str, vendor: str, app: str, force: bool = False, platform: str | None = None
+    ) -> list[Path]:
+        captured_force.append(force)
+        return [created_file]
+
+    monkeypatch.setattr(
+        "bitranox_template_py_cli.adapters.cli.commands.config.generate_examples", mock_generate_examples
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["config-generate-examples", "--destination", str(tmp_path), "--force"],
+    )
+
+    assert result.exit_code == 0
+    assert captured_force == [True]
+
+
+@pytest.mark.os_agnostic
+def test_when_config_generate_examples_without_force_it_defaults_to_false(
+    cli_runner: CliRunner,
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify config-generate-examples defaults force=False."""
+    captured_force: list[bool] = []
+    created_file = tmp_path / "example.toml"
+    created_file.touch()
+
+    def mock_generate_examples(
+        destination: str | Path, *, slug: str, vendor: str, app: str, force: bool = False, platform: str | None = None
+    ) -> list[Path]:
+        captured_force.append(force)
+        return [created_file]
+
+    monkeypatch.setattr(
+        "bitranox_template_py_cli.adapters.cli.commands.config.generate_examples", mock_generate_examples
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["config-generate-examples", "--destination", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0
+    assert captured_force == [False]
+
+
+@pytest.mark.os_agnostic
+def test_when_config_generate_examples_encounters_error_it_exits_with_general_error(
+    cli_runner: CliRunner,
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify config-generate-examples handles exceptions gracefully."""
+
+    def mock_generate_examples(
+        destination: str | Path, *, slug: str, vendor: str, app: str, force: bool = False, platform: str | None = None
+    ) -> list[Path]:
+        raise OSError("Disk full")
+
+    monkeypatch.setattr(
+        "bitranox_template_py_cli.adapters.cli.commands.config.generate_examples", mock_generate_examples
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["config-generate-examples", "--destination", str(tmp_path)],
+    )
+
+    assert result.exit_code == 1  # GENERAL_ERROR
+    assert "Disk full" in result.stderr
+
+
+@pytest.mark.os_agnostic
+def test_when_config_generate_examples_it_passes_correct_metadata(
+    cli_runner: CliRunner,
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify config-generate-examples passes correct slug, vendor, app from __init__conf__."""
+    from bitranox_template_py_cli import __init__conf__
+
+    captured_params: list[dict[str, Any]] = []
+    created_file = tmp_path / "example.toml"
+    created_file.touch()
+
+    def mock_generate_examples(
+        destination: str | Path, *, slug: str, vendor: str, app: str, force: bool = False, platform: str | None = None
+    ) -> list[Path]:
+        captured_params.append({"slug": slug, "vendor": vendor, "app": app, "destination": str(destination)})
+        return [created_file]
+
+    monkeypatch.setattr(
+        "bitranox_template_py_cli.adapters.cli.commands.config.generate_examples", mock_generate_examples
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["config-generate-examples", "--destination", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0
+    assert len(captured_params) == 1
+    assert captured_params[0]["slug"] == __init__conf__.LAYEREDCONF_SLUG
+    assert captured_params[0]["vendor"] == __init__conf__.LAYEREDCONF_VENDOR
+    assert captured_params[0]["app"] == __init__conf__.LAYEREDCONF_APP
+    assert captured_params[0]["destination"] == str(tmp_path)
+
+
+@pytest.mark.os_agnostic
+def test_when_config_generate_examples_creates_multiple_files_it_lists_all(
+    cli_runner: CliRunner,
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify config-generate-examples lists all created files."""
+    file1 = tmp_path / "config.toml"
+    file2 = tmp_path / "config.d" / "50-email.toml"
+    file1.touch()
+    file2.parent.mkdir(parents=True)
+    file2.touch()
+
+    def mock_generate_examples(
+        destination: str | Path, *, slug: str, vendor: str, app: str, force: bool = False, platform: str | None = None
+    ) -> list[Path]:
+        return [file1, file2]
+
+    monkeypatch.setattr(
+        "bitranox_template_py_cli.adapters.cli.commands.config.generate_examples", mock_generate_examples
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["config-generate-examples", "--destination", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0
+    assert "Generated 2 example file(s)" in result.output
+    assert str(file1) in result.output
+    assert str(file2) in result.output
+
+
 # ======================== --set override preservation ========================
 
 

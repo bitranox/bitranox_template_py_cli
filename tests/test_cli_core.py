@@ -12,7 +12,6 @@ from click.testing import CliRunner, Result
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod
-from bitranox_template_py_cli.adapters.cli.traceback import TracebackState
 
 
 @dataclass(slots=True)
@@ -62,7 +61,7 @@ def capture_run_cli(target: list[CapturedRun]) -> Callable[..., int]:
 @pytest.mark.os_agnostic
 def test_snapshot_traceback_state_returns_disabled_by_default(managed_traceback_state: None) -> None:
     """snapshot_traceback_state returns both flags disabled initially."""
-    assert cli_mod.snapshot_traceback_state() == TracebackState(traceback_enabled=False, force_color=False)
+    assert cli_mod.snapshot_traceback_state() == (False, False)
 
 
 @pytest.mark.os_agnostic

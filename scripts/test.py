@@ -48,7 +48,6 @@ from ._utils import (
     bootstrap_dev,
     get_project_metadata,
     run,
-    sync_metadata_module,
 )
 from .toml_config import load_pyproject_config
 
@@ -257,7 +256,6 @@ def _extract_parallel_commands(config: TestConfig, *, strict_format: bool) -> li
 
 def run_coverage(*, verbose: bool = False) -> None:
     """Run pytest under coverage using python modules to avoid PATH shim issues."""
-    sync_metadata_module(PROJECT)
     bootstrap_dev()
 
     config = TestConfig.from_pyproject(PROJECT_ROOT / "pyproject.toml")
@@ -356,7 +354,6 @@ def run_tests(
     elif env_parallel in _TRUTHY:
         parallel = True
 
-    sync_metadata_module(PROJECT)
     bootstrap_dev()
 
     config = TestConfig.from_pyproject(PROJECT_ROOT / "pyproject.toml")

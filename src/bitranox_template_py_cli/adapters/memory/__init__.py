@@ -20,6 +20,8 @@ from .config import (
     get_default_config_path_in_memory,
 )
 from .email import (
+    EmailSpy,
+    get_email_spy,
     load_email_config_from_dict_in_memory,
     send_email_in_memory,
     send_notification_in_memory,
@@ -45,10 +47,12 @@ if TYPE_CHECKING:
     _assert_init_logging: InitLogging = init_logging_in_memory
 
 __all__ = [
+    "EmailSpy",
     "deploy_configuration_in_memory",
     "display_config_in_memory",
     "get_config_in_memory",
     "get_default_config_path_in_memory",
+    "get_email_spy",
     "init_logging_in_memory",
     "load_email_config_from_dict_in_memory",
     "send_email_in_memory",

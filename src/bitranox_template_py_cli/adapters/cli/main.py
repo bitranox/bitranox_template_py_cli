@@ -17,7 +17,7 @@ import lib_log_rich.runtime
 from bitranox_template_py_cli import __init__conf__
 
 from .constants import TRACEBACK_SUMMARY_LIMIT, TRACEBACK_VERBOSE_LIMIT
-from .traceback import (
+from .context import (
     apply_traceback_preferences,
     restore_traceback_state,
     snapshot_traceback_state,
