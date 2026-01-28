@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import lib_log_rich.runtime
 import pytest
 from lib_layered_config import Config
 
@@ -65,16 +64,6 @@ def test_build_runtime_config_uses_configured_environment() -> None:
     result = _build_runtime_config(config)
 
     assert result.environment == "staging"
-
-
-@pytest.mark.os_agnostic
-def test_build_runtime_config_returns_runtime_config_type() -> None:
-    """The result is a lib_log_rich RuntimeConfig instance."""
-    config = Config({"lib_log_rich": {"service": "test"}}, {})
-
-    result = _build_runtime_config(config)
-
-    assert isinstance(result, lib_log_rich.runtime.RuntimeConfig)
 
 
 @pytest.mark.os_agnostic

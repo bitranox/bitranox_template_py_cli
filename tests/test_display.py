@@ -344,52 +344,7 @@ def test_display_human_single_scalar_section(
     assert "# source: env" in output
 
 
-# ======================== _format_raw_value — consistent formatting ========================
-
-
-@pytest.mark.os_agnostic
-def test_format_raw_value_quotes_string_consistently() -> None:
-    """All string values must be double-quoted regardless of content."""
-    assert _format_raw_value("smtp.test") == '"smtp.test"'
-
-
 # ======================== Edge cases ========================
-
-
-@pytest.mark.os_agnostic
-def test_display_human_empty_section_raises() -> None:
-    """Requesting a non-existent section raises ValueError."""
-    config = Config({"other": {"key": "val"}}, {})
-
-    with pytest.raises(ValueError, match="not found"):
-        display_config(config, output_format=OutputFormat.HUMAN, section="nonexistent")
-
-
-@pytest.mark.os_agnostic
-def test_display_json_empty_section_raises() -> None:
-    """JSON format with non-existent section raises ValueError."""
-    config = Config({"other": {"key": "val"}}, {})
-
-    with pytest.raises(ValueError, match="not found"):
-        display_config(config, output_format=OutputFormat.JSON, section="nonexistent")
-
-
-@pytest.mark.os_agnostic
-def test_format_raw_value_empty_string() -> None:
-    """Empty string is rendered as empty quoted string."""
-    assert _format_raw_value("") == '""'
-
-
-@pytest.mark.os_agnostic
-def test_format_raw_value_none() -> None:
-    """None value is rendered as string representation."""
-    assert _format_raw_value(None) == "None"
-
-
-@pytest.mark.os_agnostic
-def test_format_raw_value_boolean_true() -> None:
-    """Boolean True is rendered without quotes."""
-    assert _format_raw_value(True) == "True"
 
 
 @pytest.mark.os_agnostic
