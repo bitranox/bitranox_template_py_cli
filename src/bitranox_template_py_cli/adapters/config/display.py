@@ -27,15 +27,9 @@ from lib_layered_config.domain.config import SourceInfo
 from ...domain.enums import OutputFormat
 
 _REDACTED = "***REDACTED***"
-_ENV_LAYERS = frozenset({"dotenv", "env"})
 _SECTION_INDENT = "    "
 _TOPLEVEL_INDENT = ""
 _console = Console(highlight=False)
-
-
-def _is_env_layer(layer: str | None) -> bool:
-    """Return True for layers that use env-style ``key=value`` formatting."""
-    return layer in _ENV_LAYERS
 
 
 def _format_raw_value(value: Any) -> str:
@@ -54,23 +48,20 @@ def _format_raw_value(value: Any) -> str:
     return f"{value}"
 
 
-def _format_value(key: str, value: Any, *, env_style: bool = False, indent: str = "  ") -> str:  # pyright: ignore[reportUnusedFunction]
+def _format_value(key: str, value: Any, *, indent: str = "  ") -> str:  # pyright: ignore[reportUnusedFunction]
     """Format a config value for human-readable display.
 
-    TOML sources use ``key = value`` (spaces around ``=``).
-    Dotenv/env sources use ``key=value`` (no spaces).
+    Always uses TOML-style ``key = value`` (spaces around ``=``).
     """
-    separator = "=" if env_style else " = "
-    return f"{indent}{key}{separator}{_format_raw_value(value)}"
+    return f"{indent}{key} = {_format_raw_value(value)}"
 
 
-def _styled_entry(key: str, value: Any, *, env_style: bool = False, indent: str = "  ") -> Text:
+def _styled_entry(key: str, value: Any, *, indent: str = "  ") -> Text:
     """Build a Rich Text object for a styled config key-value line.
 
     Args:
         key: Configuration key name.
         value: Configuration value.
-        env_style: Use ``key=value`` (no spaces) for dotenv/env sources.
         indent: Leading whitespace before the key.
 
     Returns:
@@ -78,10 +69,7 @@ def _styled_entry(key: str, value: Any, *, env_style: bool = False, indent: str 
     """
     text = Text(indent)
     text.append(key, style="bold")
-    if env_style:
-        text.append("=")
-    else:
-        text.append(" = ", style="dim")
+    text.append(" = ", style="dim")
     raw = _format_raw_value(value)
     if isinstance(value, str) and value == _REDACTED:
         text.append(raw, style="dim red")
@@ -150,14 +138,12 @@ def _print_section(
         if isinstance(value, dict):
             _print_section(f"{section_name}.{key}", cast(dict[str, Any], value), config)
         else:
-            layer: str | None = None
             if config is not None:
                 dotted_key = f"{section_name}.{key}"
                 info = config.origin(dotted_key)
                 if info is not None:
                     _console.print(_format_source_line(info, _SECTION_INDENT), style="yellow")
-                    layer = info["layer"]
-            _console.print(_styled_entry(key, value, env_style=_is_env_layer(layer), indent=_SECTION_INDENT))
+            _console.print(_styled_entry(key, value, indent=_SECTION_INDENT))
             _console.print()
 
 
@@ -240,22 +226,18 @@ def _display_human(config: Config, section: str | None) -> None:
             _print_section(section, cast(dict[str, Any], redacted_value), config)
         else:
             info = config.origin(section)
-            layer: str | None = None
             if info is not None:
                 _console.print(_format_source_line(info, _TOPLEVEL_INDENT), style="yellow")
-                layer = info["layer"]
-            _console.print(_styled_entry(section, redacted_value, env_style=_is_env_layer(layer), indent=_TOPLEVEL_INDENT))
+            _console.print(_styled_entry(section, redacted_value, indent=_TOPLEVEL_INDENT))
             _console.print()
     else:
         data: dict[str, Any] = config.as_dict(redact=True)
         for key, value in data.items():
             if not isinstance(value, dict):
                 info = config.origin(key)
-                layer_name: str | None = None
                 if info is not None:
                     _console.print(_format_source_line(info, _TOPLEVEL_INDENT), style="yellow")
-                    layer_name = info["layer"]
-                _console.print(_styled_entry(key, value, env_style=_is_env_layer(layer_name), indent=_TOPLEVEL_INDENT))
+                _console.print(_styled_entry(key, value, indent=_TOPLEVEL_INDENT))
                 _console.print()
         for name, value in data.items():
             if isinstance(value, dict):

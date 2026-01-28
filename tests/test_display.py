@@ -225,14 +225,14 @@ def test_print_section_includes_source_comments(capsys: pytest.CaptureFixture[st
     output = capsys.readouterr().out
 
     assert "# source: dotenv (/app/.env)" in output
-    assert '  smtp_hosts="mail.example.com:25"' in output
+    assert 'smtp_hosts = "mail.example.com:25"' in output
     assert "# source: user (/home/user/config.toml)" in output
-    assert '  from_address = "cli@local"' in output
+    assert 'from_address = "cli@local"' in output
 
     lines = output.strip().split("\n")
     # Source comment must appear immediately before the value line
     for i, line in enumerate(lines):
-        if "smtp_hosts=" in line:
+        if "smtp_hosts =" in line:
             assert "# source: dotenv" in lines[i - 1]
         if "from_address =" in line:
             assert "# source: user" in lines[i - 1]
@@ -304,7 +304,7 @@ def test_display_human_renders_scalar_provenance(capsys: pytest.CaptureFixture[s
     output = capsys.readouterr().out
 
     assert "# source: dotenv (/app/.env)" in output
-    assert 'codecov_token="***REDACTED***"' in output
+    assert 'codecov_token = "***REDACTED***"' in output
     assert "[codecov_token]" not in output
 
 
@@ -329,45 +329,14 @@ def test_display_human_single_scalar_section(capsys: pytest.CaptureFixture[str])
     output = capsys.readouterr().out
 
     assert "[app_name]" not in output
-    assert 'app_name="myapp"' in output
+    assert 'app_name = "myapp"' in output
     assert "# source: env" in output
 
 
-# ======================== _format_value — env-style ========================
+# ======================== _format_value — always uses spaces around = ========================
 
 
 @pytest.mark.os_agnostic
-def test_format_value_env_style_omits_spaces_around_equals() -> None:
-    """Dotenv/env values must use key=value (no spaces around =)."""
-    assert _format_value("host", "smtp.test", env_style=True) == '  host="smtp.test"'
-
-
-@pytest.mark.os_agnostic
-def test_format_value_default_style_has_spaces_around_equals() -> None:
-    """TOML-sourced values must use key = value (spaces around =)."""
+def test_format_value_always_has_spaces_around_equals() -> None:
+    """All values must use key = value (spaces around =) regardless of source layer."""
     assert _format_value("host", "smtp.test") == '  host = "smtp.test"'
-
-
-@pytest.mark.os_agnostic
-def test_print_section_uses_env_style_for_dotenv_layer(capsys: pytest.CaptureFixture[str]) -> None:
-    """Dotenv-sourced values must render with key=value (no spaces)."""
-    data: dict[str, Any] = {"host": "smtp.test"}
-    metadata: dict[str, SourceInfo] = {"mail.host": {"layer": "dotenv", "path": "/app/.env", "key": "mail.host"}}
-    config = Config({"mail": data}, metadata)
-    _print_section("mail", data, config)
-    output = capsys.readouterr().out
-
-    assert '    host="smtp.test"' in output
-    assert "    host =" not in output
-
-
-@pytest.mark.os_agnostic
-def test_print_section_uses_toml_style_for_defaults_layer(capsys: pytest.CaptureFixture[str]) -> None:
-    """Defaults-sourced values must render with key = value (spaces)."""
-    data: dict[str, Any] = {"service": "myapp"}
-    metadata: dict[str, SourceInfo] = {"app.service": {"layer": "defaults", "path": "/defaults.toml", "key": "app.service"}}
-    config = Config({"app": data}, metadata)
-    _print_section("app", data, config)
-    output = capsys.readouterr().out
-
-    assert '    service = "myapp"' in output
