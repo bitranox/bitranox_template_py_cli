@@ -42,6 +42,21 @@ LAYEREDCONF_APP: str = "Bitranox Template Py Cli"
 LAYEREDCONF_SLUG: str = "bitranox-template-py-cli"
 
 
+__all__ = [
+    "LAYEREDCONF_APP",
+    "LAYEREDCONF_SLUG",
+    "LAYEREDCONF_VENDOR",
+    "author",
+    "author_email",
+    "homepage",
+    "name",
+    "print_info",
+    "shell_command",
+    "title",
+    "version",
+]
+
+
 def print_info() -> None:
     """Print the summarised metadata block used by the CLI ``info`` command.
 

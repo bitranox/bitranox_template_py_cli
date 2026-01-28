@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [Unreleased]
+
+### Fixed
+- CLAUDE.md: replaced stale package name `bitranox_template_cli_app_config_log_mail` with `bitranox_template_py_cli` throughout
+- Brittle SMTP mock assertions in `test_cli.py` now use structured `call_args` attributes instead of `str()` coercion
+
+### Removed
+- Dead code: unused `_format_value()` and `_format_source()` wrappers in `adapters/config/display.py`
+
+### Added
+- `__all__` to `__init__conf__.py` listing all public symbols
+- `tests/test_enums.py` with parametrized tests for `OutputFormat` and `DeployTarget`
+- Expanded `tests/test_behaviors.py` with return type, constant value, and constant-usage checks
+- Python 3.14 classifier in `pyproject.toml`
+
+### Changed
+- `tests/test_display.py` rewritten to test `_format_raw_value` and `_format_source_line` directly (replacing dead wrapper tests)
+
 ## [1.1.0] - 2026-01-27
 
 ### Changed

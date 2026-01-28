@@ -10,52 +10,51 @@ from lib_layered_config import Config
 from lib_layered_config.domain.config import SourceInfo
 
 from bitranox_template_py_cli.adapters.config.display import (
-    _format_source,  # pyright: ignore[reportPrivateUsage]
-    _format_value,  # pyright: ignore[reportPrivateUsage]
+    _format_raw_value,  # pyright: ignore[reportPrivateUsage]
+    _format_source_line,  # pyright: ignore[reportPrivateUsage]
     _print_section,  # pyright: ignore[reportPrivateUsage]
     display_config,
 )
 from bitranox_template_py_cli.domain.enums import OutputFormat
 
 
-# ======================== _format_value ========================
+# ======================== _format_raw_value ========================
 
 
 @pytest.mark.os_agnostic
-def test_format_value_renders_string_with_quotes() -> None:
+def test_format_raw_value_renders_string_with_quotes() -> None:
     """String values must be double-quoted in TOML style."""
-    assert _format_value("key", "hello") == '  key = "hello"'
+    assert _format_raw_value("hello") == '"hello"'
 
 
 @pytest.mark.os_agnostic
-def test_format_value_renders_integer_without_quotes() -> None:
+def test_format_raw_value_renders_integer_without_quotes() -> None:
     """Integer values must not be quoted."""
-    assert _format_value("port", 8080) == "  port = 8080"
+    assert _format_raw_value(8080) == "8080"
 
 
 @pytest.mark.os_agnostic
-def test_format_value_renders_boolean_without_quotes() -> None:
+def test_format_raw_value_renders_boolean_without_quotes() -> None:
     """Boolean values must not be quoted."""
-    assert _format_value("enabled", True) == "  enabled = True"
+    assert _format_raw_value(True) == "True"
 
 
 @pytest.mark.os_agnostic
-def test_format_value_renders_none_without_quotes() -> None:
+def test_format_raw_value_renders_none_without_quotes() -> None:
     """None must render as-is without quotes."""
-    assert _format_value("optional", None) == "  optional = None"
+    assert _format_raw_value(None) == "None"
 
 
 @pytest.mark.os_agnostic
-def test_format_value_renders_float_without_quotes() -> None:
+def test_format_raw_value_renders_float_without_quotes() -> None:
     """Float values must not be quoted."""
-    assert _format_value("timeout", 30.5) == "  timeout = 30.5"
+    assert _format_raw_value(30.5) == "30.5"
 
 
 @pytest.mark.os_agnostic
-def test_format_value_renders_list_as_json() -> None:
+def test_format_raw_value_renders_list_as_json() -> None:
     """List values must be JSON-serialized."""
-    result = _format_value("hosts", ["smtp1.com", "smtp2.com"])
-    assert result == '  hosts = ["smtp1.com","smtp2.com"]'
+    assert _format_raw_value(["smtp1.com", "smtp2.com"]) == '["smtp1.com","smtp2.com"]'
 
 
 # ======================== _print_section — flat data ========================
@@ -170,43 +169,36 @@ def test_display_config_raises_for_nonexistent_section_json(
         display_config(config, format=OutputFormat.JSON, section="nonexistent")
 
 
-# ======================== _format_source ========================
+# ======================== _format_source_line ========================
 
 
 @pytest.mark.os_agnostic
-def test_format_source_returns_layer_and_path() -> None:
+def test_format_source_line_returns_layer_and_path() -> None:
     """Source comment must include both layer name and file path when path is available."""
-    metadata: dict[str, SourceInfo] = {"email.smtp_hosts": {"layer": "dotenv", "path": "/app/.env", "key": "email.smtp_hosts"}}
-    config = Config({"email": {"smtp_hosts": "mail.example.com:25"}}, metadata)
-    result = _format_source(config, "email.smtp_hosts")
-    assert result == "  # source: dotenv (/app/.env)"
+    info: SourceInfo = {"layer": "dotenv", "path": "/app/.env", "key": "email.smtp_hosts"}
+    assert _format_source_line(info) == "  # source: dotenv (/app/.env)"
 
 
 @pytest.mark.os_agnostic
-def test_format_source_returns_layer_only_when_path_is_none() -> None:
+def test_format_source_line_returns_layer_only_when_path_is_none() -> None:
     """Source comment must omit parenthesized path when path is None (e.g. env vars)."""
-    metadata: dict[str, SourceInfo] = {"app.debug": {"layer": "env", "path": None, "key": "app.debug"}}
-    config = Config({"app": {"debug": True}}, metadata)
-    result = _format_source(config, "app.debug")
-    assert result == "  # source: env"
+    info: SourceInfo = {"layer": "env", "path": None, "key": "app.debug"}
+    assert _format_source_line(info) == "  # source: env"
 
 
 @pytest.mark.os_agnostic
-def test_format_source_returns_none_for_unknown_key() -> None:
-    """_format_source must return None when no provenance exists for the key."""
+def test_format_source_line_returns_none_for_unknown_key_via_config() -> None:
+    """Config.origin returns None when no provenance exists; _format_source_line is not called."""
     config = Config({"app": {"key": "val"}}, {})
-    result = _format_source(config, "app.key")
-    assert result is None
+    assert config.origin("app.key") is None
 
 
 @pytest.mark.os_agnostic
-def test_format_source_defaults_layer() -> None:
+def test_format_source_line_defaults_layer() -> None:
     """Source comment for the defaults layer must include the config file path."""
     path = "/src/pkg/adapters/config/defaultconfig.toml"
-    metadata: dict[str, SourceInfo] = {"lib_log_rich.service": {"layer": "defaults", "path": path, "key": "lib_log_rich.service"}}
-    config = Config({"lib_log_rich": {"service": "myapp"}}, metadata)
-    result = _format_source(config, "lib_log_rich.service")
-    assert result == f"  # source: defaults ({path})"
+    info: SourceInfo = {"layer": "defaults", "path": path, "key": "lib_log_rich.service"}
+    assert _format_source_line(info) == f"  # source: defaults ({path})"
 
 
 # ======================== _print_section — provenance comments ========================
@@ -333,10 +325,10 @@ def test_display_human_single_scalar_section(capsys: pytest.CaptureFixture[str])
     assert "# source: env" in output
 
 
-# ======================== _format_value — always uses spaces around = ========================
+# ======================== _format_raw_value — consistent formatting ========================
 
 
 @pytest.mark.os_agnostic
-def test_format_value_always_has_spaces_around_equals() -> None:
-    """All values must use key = value (spaces around =) regardless of source layer."""
-    assert _format_value("host", "smtp.test") == '  host = "smtp.test"'
+def test_format_raw_value_quotes_string_consistently() -> None:
+    """All string values must be double-quoted regardless of content."""
+    assert _format_raw_value("smtp.test") == '"smtp.test"'

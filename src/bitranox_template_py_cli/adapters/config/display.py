@@ -48,13 +48,6 @@ def _format_raw_value(value: Any) -> str:
     return f"{value}"
 
 
-def _format_value(key: str, value: Any, *, indent: str = "  ") -> str:  # pyright: ignore[reportUnusedFunction]
-    """Format a config value for human-readable display.
-
-    Always uses TOML-style ``key = value`` (spaces around ``=``).
-    """
-    return f"{indent}{key} = {_format_raw_value(value)}"
-
 
 def _styled_entry(key: str, value: Any, *, indent: str = "  ") -> Text:
     """Build a Rich Text object for a styled config key-value line.
@@ -97,24 +90,6 @@ def _format_source_line(info: SourceInfo, indent: str = "  ") -> str:
         return f"{indent}# source: {layer} ({path})"
     return f"{indent}# source: {layer}"
 
-
-def _format_source(config: Config, dotted_key: str, indent: str = "  ") -> str | None:  # pyright: ignore[reportUnusedFunction]
-    """Build a source comment from provenance metadata.
-
-    Args:
-        config: Configuration object with provenance tracking.
-        dotted_key: Fully-qualified dotted key (e.g. ``email.smtp_hosts``).
-        indent: Leading whitespace before the comment.
-
-    Returns:
-        A comment string like ``# source: defaults (path/to/file.toml)``
-        or ``# source: env`` when no path is available. Returns ``None``
-        when no provenance metadata exists for the key.
-    """
-    info = config.origin(dotted_key)
-    if info is None:
-        return None
-    return _format_source_line(info, indent)
 
 
 def _print_section(

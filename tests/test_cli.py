@@ -1258,7 +1258,8 @@ def test_when_send_email_receives_smtp_host_override_it_uses_it(
 
         assert result.exit_code == 0
         smtp_calls = mock_smtp.call_args_list
-        assert any("smtp.override.com" in str(c) for c in smtp_calls)
+        # SMTP(host, ...) — host is always the first positional arg
+        assert any(len(c.args) > 0 and "smtp.override.com" in c.args[0] for c in smtp_calls)
 
 
 @pytest.mark.os_agnostic
@@ -1299,7 +1300,14 @@ def test_when_send_email_receives_timeout_override_it_uses_it(
 
         assert result.exit_code == 0
         smtp_calls = mock_smtp.call_args_list
-        assert any(c.kwargs.get("timeout") == 60.0 or (len(c.args) > 1 and c.args[1] == 60.0) for c in smtp_calls)
+        # smtplib.SMTP accepts timeout as keyword or second positional arg
+        assert any(
+            c.kwargs.get("timeout") == 60.0
+            for c in smtp_calls
+        ) or any(
+            len(c.args) > 1 and c.args[1] == 60.0
+            for c in smtp_calls
+        )
 
 
 @pytest.mark.os_agnostic
@@ -1469,7 +1477,8 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
 
         assert result.exit_code == 0
         smtp_calls = mock_smtp.call_args_list
-        assert any("smtp.override.com" in str(c) for c in smtp_calls)
+        # SMTP(host, ...) — host is always the first positional arg
+        assert any(len(c.args) > 0 and "smtp.override.com" in c.args[0] for c in smtp_calls)
 
 
 # ======================== Profile Validation Tests ========================
