@@ -1,6 +1,6 @@
 [project]
 name = "bitranox_template_py_cli"
-version = "1.1.1"
+version = "1.1.2"
 description = "Template CLI application with configuration management and structured logging"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -74,8 +74,37 @@ packages = ["src/bitranox_template_py_cli"]
 include = ["src/bitranox_template_py_cli/py.typed", "src/bitranox_template_py_cli/adapters/config/defaultconfig.toml"]
 
 [tool.ruff]
-line-length = 160
+line-length = 120
 target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "E", "W",     # pycodestyle
+  "F",           # pyflakes
+  "I",           # isort
+  "N",           # pep8-naming
+  "UP",          # pyupgrade
+  "B",           # bugbear
+  "A",           # builtins shadowing
+  "C4",          # comprehension simplification
+  "SIM",         # simplification
+  "TCH",         # type-checking imports
+  "RUF",         # ruff-specific
+  "G",           # logging format (catches f-string in logger)
+  "T20",         # print statements
+  "PTH",         # pathlib preference
+  "PLC", "PLE",  # pylint conventions/errors
+]
+ignore = [
+  "RUF002",    # ambiguous unicode characters in docstrings (en-dash)
+  "RUF022",    # unsorted __all__ -- kept in logical grouping order
+  "PLC0415",   # deferred imports inside functions are intentional
+  "A002",      # parameter named 'format' shadows builtin -- established API
+  "TC001",     # moving stdlib imports into TYPE_CHECKING can break runtime
+  "TC002",     # moving third-party imports into TYPE_CHECKING can break runtime
+  "TC003",     # moving stdlib imports into TYPE_CHECKING can break runtime
+  "TC006",     # quoting cast() type expressions -- existing code uses unquoted
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -83,14 +112,19 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 # ignore the "unused import sys" in the jupyter notebook - which we need (it is a linter hickup)
 "notebooks/*.ipynb" = ["F401"]
+# scripts use print() for user interaction
+"scripts/*.py" = ["T20"]
+# menu.py: Textual framework uses mutable class attributes (BINDINGS) by design
+"scripts/menu.py" = ["T20", "RUF012"]
+# tests use print() for debugging, assertions with type-checking imports
+"tests/*.py" = ["T20"]
+# __init__conf__.py uses print() in print_info()
+"src/bitranox_template_py_cli/__init__conf__.py" = ["T20"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
 extraPaths = [
   "src",
-]
-exclude = [
-  "scripts/menu.py",
 ]
 
 [tool.pytest.ini_options]
@@ -109,14 +143,19 @@ markers = [
 [tool.coverage.run]
 branch = true
 parallel = false
-data_file = ".coverage.unit"
+# Fallback for bare ``coverage run`` invocations on Linux/macOS.
+# The primary redirect is the pytest_configure hook in tests/conftest.py
+# which sets COVERAGE_FILE to tempfile.gettempdir() before pytest-cov
+# creates its Coverage() object.  CI also sets COVERAGE_FILE via the
+# workflow env block.  This static path is a last-resort fallback.
+data_file = "/tmp/.coverage.bitranox_template_py_cli"
 source = ["src/bitranox_template_py_cli"]
 
 [tool.coverage.report]
 omit = [
   "tests/*",
 ]
-fail_under = 85
+fail_under = 90
 show_missing = true
 
 [tool.coverage.json]

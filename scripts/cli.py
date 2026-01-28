@@ -171,11 +171,11 @@ def release_command(remote: str | None) -> None:
 
 @main.command(name="push", help="Run checks, commit, and push current branch")
 @click.option("--remote", default=None, show_default=False)
-@click.option("--message", "message", type=str, default=None, help="Commit message (overrides prompt)")
-def push_command(remote: str | None, message: str | None) -> None:
+@click.argument("message_words", nargs=-1, type=click.UNPROCESSED)
+def push_command(remote: str | None, message_words: tuple[str, ...]) -> None:
     resolved_remote = remote_choice(remote)
-    commit_message = message if message is not None else env_token("COMMIT_MESSAGE")
-    push_module.push(remote=resolved_remote, message=commit_message)
+    message = " ".join(message_words).strip() if message_words else env_token("COMMIT_MESSAGE")
+    push_module.push(remote=resolved_remote, message=message or None)
 
 
 @main.command(name="version-current", help="Print current version from pyproject.toml")

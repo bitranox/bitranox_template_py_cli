@@ -7,14 +7,14 @@ real subprocess execution.
 
 from __future__ import annotations
 
-from click.testing import CliRunner
-from collections.abc import Mapping, Sequence
 import sys
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from types import ModuleType, SimpleNamespace
-from typing import Callable, Protocol, TypedDict
+from typing import Protocol, TypedDict
 
 import pytest
+from click.testing import CliRunner
 from pytest import MonkeyPatch
 
 import scripts.build as build
@@ -23,9 +23,8 @@ import scripts.dev as dev
 import scripts.install as install
 import scripts.run_cli as run_cli
 import scripts.test as test_script
-from scripts._utils import RunResult, ProjectMetadata
 from scripts import _utils
-
+from scripts._utils import ProjectMetadata, RunResult
 
 RunCommand = Sequence[str] | str
 ModuleLike = ModuleType | SimpleNamespace
@@ -165,7 +164,9 @@ def test_get_project_metadata_fields() -> None:
     assert meta.slug == "bitranox-template-py-cli"
     assert meta.import_package == "bitranox_template_py_cli"
     assert meta.coverage_source == "src/bitranox_template_py_cli"
-    assert meta.github_tarball_url("1.2.3").endswith("/bitranox/bitranox_template_py_cli/archive/refs/tags/v1.2.3.tar.gz")
+    assert meta.github_tarball_url("1.2.3").endswith(
+        "/bitranox/bitranox_template_py_cli/archive/refs/tags/v1.2.3.tar.gz"
+    )
     assert meta.version
     assert meta.summary
     assert meta.author_name

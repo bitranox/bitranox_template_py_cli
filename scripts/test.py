@@ -47,7 +47,6 @@ from .toml_config import load_pyproject_config
 PROJECT = get_project_metadata()
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_TARGET = PROJECT.coverage_source
-PACKAGE_SRC = Path("src") / PROJECT.import_package
 
 __all__ = ["run_tests", "run_coverage", "COVERAGE_TARGET"]
 
@@ -226,6 +225,9 @@ class TestConfig:
 # ---------------------------------------------------------------------------
 
 
+_configured_src_path: str = "src"
+
+
 def _build_default_env(src_path: str = "src") -> dict[str, str]:
     """Return the base environment for subprocess execution."""
     pythonpath = os.pathsep.join(filter(None, [str(PROJECT_ROOT / src_path), os.environ.get("PYTHONPATH")]))
@@ -238,7 +240,7 @@ _default_env = _build_default_env()
 def _refresh_default_env() -> None:
     """Recompute cached default env after environment mutations."""
     global _default_env
-    _default_env = _build_default_env()
+    _default_env = _build_default_env(_configured_src_path)
 
 
 # ---------------------------------------------------------------------------
@@ -685,16 +687,17 @@ def _build_test_steps(
     steps.parallel.append(
         (
             "Import-linter contracts",
-            make([sys.executable, "-m", "importlinter.cli", "lint", "--config", "pyproject.toml"], "import-linter"),
+            make(["lint-imports"], "import-linter"),
         )
     )
 
     steps.parallel.append(("Pyright type-check", make(["pyright"], "pyright")))
 
+    bandit_src = str(Path(config.src_path) / PROJECT.import_package)
     bandit_cmd = ["bandit", "-q", "-r"]
     if config.bandit_skips:
         bandit_cmd.extend(["-s", ",".join(config.bandit_skips)])
-    bandit_cmd.append(str(PACKAGE_SRC))
+    bandit_cmd.append(bandit_src)
     steps.parallel.append(("Bandit security scan", make(bandit_cmd, "bandit")))
 
     # Sequential post-steps: must run after parallel checks
@@ -716,16 +719,17 @@ def _build_parallel_commands(config: TestConfig, *, strict_format: bool) -> list
     commands.append(
         ParallelStep(
             "Import-linter contracts",
-            [sys.executable, "-m", "importlinter.cli", "lint", "--config", "pyproject.toml"],
+            ["lint-imports"],
         )
     )
 
     commands.append(ParallelStep("Pyright type-check", ["pyright"]))
 
+    bandit_src = str(Path(config.src_path) / PROJECT.import_package)
     bandit_cmd = ["bandit", "-q", "-r"]
     if config.bandit_skips:
         bandit_cmd.extend(["-s", ",".join(config.bandit_skips)])
-    bandit_cmd.append(str(PACKAGE_SRC))
+    bandit_cmd.append(bandit_src)
     commands.append(ParallelStep("Bandit security scan", bandit_cmd))
 
     return commands
@@ -832,14 +836,16 @@ def _run_pytest_step(
         path.unlink(missing_ok=True)
 
     run_fn = _make_run_fn(verbose)
-    enable_coverage = coverage_mode == "on" or (coverage_mode == "auto" and (os.getenv("CI") or os.getenv("CODECOV_TOKEN")))
+    enable_coverage = coverage_mode == "on" or (
+        coverage_mode == "auto" and (os.getenv("CI") or os.getenv("CODECOV_TOKEN"))
+    )
 
     if enable_coverage:
         click.echo("[coverage] enabled")
         with tempfile.TemporaryDirectory() as tmp:
             cov_file = Path(tmp) / ".coverage"
             click.echo(f"[coverage] file={cov_file}")
-            env = os.environ | {"COVERAGE_FILE": str(cov_file), "COVERAGE_NO_SQL": "1"}
+            env = os.environ | {"COVERAGE_FILE": str(cov_file)}
             pytest_result = run_fn(
                 [
                     "python",
@@ -885,13 +891,23 @@ def run_coverage(*, verbose: bool = False) -> None:
     config = TestConfig.from_pyproject(PROJECT_ROOT / "pyproject.toml")
     _prune_coverage_data_files()
     _remove_report_artifacts(config.coverage_report_file)
-    base_env = _build_default_env(config.src_path) | {"COVERAGE_NO_SQL": "1"}
+    base_env = _build_default_env(config.src_path)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         coverage_file = Path(tmpdir) / ".coverage"
         env = base_env | {"COVERAGE_FILE": str(coverage_file)}
 
-        coverage_cmd = [sys.executable, "-m", "coverage", "run", "-m", "pytest", "-m", "not slow", config.pytest_verbosity]
+        coverage_cmd = [
+            sys.executable,
+            "-m",
+            "coverage",
+            "run",
+            "-m",
+            "pytest",
+            "-m",
+            "not slow",
+            config.pytest_verbosity,
+        ]
         click.echo(f"[coverage] python -m coverage run -m pytest -m 'not slow' {config.pytest_verbosity}")
         result = run(coverage_cmd, env=env, capture=not verbose, check=False)
         if result.code != 0:
@@ -924,10 +940,11 @@ def run_slow_tests(*, verbose: bool = False) -> None:
     Args:
         verbose: Enable verbose pytest output
     """
+    config = TestConfig.from_pyproject(PROJECT_ROOT / "pyproject.toml")
     click.echo("[test-slow] Running slow integration tests...")
     click.echo("[test-slow] These tests require external resources (see .env.example)")
 
-    verbosity = "-vv" if verbose else "-v"
+    verbosity = config.pytest_verbosity if verbose else "-v"
     result = run(
         [sys.executable, "-m", "pytest", "-m", "slow", verbosity, "tests/"],
         capture=False,
@@ -971,6 +988,12 @@ def run_tests(
     bootstrap_dev()
 
     config = TestConfig.from_pyproject(PROJECT_ROOT / "pyproject.toml")
+
+    # Rebuild default env with configured src_path (pyproject.toml is single source of truth)
+    global _default_env, _configured_src_path
+    _configured_src_path = config.src_path
+    _default_env = _build_default_env(config.src_path)
+
     resolved_strict_format = _resolve_strict_format(strict_format)
 
     steps = _build_test_steps(config, strict_format=resolved_strict_format, verbose=verbose)
@@ -990,7 +1013,9 @@ def run_tests(
     # Phase 2: Parallel checks (or sequential if parallel=False)
     if parallel and len(steps.parallel) > 1:
         parallel_commands = _build_parallel_commands(config, strict_format=resolved_strict_format)
-        click.echo(f"[{current_step + 1}-{current_step + len(parallel_commands)}/{total_steps}] Running {len(parallel_commands)} checks in parallel...")
+        n_parallel = len(parallel_commands)
+        step_range = f"{current_step + 1}-{current_step + n_parallel}"
+        click.echo(f"[{step_range}/{total_steps}] Running {n_parallel} checks in parallel...")
         results = _run_parallel_steps_subprocess(parallel_commands)
         all_passed = _display_parallel_results(results, current_step + 1, total_steps, verbose=verbose)
         current_step += len(parallel_commands)

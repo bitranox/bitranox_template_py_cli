@@ -18,13 +18,16 @@ System Role:
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from btx_lib_mail import validate_email_address, validate_smtp_host
-from btx_lib_mail.lib_mail import ConfMail, send as btx_send
+from btx_lib_mail.lib_mail import ConfMail
+from btx_lib_mail.lib_mail import send as btx_send
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +141,7 @@ class EmailConfig(BaseModel):
 
 
 def _build_credentials(config: EmailConfig) -> tuple[str, str] | None:
-    """Extract SMTP credentials from config when both username and password are set."""
+    """Return (username, password) tuple when both are set, else None."""
     if config.smtp_username is not None and config.smtp_password is not None:
         return (config.smtp_username, config.smtp_password)
     return None
@@ -170,15 +173,17 @@ def send_email(
         attachments: Optional sequence of file paths to attach.
 
     Returns:
-        Always True when delivery succeeds. Failures raise exceptions.
+        True when delivery succeeds; False if the underlying transport
+        reports partial failure without raising. Most failures raise
+        exceptions rather than returning False.
 
     Raises:
         ValueError: No from_address configured and no override provided,
-            no SMTP hosts configured, or no recipients configured and no override
-            provided.
+            or no recipients configured and no override provided.
+        ConfigurationError: No SMTP hosts configured.
         FileNotFoundError: Required attachment missing and config.raise_on_missing_attachments
             is True.
-        RuntimeError: All SMTP hosts failed for a recipient.
+        DeliveryError: All SMTP hosts failed for a recipient.
 
     Side Effects:
         Sends email via SMTP. Logs send attempts at INFO level and failures
@@ -205,7 +210,7 @@ def send_email(
         raise ValueError("No from_address configured and no override provided")
 
     if not config.smtp_hosts:
-        raise ValueError("No SMTP hosts configured (email.smtp_hosts is empty)")
+        raise ConfigurationError("No SMTP hosts configured (email.smtp_hosts is empty)")
 
     if recipients is not None:
         recipient_list = [recipients] if isinstance(recipients, str) else list(recipients)
@@ -228,18 +233,21 @@ def send_email(
 
     credentials = _build_credentials(config)
 
-    result = btx_send(
-        mail_from=sender,
-        mail_recipients=recipient_list,
-        mail_subject=subject,
-        mail_body=body,
-        mail_body_html=body_html,
-        smtphosts=config.smtp_hosts,
-        attachment_file_paths=attachments,
-        credentials=credentials,
-        use_starttls=config.use_starttls,
-        timeout=config.timeout,
-    )
+    try:
+        result = btx_send(
+            mail_from=sender,
+            mail_recipients=recipient_list,
+            mail_subject=subject,
+            mail_body=body,
+            mail_body_html=body_html,
+            smtphosts=config.smtp_hosts,
+            attachment_file_paths=attachments,
+            credentials=credentials,
+            use_starttls=config.use_starttls,
+            timeout=config.timeout,
+        )
+    except RuntimeError as exc:
+        raise DeliveryError(str(exc)) from exc
 
     logger.info(
         "Email sent successfully",
@@ -274,11 +282,13 @@ def send_notification(
         from_address: Override sender address. Uses config.from_address when None.
 
     Returns:
-        Always True when delivery succeeds. Failures raise exceptions.
+        True when delivery succeeds; False if the underlying transport
+        reports partial failure without raising.
 
     Raises:
         ValueError: No recipients configured and no override provided.
-        RuntimeError: All SMTP hosts failed for a recipient.
+        ConfigurationError: No SMTP hosts configured.
+        DeliveryError: All SMTP hosts failed for a recipient.
 
     Side Effects:
         Sends email via SMTP. Logs send attempts.

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import rich_click as click
 
+from . import dependencies as dependencies_module
 from ._utils import (
     get_default_remote,
     get_project_metadata,
@@ -16,7 +17,6 @@ from ._utils import (
     run,
     sync_metadata_module,
 )
-from . import dependencies as dependencies_module
 
 __all__ = ["push"]
 
@@ -206,7 +206,9 @@ def _check_installed_dependencies() -> None:
         name_width = max(len(name) for name, _, _, _ in outdated_installed)
         installed_width = max(len(installed) for _, installed, _, _ in outdated_installed)
         for name, installed, required, latest in sorted(outdated_installed):
-            click.echo(f"  [!] {name:<{name_width}}  {installed:<{installed_width}}  (requires >={required}, latest: {latest})")
+            click.echo(
+                f"  [!] {name:<{name_width}}  {installed:<{installed_width}}  (requires >={required}, latest: {latest})"
+            )
 
     total_issues = len(missing) + len(outdated_installed)
     click.echo("")
@@ -267,7 +269,8 @@ def push(*, remote: str = _DEFAULT_REMOTE, message: str | None = None) -> None:
     click.echo("[push] Committing and pushing (single attempt)")
     run(["git", "add", "-A"], capture=False)  # stage all
     staged = run(["bash", "-lc", "! git diff --cached --quiet"], check=False)
-    commit_message = _resolve_commit_message(message)
+    user_message = _resolve_commit_message(message)
+    commit_message = f"{version} - {user_message}"
     if staged.code != 0:
         click.echo("[push] No staged changes detected; creating empty commit")
     run(["git", "commit", "--allow-empty", "-m", commit_message], capture=False)  # type: ignore[list-item]
@@ -275,33 +278,27 @@ def push(*, remote: str = _DEFAULT_REMOTE, message: str | None = None) -> None:
     run(["git", "push", "-u", remote, branch], capture=False)  # type: ignore[list-item]
 
 
+_DEFAULT_MESSAGE = "chores"
+
+
 def _resolve_commit_message(message: str | None) -> str:
-    default_message = os.environ.get("COMMIT_MESSAGE", "chore: update").strip() or "chore: update"
+    """Return the user-facing part of the commit message.
+
+    Resolution order:
+    1. Explicit *message* argument (from CLI positional args)
+    2. ``COMMIT_MESSAGE`` environment variable
+    3. Default: ``"chores"``
+    """
     if message is not None:
-        return message.strip() or default_message
+        return message.strip() or _DEFAULT_MESSAGE
 
     env_message = os.environ.get("COMMIT_MESSAGE")
     if env_message is not None:
-        final = env_message.strip() or default_message
+        final = env_message.strip() or _DEFAULT_MESSAGE
         click.echo(f"[push] Using commit message from COMMIT_MESSAGE: {final}")
         return final
 
-    if sys.stdin.isatty():
-        return click.prompt("[push] Commit message", default=default_message)
-
-    try:
-        with open("/dev/tty", "r+", encoding="utf-8", errors="ignore") as tty:
-            tty.write(f"[push] Commit message [{default_message}]: ")
-            tty.flush()
-            response = tty.readline()
-    except OSError:
-        click.echo("[push] Non-interactive input; using default commit message")
-        return default_message
-    except KeyboardInterrupt:
-        raise SystemExit("[push] Commit aborted by user")
-
-    response = response.strip()
-    return response or default_message
+    return _DEFAULT_MESSAGE
 
 
 if __name__ == "__main__":  # pragma: no cover

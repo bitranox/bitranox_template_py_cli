@@ -12,9 +12,9 @@ Contents:
 
 from __future__ import annotations
 
-from .info import cli_fail, cli_hello, cli_info
 from .config import cli_config, cli_config_deploy, cli_config_generate_examples
 from .email import cli_send_email, cli_send_notification
+from .info import cli_fail, cli_hello, cli_info
 from .logging import cli_logdemo
 
 __all__ = [

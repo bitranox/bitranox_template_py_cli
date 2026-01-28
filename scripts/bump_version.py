@@ -40,7 +40,7 @@ def bump_semver(current: str, part: str) -> str:
     Returns:
         New version string with the specified part incremented.
     """
-    major, minor, patch = (int(token) for token in (current.split(".") + ["0", "0"])[:3])
+    major, minor, patch = (int(token) for token in [*current.split("."), "0", "0"][:3])
     if part == "major":
         major, minor, patch = major + 1, 0, 0
     elif part == "minor":

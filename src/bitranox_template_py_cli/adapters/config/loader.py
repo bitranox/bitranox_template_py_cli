@@ -25,7 +25,7 @@ from pathlib import Path
 
 from lib_layered_config import Config, read_config
 
-from ... import __init__conf__
+from bitranox_template_py_cli import __init__conf__
 
 _PROFILE_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -41,7 +41,9 @@ def validate_profile(profile: str) -> None:
             alphanumeric, hyphens, and underscores.
     """
     if not _PROFILE_PATTERN.match(profile):
-        raise ValueError(f"Invalid profile name {profile!r}: must contain only alphanumeric characters, hyphens, and underscores")
+        raise ValueError(
+            f"Invalid profile name {profile!r}: must contain only alphanumeric characters, hyphens, and underscores"
+        )
 
 
 @lru_cache(maxsize=1)
@@ -69,12 +71,8 @@ def get_default_config_path() -> Path:
     return Path(__file__).parent / "defaultconfig.toml"
 
 
-# Cache configuration to avoid redundant file I/O and parsing.
-# Trade-offs:
-#   ✅ Future-proof if config is read from multiple places
-#   ✅ Near-zero overhead (single cache entry)
-#   ❌ Prevents dynamic config reloading (if ever needed)
-#   ❌ start_dir/profile parameter variations would bypass cache
+# Configuration is loaded once per (profile, start_dir) tuple and cached
+# for the process lifetime. Intentional for a short-lived CLI process.
 @lru_cache(maxsize=4)
 def get_config(*, profile: str | None = None, start_dir: str | None = None) -> Config:
     """Load layered configuration with application defaults.

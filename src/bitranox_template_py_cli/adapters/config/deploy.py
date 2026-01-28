@@ -21,9 +21,9 @@ from pathlib import Path
 from lib_layered_config import deploy_config
 from lib_layered_config.examples.deploy import DeployAction
 
-from ... import __init__conf__
-from .loader import validate_profile, get_default_config_path
-from ...domain.enums import DeployTarget
+from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli.adapters.config.loader import get_default_config_path, validate_profile
+from bitranox_template_py_cli.domain.enums import DeployTarget
 
 _DEPLOYED_ACTIONS = frozenset({DeployAction.CREATED, DeployAction.OVERWRITTEN})
 

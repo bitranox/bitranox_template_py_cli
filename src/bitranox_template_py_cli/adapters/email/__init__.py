@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from .sender import (
     EmailConfig,
+    load_email_config_from_dict,
     send_email,
     send_notification,
-    load_email_config_from_dict,
 )
 
 __all__ = [

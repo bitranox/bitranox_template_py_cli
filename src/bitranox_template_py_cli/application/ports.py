@@ -39,7 +39,9 @@ class GetDefaultConfigPath(Protocol):
 class DeployConfiguration(Protocol):
     """Deploy default configuration to specified target layers."""
 
-    def __call__(self, *, targets: Sequence[DeployTarget], force: bool = ..., profile: str | None = ...) -> list[Path]: ...
+    def __call__(
+        self, *, targets: Sequence[DeployTarget], force: bool = ..., profile: str | None = ...
+    ) -> list[Path]: ...
 
 
 class DisplayConfig(Protocol):

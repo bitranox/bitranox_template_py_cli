@@ -17,7 +17,6 @@ from bitranox_template_py_cli.adapters.config.display import (
 )
 from bitranox_template_py_cli.domain.enums import OutputFormat
 
-
 # ======================== _format_raw_value ========================
 
 
@@ -290,7 +289,9 @@ def test_display_human_renders_scalars_as_key_value(capsys: pytest.CaptureFixtur
 @pytest.mark.os_agnostic
 def test_display_human_renders_scalar_provenance(capsys: pytest.CaptureFixture[str]) -> None:
     """Top-level scalars must show source provenance comment when metadata exists."""
-    metadata: dict[str, SourceInfo] = {"codecov_token": {"layer": "dotenv", "path": "/app/.env", "key": "codecov_token"}}
+    metadata: dict[str, SourceInfo] = {
+        "codecov_token": {"layer": "dotenv", "path": "/app/.env", "key": "codecov_token"}
+    }
     config = Config({"codecov_token": "***REDACTED***"}, metadata)
     display_config(config, format=OutputFormat.HUMAN)
     output = capsys.readouterr().out

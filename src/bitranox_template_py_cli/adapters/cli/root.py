@@ -12,10 +12,11 @@ from __future__ import annotations
 import rich_click as click
 from lib_layered_config import Config
 
-from ... import __init__conf__
-from ...adapters.config import loader as config_module
-from ...adapters.config.overrides import apply_overrides
-from ...adapters.logging.setup import init_logging
+from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli.adapters.config import loader as config_module
+from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
+from bitranox_template_py_cli.adapters.logging.setup import init_logging
+
 from .constants import CLICK_CONTEXT_SETTINGS
 from .context import store_cli_context
 from .traceback import apply_traceback_preferences
@@ -99,7 +100,9 @@ def cli(ctx: click.Context, traceback: bool, profile: str | None, set_overrides:
         click.echo(ctx.get_help())
 
 
-# Register commands after cli is defined to avoid circular imports
+# Deferred import required to break a circular dependency: this module defines
+# the ``cli`` group, commands register themselves onto it, and those command
+# modules import from package ancestors. This is the standard Click pattern.
 def _register_commands() -> None:
     from .commands import (
         cli_config,

@@ -18,13 +18,12 @@ from __future__ import annotations
 
 from typing import Any
 
+import lib_log_rich.config
+import lib_log_rich.runtime
 from lib_layered_config import Config
 from pydantic import BaseModel, ConfigDict
 
-import lib_log_rich.config
-import lib_log_rich.runtime
-
-from ... import __init__conf__
+from bitranox_template_py_cli import __init__conf__
 
 
 class LoggingConfigModel(BaseModel):

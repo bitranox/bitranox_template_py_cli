@@ -5,6 +5,12 @@ SCRIPTS ?= $(PYTHON) -m scripts
 
 .PHONY: help install dev test test-slow run clean build push release coverage version-current bump bump-patch bump-minor bump-major dependencies dependencies-update menu
 
+# Capture trailing words after "push" so `make push fix typo` works unquoted.
+ifeq (push,$(firstword $(MAKECMDGOALS)))
+  PUSH_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(PUSH_ARGS):;@:)
+endif
+
 help:
 	$(SCRIPTS) help
 
@@ -45,7 +51,7 @@ test-slow:
 	$(SCRIPTS) test-slow
 
 push:
-	$(SCRIPTS) push
+	$(SCRIPTS) push $(PUSH_ARGS)
 
 build:
 	$(SCRIPTS) build

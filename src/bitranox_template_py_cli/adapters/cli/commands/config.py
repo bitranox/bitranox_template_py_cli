@@ -12,15 +12,16 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import rich_click as click
 import lib_log_rich.runtime
+import rich_click as click
 from lib_layered_config import Config, generate_examples
 
-from .... import __init__conf__
-from ....adapters.config import loader as config_module
-from ....adapters.config import deploy as config_deploy_module
-from ....adapters.config.display import display_config
-from ....domain.enums import DeployTarget, OutputFormat
+from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli.adapters.config import deploy as config_deploy_module
+from bitranox_template_py_cli.adapters.config import loader as config_module
+from bitranox_template_py_cli.adapters.config.display import display_config
+from bitranox_template_py_cli.domain.enums import DeployTarget, OutputFormat
+
 from ..constants import CLICK_CONTEXT_SETTINGS
 from ..context import get_cli_context
 from ..exit_codes import ExitCode
@@ -72,7 +73,7 @@ def cli_config(ctx: click.Context, format: str, section: str | None, profile: st
             extra={"format": output_format.value, "section": section, "profile": effective_profile},
         )
         lib_log_rich.runtime.flush()
-        print()
+        click.echo()
         try:
             display_config(effective_config, format=output_format, section=section)
         except ValueError as exc:

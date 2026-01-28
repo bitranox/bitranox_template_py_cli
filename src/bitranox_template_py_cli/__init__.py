@@ -9,17 +9,17 @@ through the proper architectural layers:
 
 from __future__ import annotations
 
+# Metadata
+from .__init__conf__ import print_info
+
+# Composition exports (wired adapters)
+from .composition import get_config
+
 # Domain exports
 from .domain.behaviors import (
     CANONICAL_GREETING,
     build_greeting,
 )
-
-# Composition exports (wired adapters)
-from .composition import get_config
-
-# Metadata
-from .__init__conf__ import print_info
 
 __all__ = [
     "CANONICAL_GREETING",

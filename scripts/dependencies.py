@@ -170,7 +170,7 @@ def _fetch_latest_version_below(package_name: str, upper_bound: str) -> str | No
 
     # Get all version strings and filter to those below upper_bound
     valid_versions: list[tuple[tuple[int, ...], str]] = []
-    for version_str in typed_releases.keys():
+    for version_str in typed_releases:
         # Skip pre-release versions (containing a, b, rc, dev, etc.)
         if _RE_PRERELEASE.search(version_str):
             continue
@@ -394,7 +394,11 @@ def print_report(deps: list[DependencyInfo], *, verbose: bool = False) -> int:
             status_icon = _get_status_icon(dep.status)
             constraint_display = dep.constraint if dep.constraint else "(any)"
 
-            print(f"  {status_icon} {dep.name:<{name_width}}  {constraint_display:<{constraint_width}}  -> {dep.latest:<{latest_width}}  [{dep.status}]")
+            print(
+                f"  {status_icon} {dep.name:<{name_width}}"
+                f"  {constraint_display:<{constraint_width}}"
+                f"  -> {dep.latest:<{latest_width}}  [{dep.status}]"
+            )
 
             if dep.status == "outdated":
                 outdated_count += 1

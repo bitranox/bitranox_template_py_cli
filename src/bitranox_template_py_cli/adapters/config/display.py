@@ -18,13 +18,13 @@ from __future__ import annotations
 from typing import Any, cast
 
 import orjson
+import rich_click as click
+from lib_layered_config import Config, redact_mapping
+from lib_layered_config.domain.config import SourceInfo
 from rich.console import Console
 from rich.text import Text
 
-from lib_layered_config import Config, redact_mapping
-from lib_layered_config.domain.config import SourceInfo
-
-from ...domain.enums import OutputFormat
+from bitranox_template_py_cli.domain.enums import OutputFormat
 
 _REDACTED = "***REDACTED***"
 _SECTION_INDENT = "    "
@@ -141,7 +141,7 @@ def display_config(
             displays all configuration.
 
     Side Effects:
-        Writes formatted configuration to stdout via print().
+        Writes formatted configuration to stdout via click.echo().
 
     Raises:
         ValueError: If a section was requested that doesn't exist or is empty.
@@ -182,9 +182,9 @@ def _display_json(config: Config, section: str | None) -> None:
         if not section_data:
             raise ValueError(f"Section '{section}' not found or empty")
         redacted = redact_mapping({section: section_data})
-        print(orjson.dumps(redacted, option=orjson.OPT_INDENT_2).decode())
+        click.echo(orjson.dumps(redacted, option=orjson.OPT_INDENT_2).decode())
     else:
-        print(config.to_json(indent=2, redact=True))
+        click.echo(config.to_json(indent=2, redact=True))
 
 
 def _display_human(config: Config, section: str | None) -> None:

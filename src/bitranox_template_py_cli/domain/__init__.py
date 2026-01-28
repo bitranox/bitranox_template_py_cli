@@ -6,6 +6,7 @@ business logic of the application.
 Contents:
     * :mod:`.behaviors` - Core domain behaviors (greeting)
     * :mod:`.enums` - Domain enumerations (OutputFormat, DeployTarget)
+    * :mod:`.errors` - Domain exception types
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from .behaviors import (
     build_greeting,
 )
 from .enums import DeployTarget, OutputFormat
+from .errors import ConfigurationError, DeliveryError, InvalidRecipientError
 
 __all__ = [
     # Behaviors
@@ -23,4 +25,8 @@ __all__ = [
     # Enums
     "DeployTarget",
     "OutputFormat",
+    # Errors
+    "ConfigurationError",
+    "DeliveryError",
+    "InvalidRecipientError",
 ]

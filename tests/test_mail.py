@@ -19,7 +19,7 @@ from bitranox_template_py_cli.adapters.email.sender import (
     send_email,
     send_notification,
 )
-
+from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
 
 # ======================== EmailConfig Default Values ========================
 
@@ -580,9 +580,9 @@ def test_send_notification_forwards_from_address_override() -> None:
 
 @pytest.mark.os_agnostic
 def test_send_email_raises_when_no_smtp_hosts() -> None:
-    """Empty SMTP hosts list raises ValueError before attempting delivery."""
+    """Empty SMTP hosts list raises ConfigurationError before attempting delivery."""
     config = EmailConfig(from_address="sender@test.com")
-    with pytest.raises(ValueError, match="No SMTP hosts configured"):
+    with pytest.raises(ConfigurationError, match="No SMTP hosts configured"):
         send_email(
             config=config,
             recipients="recipient@test.com",
@@ -626,7 +626,7 @@ def test_send_email_raises_when_no_from_address() -> None:
 
 @pytest.mark.os_agnostic
 def test_send_email_raises_when_smtp_connection_fails() -> None:
-    """SMTP connection failure raises RuntimeError."""
+    """SMTP connection failure raises DeliveryError."""
     config = EmailConfig(
         smtp_hosts=["smtp.test.com:587"],
         from_address="sender@test.com",
@@ -635,7 +635,7 @@ def test_send_email_raises_when_smtp_connection_fails() -> None:
     with patch("smtplib.SMTP") as mock_smtp:
         mock_smtp.side_effect = ConnectionError("Cannot connect to SMTP server")
 
-        with pytest.raises(RuntimeError, match="failed.*on all of following hosts"):
+        with pytest.raises(DeliveryError, match=r"failed.*on all of following hosts"):
             send_email(
                 config=config,
                 recipients="recipient@test.com",
@@ -646,7 +646,7 @@ def test_send_email_raises_when_smtp_connection_fails() -> None:
 
 @pytest.mark.os_agnostic
 def test_send_email_raises_when_authentication_fails() -> None:
-    """SMTP authentication failure raises RuntimeError."""
+    """SMTP authentication failure raises DeliveryError."""
     mock_instance = MagicMock()
     mock_instance.login.side_effect = Exception("Authentication failed")
 
@@ -660,7 +660,7 @@ def test_send_email_raises_when_authentication_fails() -> None:
     with patch("smtplib.SMTP") as mock_smtp:
         mock_smtp.return_value.__enter__.return_value = mock_instance
 
-        with pytest.raises(RuntimeError, match="failed.*on all of following hosts"):
+        with pytest.raises(DeliveryError, match=r"failed.*on all of following hosts"):
             send_email(
                 config=config,
                 recipients="recipient@test.com",
@@ -671,7 +671,7 @@ def test_send_email_raises_when_authentication_fails() -> None:
 
 @pytest.mark.os_agnostic
 def test_send_email_raises_when_recipient_validation_fails() -> None:
-    """Invalid recipient raises RuntimeError."""
+    """Invalid recipient raises DeliveryError."""
     config = EmailConfig(
         smtp_hosts=["smtp.test.com:587"],
         from_address="sender@test.com",
@@ -680,7 +680,7 @@ def test_send_email_raises_when_recipient_validation_fails() -> None:
     with patch("smtplib.SMTP") as mock_smtp:
         mock_smtp.side_effect = ValueError("Invalid recipient address")
 
-        with pytest.raises(RuntimeError, match="following recipients failed"):
+        with pytest.raises(DeliveryError, match="following recipients failed"):
             send_email(
                 config=config,
                 recipients="recipient@test.com",
@@ -700,20 +700,19 @@ def test_send_email_raises_when_attachment_missing(tmp_path: Path) -> None:
         raise_on_missing_attachments=True,
     )
 
-    with patch("smtplib.SMTP"):
-        with pytest.raises(FileNotFoundError):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-                attachments=[nonexistent],
-            )
+    with patch("smtplib.SMTP"), pytest.raises(FileNotFoundError):
+        send_email(
+            config=config,
+            recipients="recipient@test.com",
+            subject="Test",
+            body="Hello",
+            attachments=[nonexistent],
+        )
 
 
 @pytest.mark.os_agnostic
 def test_send_email_raises_when_all_smtp_hosts_fail() -> None:
-    """All SMTP hosts failing raises RuntimeError."""
+    """All SMTP hosts failing raises DeliveryError."""
     config = EmailConfig(
         smtp_hosts=["smtp1.test.com:587", "smtp2.test.com:587"],
         from_address="sender@test.com",
@@ -722,7 +721,7 @@ def test_send_email_raises_when_all_smtp_hosts_fail() -> None:
     with patch("smtplib.SMTP") as mock_smtp:
         mock_smtp.side_effect = ConnectionError("Connection refused")
 
-        with pytest.raises(RuntimeError, match="following recipients failed"):
+        with pytest.raises(DeliveryError, match="following recipients failed"):
             send_email(
                 config=config,
                 recipients="recipient@test.com",
@@ -947,7 +946,10 @@ def test_real_smtp_sends_email(smtp_config_from_env: EmailConfig) -> None:
         config=smtp_config_from_env,
         recipients=smtp_config_from_env.recipients,
         subject="Test Email from bitranox_template_py_cli",
-        body="This is a test email sent from the integration test suite.\n\nIf you receive this, the email functionality is working correctly.",
+        body=(
+            "This is a test email sent from the integration test suite."
+            "\n\nIf you receive this, the email functionality is working correctly."
+        ),
     )
 
     assert result is True

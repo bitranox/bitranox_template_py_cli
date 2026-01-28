@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import runpy
 from pathlib import Path
 from typing import Any, cast
-import runpy
-import rtoml
 
 import pytest
+import rtoml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
@@ -104,3 +104,26 @@ def test_the_metadata_constants_match_the_project() -> None:
     assert metadata["author"] == authors[0]["name"]
     assert metadata["author_email"] == authors[0]["email"]
     assert metadata["shell_command"] in scripts
+
+
+@pytest.mark.os_agnostic
+def test_py_typed_marker_exists() -> None:
+    """Verify PEP 561 py.typed marker exists in the package source."""
+    pyproject = _load_pyproject()
+    init_conf_path = _resolve_init_conf_path(pyproject)
+    package_dir = init_conf_path.parent
+    py_typed = package_dir / "py.typed"
+    assert py_typed.is_file(), f"PEP 561 marker not found at {py_typed}"
+
+
+@pytest.mark.os_agnostic
+def test_py_typed_marker_included_in_wheel_config() -> None:
+    """Verify py.typed is listed in wheel build includes."""
+    pyproject = _load_pyproject()
+    tool_table = cast(dict[str, Any], pyproject.get("tool", {}))
+    hatch_table = cast(dict[str, Any], tool_table.get("hatch", {}))
+    build_table = cast(dict[str, Any], hatch_table.get("build", {}))
+    targets_table = cast(dict[str, Any], build_table.get("targets", {}))
+    wheel_table = cast(dict[str, Any], targets_table.get("wheel", {}))
+    includes = cast(list[str], wheel_table.get("include", []))
+    assert any("py.typed" in entry for entry in includes), "py.typed must be in wheel build includes"

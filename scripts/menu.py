@@ -3,20 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import signal
+import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
-
-import contextlib
+from typing import TYPE_CHECKING
 
 from rich.text import Text
 
-import sys
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scripts._utils import get_project_metadata  # noqa: E402
-from scripts.target_metadata import ParamSpec, TargetSpec, get_targets  # noqa: E402
+from scripts._utils import get_project_metadata
+from scripts.target_metadata import ParamSpec, TargetSpec, get_targets
 
 PROJECT = get_project_metadata()
 
@@ -61,7 +59,9 @@ else:  # pragma: no cover
 
         print("[menu-tui] Failed to import Textual components:", file=sys.stderr)
         traceback.print_exc()
-        raise SystemExit("textual is not installed or incompatible in this environment. Install dev extras: pip install -e .[dev]") from exc
+        raise SystemExit(
+            "textual is not installed or incompatible in this environment. Install dev extras: pip install -e .[dev]"
+        ) from exc
 
 
 TARGETS: tuple[TargetSpec, ...] = tuple(target for target in get_targets() if target.name != "menu")
@@ -95,26 +95,25 @@ class MenuScreen(Screen[None]):
 
     def compose(self) -> ComposeResult:  # type: ignore[override]
         """Build the widget tree for the menu screen."""
-        with Container(id="backdrop"):
-            with Vertical(id="window", classes="whiptail-window"):
-                yield Static(f"{PROJECT.name} — Make Targets", id="title")
-                self._description = Static("Select a target and press Enter.", id="description")
-                yield self._description
-                yield self._build_list()
-                self._status = Static("", id="status")
-                yield self._status
-                yield Static(
-                    "↑↓ to move • Enter to run • F2 to edit parameters • Esc to quit",
-                    id="hint",
-                )
-                with Horizontal(id="buttons"):
-                    run_btn = Button("Run", id="run-btn")
-                    edit_btn = Button("Edit Params", id="edit-btn")
-                    quit_btn = Button("Quit", id="quit-btn")
-                    self._buttons = [run_btn, edit_btn, quit_btn]
-                    yield run_btn
-                    yield edit_btn
-                    yield quit_btn
+        with Container(id="backdrop"), Vertical(id="window", classes="whiptail-window"):
+            yield Static(f"{PROJECT.name} — Make Targets", id="title")
+            self._description = Static("Select a target and press Enter.", id="description")
+            yield self._description
+            yield self._build_list()
+            self._status = Static("", id="status")
+            yield self._status
+            yield Static(
+                "↑↓ to move • Enter to run • F2 to edit parameters • Esc to quit",
+                id="hint",
+            )
+            with Horizontal(id="buttons"):
+                run_btn = Button("Run", id="run-btn")
+                edit_btn = Button("Edit Params", id="edit-btn")
+                quit_btn = Button("Quit", id="quit-btn")
+                self._buttons = [run_btn, edit_btn, quit_btn]
+                yield run_btn
+                yield edit_btn
+                yield quit_btn
         yield Footer()
 
     def on_mount(self) -> None:  # type: ignore[override]
@@ -284,7 +283,7 @@ class MenuScreen(Screen[None]):
         return app
 
 
-class ParamScreen(Screen[Optional[dict[str, str]]]):
+class ParamScreen(Screen[dict[str, str] | None]):
     """Simple whiptail-style form for editing target parameters."""
 
     BINDINGS = [("escape", "cancel", "Cancel"), ("q", "cancel", "Cancel")]
@@ -305,32 +304,31 @@ class ParamScreen(Screen[Optional[dict[str, str]]]):
 
     def compose(self) -> ComposeResult:  # type: ignore[override]
         """Build the parameter form widgets."""
-        with Container(id="backdrop"):
-            with Vertical(id="window", classes="whiptail-window"):
-                yield Static(f"Parameters for {self._target.name}", id="title")
-                self._error = Static("", id="error")
-                yield self._error
-                for param in self._target.params:
-                    yield Label(param.description)
-                    preset_value = self._preset.get(param.name, param.default or "")
-                    if param.choices:
-                        widget = Select(
-                            tuple((choice, choice) for choice in param.choices),
-                            value=preset_value or (param.choices[0] if param.choices else ""),
-                            id=f"select-{param.name}",
-                        )
-                    else:
-                        widget = Input(
-                            value=preset_value,
-                            placeholder=param.description,
-                            id=f"input-{param.name}",
-                        )
-                    self._inputs[param.name] = widget
-                    yield widget
-                with Horizontal(id="buttons"):
-                    ok_btn = Button("OK", id="ok-btn")
-                    self._ok_button = ok_btn
-                    yield ok_btn
+        with Container(id="backdrop"), Vertical(id="window", classes="whiptail-window"):
+            yield Static(f"Parameters for {self._target.name}", id="title")
+            self._error = Static("", id="error")
+            yield self._error
+            for param in self._target.params:
+                yield Label(param.description)
+                preset_value = self._preset.get(param.name, param.default or "")
+                if param.choices:
+                    widget = Select(
+                        tuple((choice, choice) for choice in param.choices),
+                        value=preset_value or (param.choices[0] if param.choices else ""),
+                        id=f"select-{param.name}",
+                    )
+                else:
+                    widget = Input(
+                        value=preset_value,
+                        placeholder=param.description,
+                        id=f"input-{param.name}",
+                    )
+                self._inputs[param.name] = widget
+                yield widget
+            with Horizontal(id="buttons"):
+                ok_btn = Button("OK", id="ok-btn")
+                self._ok_button = ok_btn
+                yield ok_btn
         yield Footer()
 
     def on_mount(self) -> None:  # type: ignore[override]
@@ -393,7 +391,7 @@ class ParamScreen(Screen[Optional[dict[str, str]]]):
             return selection if isinstance(selection, str) else ""
         return widget.value.strip() or ""
 
-    def _validate_param_value(self, param: "ParamSpec", value: str) -> str | None:
+    def _validate_param_value(self, param: ParamSpec, value: str) -> str | None:
         """Validate a parameter value, returning error message if invalid."""
         if param.validator is None or not value:
             return None
@@ -418,7 +416,7 @@ class ParamScreen(Screen[Optional[dict[str, str]]]):
         return app
 
 
-class RunScreen(Screen[Optional[int]]):
+class RunScreen(Screen[int | None]):
     """Run the selected make target and stream output inside a whiptail-like window."""
 
     BINDINGS = [("escape", "cancel", "Cancel"), ("q", "cancel", "Cancel")]
@@ -442,16 +440,15 @@ class RunScreen(Screen[Optional[int]]):
 
     def compose(self) -> ComposeResult:  # type: ignore[override]
         """Build the run output window widgets."""
-        with Container(id="backdrop"):
-            with Vertical(id="window", classes="whiptail-window"):
-                yield Static(f"Running: make {self._target.name}", id="title")
-                env_preview = _format_env(self._env)
-                if env_preview:
-                    yield Static(env_preview, id="env")
-                yield self._log
-                yield self._status
-                with Horizontal(id="buttons"):
-                    yield self._ok_button
+        with Container(id="backdrop"), Vertical(id="window", classes="whiptail-window"):
+            yield Static(f"Running: make {self._target.name}", id="title")
+            env_preview = _format_env(self._env)
+            if env_preview:
+                yield Static(env_preview, id="env")
+            yield self._log
+            yield self._status
+            with Horizontal(id="buttons"):
+                yield self._ok_button
         yield Footer()
 
     async def on_mount(self) -> None:  # type: ignore[override]

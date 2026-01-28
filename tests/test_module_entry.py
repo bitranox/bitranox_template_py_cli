@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from collections.abc import Callable
 import runpy
 import sys
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TextIO
 
-import pytest
-
 import lib_cli_exit_tools
+import pytest
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod

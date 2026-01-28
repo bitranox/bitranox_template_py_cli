@@ -11,9 +11,9 @@ Contents:
 
 from __future__ import annotations
 
-from .loader import get_config, get_default_config_path
 from .deploy import deploy_configuration
 from .display import display_config
+from .loader import get_config, get_default_config_path
 from .overrides import apply_overrides
 
 __all__ = [

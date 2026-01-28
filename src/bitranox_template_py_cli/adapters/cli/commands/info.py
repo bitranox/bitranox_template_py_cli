@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import logging
 
-import rich_click as click
 import lib_log_rich.runtime
+import rich_click as click
 
-from .... import __init__conf__
-from ....domain.behaviors import build_greeting
+from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli.domain.behaviors import build_greeting
+
 from ..constants import CLICK_CONTEXT_SETTINGS
 
 logger = logging.getLogger(__name__)

@@ -11,7 +11,6 @@ System Role:
 
 from __future__ import annotations
 
-
 CANONICAL_GREETING = "Hello World"
 
 

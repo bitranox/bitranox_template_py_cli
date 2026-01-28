@@ -14,7 +14,8 @@ from collections.abc import Sequence
 import lib_cli_exit_tools
 import lib_log_rich.runtime
 
-from ... import __init__conf__
+from bitranox_template_py_cli import __init__conf__
+
 from .constants import TRACEBACK_SUMMARY_LIMIT, TRACEBACK_VERBOSE_LIMIT
 from .traceback import (
     apply_traceback_preferences,
@@ -40,7 +41,7 @@ def _run_cli(argv: Sequence[str] | None) -> int:
             argv=list(argv) if argv is not None else None,
             prog_name=__init__conf__.shell_command,
         )
-    except BaseException as exc:  # noqa: BLE001 - handled by shared printers
+    except BaseException as exc:
         tracebacks_enabled = bool(getattr(lib_cli_exit_tools.config, "traceback", False))
         apply_traceback_preferences(tracebacks_enabled)
         length_limit = TRACEBACK_VERBOSE_LIMIT if tracebacks_enabled else TRACEBACK_SUMMARY_LIMIT

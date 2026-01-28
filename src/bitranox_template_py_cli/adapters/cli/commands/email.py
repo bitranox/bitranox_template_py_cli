@@ -13,15 +13,23 @@ from __future__ import annotations
 import dataclasses
 import functools
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import rich_click as click
 import lib_log_rich.runtime
+import rich_click as click
 from lib_layered_config import Config
 
-from .... import __init__conf__
-from ....adapters.email.sender import EmailConfig, load_email_config_from_dict, send_email, send_notification
+from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli.adapters.email.sender import (
+    EmailConfig,
+    load_email_config_from_dict,
+    send_email,
+    send_notification,
+)
+from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
+
 from ..constants import CLICK_CONTEXT_SETTINGS
 from ..context import get_cli_context
 from ..exit_codes import ExitCode
@@ -85,14 +93,20 @@ class SmtpConfigOverrides:
         return config.model_copy(update=overrides)
 
 
-def _smtp_config_options(func: Any) -> Any:
+def _smtp_config_options(func: Callable[..., Any]) -> Callable[..., Any]:
     """Apply shared SMTP configuration override options to a Click command.
 
     Adds CLI flags for all EmailConfig fields so that any TOML setting
     can be overridden at invocation time.
     """
     options = [
-        click.option("--smtp-host", "smtp_hosts", multiple=True, default=(), help="Override SMTP host (can specify multiple; format host:port)"),
+        click.option(
+            "--smtp-host",
+            "smtp_hosts",
+            multiple=True,
+            default=(),
+            help="Override SMTP host (can specify multiple; format host:port)",
+        ),
         click.option("--smtp-username", default=None, help="Override SMTP authentication username"),
         click.option("--smtp-password", default=None, help="Override SMTP authentication password"),
         click.option("--use-starttls/--no-use-starttls", default=None, help="Override STARTTLS setting"),
@@ -112,11 +126,19 @@ def _smtp_config_options(func: Any) -> Any:
 
 
 @click.command("send-email", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option("--to", "recipients", multiple=True, required=False, help="Recipient email address (can specify multiple; uses config default if not specified)")
+@click.option(
+    "--to",
+    "recipients",
+    multiple=True,
+    required=False,
+    help="Recipient email address (can specify multiple; uses config default if not specified)",
+)
 @click.option("--subject", required=True, help="Email subject line")
 @click.option("--body", default="", help="Plain-text email body")
 @click.option("--body-html", default="", help="HTML email body (sent as multipart with plain text)")
-@click.option("--from", "from_address", default=None, help="Override sender address (uses config default if not specified)")
+@click.option(
+    "--from", "from_address", default=None, help="Override sender address (uses config default if not specified)"
+)
 @click.option(
     "--attachment",
     "attachments",
@@ -168,7 +190,21 @@ def cli_send_email(
         attachment_paths = [Path(p) for p in attachments] if attachments else None
 
         _log_send_email_start(resolved_recipients, subject, body_html, attachments)
-        _execute_send_email(email_config, resolved_recipients, subject, body, body_html, from_address, attachment_paths)
+        _execute_with_email_error_handling(
+            operation=functools.partial(
+                send_email,
+                config=email_config,
+                recipients=resolved_recipients,
+                subject=subject,
+                body=body,
+                body_html=body_html,
+                from_address=from_address,
+                attachments=attachment_paths,
+            ),
+            recipients=resolved_recipients,
+            message_type="Email",
+            catches_file_not_found=True,
+        )
 
 
 def _log_send_email_start(
@@ -196,57 +232,81 @@ def _log_send_email_start(
     )
 
 
-def _execute_send_email(
-    email_config: EmailConfig,
+def _execute_with_email_error_handling(
+    *,
+    operation: Callable[[], bool],
     recipients: list[str] | None,
-    subject: str,
-    body: str,
-    body_html: str,
-    from_address: str | None,
-    attachments: list[Path] | None,
+    message_type: str,
+    catches_file_not_found: bool = False,
 ) -> None:
-    """Execute the email send operation with error handling.
+    """Execute an email operation with unified error handling.
 
     Args:
-        email_config: Validated email configuration.
-        recipients: Email recipients, or None when using config defaults.
-        subject: Email subject.
-        body: Plain text body.
-        body_html: HTML body.
-        from_address: Optional sender override.
-        attachments: Optional attachment paths.
+        operation: Zero-arg callable returning True on success.
+        recipients: Recipients for logging context.
+        message_type: "Email" or "Notification" for display messages.
+        catches_file_not_found: When True, catches FileNotFoundError
+            (needed for send-email with attachments).
 
     Raises:
         SystemExit: On any error.
     """
     try:
-        result = send_email(
-            config=email_config,
-            recipients=recipients,
-            subject=subject,
-            body=body,
-            body_html=body_html,
-            from_address=from_address,
-            attachments=attachments,
+        result = operation()
+        _handle_send_result(result, recipients, message_type)
+    except ConfigurationError as exc:
+        _handle_send_error(
+            exc,
+            f"{message_type} configuration error",
+            "Configuration error",
+            exit_code=ExitCode.CONFIG_ERROR,
         )
-        _handle_send_result(result, recipients, "Email")
     except ValueError as exc:
-        _handle_send_error(exc, "Invalid email parameters", "Invalid email parameters", exit_code=ExitCode.INVALID_ARGUMENT)
+        _handle_send_error(
+            exc,
+            f"Invalid {message_type.lower()} parameters",
+            f"Invalid {message_type.lower()} parameters",
+            exit_code=ExitCode.INVALID_ARGUMENT,
+        )
     except FileNotFoundError as exc:
-        # Click validates exists=True at parse time; this catches TOCTOU races
-        # where a file is deleted between argument parsing and send_email().
-        _handle_send_error(exc, "Attachment file not found", "Attachment file not found", exit_code=ExitCode.FILE_NOT_FOUND)
-    except RuntimeError as exc:
-        _handle_send_error(exc, "SMTP delivery failed", "Failed to send email", exit_code=ExitCode.SMTP_FAILURE)
+        if not catches_file_not_found:
+            raise
+        _handle_send_error(
+            exc,
+            "Attachment file not found",
+            "Attachment file not found",
+            exit_code=ExitCode.FILE_NOT_FOUND,
+        )
+    except (DeliveryError, RuntimeError) as exc:
+        _handle_send_error(
+            exc,
+            "SMTP delivery failed",
+            "Failed to send email",
+            exit_code=ExitCode.SMTP_FAILURE,
+        )
     except Exception as exc:
-        _handle_send_error(exc, "Unexpected error sending email", "Unexpected error", exit_code=ExitCode.GENERAL_ERROR, log_traceback=True)
+        _handle_send_error(
+            exc,
+            f"Unexpected error sending {message_type.lower()}",
+            "Unexpected error",
+            exit_code=ExitCode.GENERAL_ERROR,
+            log_traceback=True,
+        )
 
 
 @click.command("send-notification", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option("--to", "recipients", multiple=True, required=False, help="Recipient email address (can specify multiple; uses config default if not specified)")
+@click.option(
+    "--to",
+    "recipients",
+    multiple=True,
+    required=False,
+    help="Recipient email address (can specify multiple; uses config default if not specified)",
+)
 @click.option("--subject", required=True, help="Notification subject line")
 @click.option("--message", required=True, help="Notification message (plain text)")
-@click.option("--from", "from_address", default=None, help="Override sender address (uses config default if not specified)")
+@click.option(
+    "--from", "from_address", default=None, help="Override sender address (uses config default if not specified)"
+)
 @_smtp_config_options
 @click.pass_context
 def cli_send_notification(
@@ -287,43 +347,18 @@ def cli_send_notification(
         )
         email_config = smtp_overrides.apply_to(email_config)
         logger.info("Sending notification", extra={"recipients": resolved_recipients, "subject": subject})
-        _execute_send_notification(email_config, resolved_recipients, subject, message, from_address)
-
-
-def _execute_send_notification(
-    email_config: EmailConfig,
-    recipients: list[str] | None,
-    subject: str,
-    message: str,
-    from_address: str | None = None,
-) -> None:
-    """Execute the notification send operation with error handling.
-
-    Args:
-        email_config: Validated email configuration.
-        recipients: Email recipients, or None when using config defaults.
-        subject: Notification subject.
-        message: Notification message.
-        from_address: Optional sender address override.
-
-    Raises:
-        SystemExit: On any error.
-    """
-    try:
-        result = send_notification(
-            config=email_config,
-            recipients=recipients,
-            subject=subject,
-            message=message,
-            from_address=from_address,
+        _execute_with_email_error_handling(
+            operation=functools.partial(
+                send_notification,
+                config=email_config,
+                recipients=resolved_recipients,
+                subject=subject,
+                message=message,
+                from_address=from_address,
+            ),
+            recipients=resolved_recipients,
+            message_type="Notification",
         )
-        _handle_send_result(result, recipients, "Notification")
-    except ValueError as exc:
-        _handle_send_error(exc, "Invalid notification parameters", "Invalid notification parameters", exit_code=ExitCode.INVALID_ARGUMENT)
-    except RuntimeError as exc:
-        _handle_send_error(exc, "SMTP delivery failed", "Failed to send email", exit_code=ExitCode.SMTP_FAILURE)
-    except Exception as exc:
-        _handle_send_error(exc, "Unexpected error sending notification", "Unexpected error", exit_code=ExitCode.GENERAL_ERROR, log_traceback=True)
 
 
 def _load_and_validate_email_config(config: Config) -> EmailConfig:
@@ -342,7 +377,9 @@ def _load_and_validate_email_config(config: Config) -> EmailConfig:
 
     if not email_config.smtp_hosts:
         logger.error("No SMTP hosts configured")
-        click.echo("\nError: No SMTP hosts configured. Please configure email.smtp_hosts in your config file.", err=True)
+        click.echo(
+            "\nError: No SMTP hosts configured. Please configure email.smtp_hosts in your config file.", err=True
+        )
         click.echo(f"See: {__init__conf__.shell_command} config-deploy --target user", err=True)
         raise SystemExit(ExitCode.CONFIG_ERROR)
 
@@ -362,7 +399,7 @@ def _handle_send_result(result: bool, recipients: list[str] | None, message_type
     """
     if result:
         click.echo(f"\n{message_type} sent successfully!")
-        logger.info(f"{message_type} sent via CLI", extra={"recipients": recipients})
+        logger.info("%s sent via CLI", message_type, extra={"recipients": recipients})
     else:
         click.echo(f"\n{message_type} sending failed.", err=True)
         raise SystemExit(ExitCode.SMTP_FAILURE)

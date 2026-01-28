@@ -3,7 +3,8 @@
 Purpose
 -------
 Collect helper functions used by the ``scripts/`` entry points (build, test,
-release) so git helpers and subprocess wrappers live in one place. The behaviour mirrors the operational guidance described in
+release) so git helpers and subprocess wrappers live in one place. The behaviour
+mirrors the operational guidance described in
 ``docs/systemdesign/module_reference.md`` and ``DEVELOPMENT.md``.
 
 Contents
@@ -28,10 +29,11 @@ import shutil
 import subprocess
 import sys
 import textwrap
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from subprocess import CompletedProcess
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import orjson
@@ -614,7 +616,9 @@ def read_version_from_pyproject(pyproject: Path = Path("pyproject.toml")) -> str
 def ensure_clean_git_tree() -> None:
     """Ensure the git working tree has no uncommitted changes."""
     unstaged = subprocess.call(["git", "diff", "--quiet"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    staged = subprocess.call(["git", "diff", "--cached", "--quiet"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    staged = subprocess.call(
+        ["git", "diff", "--cached", "--quiet"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
     if unstaged != 0 or staged != 0:
         print("[release] Working tree not clean. Commit or stash changes first.", file=sys.stderr)
         raise SystemExit(1)

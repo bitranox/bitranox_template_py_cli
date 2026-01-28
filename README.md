@@ -231,7 +231,8 @@ bitranox-template-py-cli send-notification \
 #### Programmatic Email Usage
 
 ```python
-from bitranox_template_py_cli.composition import EmailConfig, send_email, send_notification
+from bitranox_template_py_cli.adapters.email.sender import EmailConfig
+from bitranox_template_py_cli.composition import send_email, send_notification
 
 # Configure email
 config = EmailConfig(
