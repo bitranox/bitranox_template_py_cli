@@ -55,16 +55,18 @@ class TestGetConfigCache:
 
         assert first is second
 
-    def test_different_profile_returns_distinct_object(self) -> None:
-        """Different profile arguments return separate Config objects."""
+    def test_different_profile_creates_separate_cache_entry(self) -> None:
+        """Different profile arguments occupy separate LRU cache slots."""
         from bitranox_template_py_cli.adapters.config.loader import get_config
 
         get_config.cache_clear()
 
-        default = get_config()
-        test_profile = get_config(profile="test")
+        get_config()
+        get_config(profile="test")
 
-        assert default is not test_profile
+        info = get_config.cache_info()
+        assert info.misses == 2, "Each distinct profile arg should cause a cache miss"
+        assert info.currsize == 2, "Cache should hold two separate entries"
 
     def test_cache_clear_forces_new_object(self) -> None:
         """Clearing the cache makes the next call return a fresh Config."""
