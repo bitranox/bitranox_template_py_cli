@@ -103,44 +103,31 @@ select = [
   "PLW",         # pylint warnings
 ]
 ignore = [
-  "RUF002",    # ambiguous unicode characters in docstrings (en-dash)
-  "RUF022",    # unsorted __all__ -- kept in logical grouping order
-  "PLC0415",   # deferred imports inside functions are intentional
-  "A002",      # parameter named 'format' shadows builtin -- established API
-  "TC001",     # moving stdlib imports into TYPE_CHECKING can break runtime
-  "TC002",     # moving third-party imports into TYPE_CHECKING can break runtime
-  "TC003",     # moving stdlib imports into TYPE_CHECKING can break runtime
-  "TC006",     # quoting cast() type expressions -- existing code uses unquoted
-  "FBT001",    # boolean positional arg -- Click/CLI options use bool params by design
-  "FBT002",    # boolean default positional arg -- same Click/CLI pattern
-  "PLR0913",   # too many arguments -- some functions (subprocess wrapper, email) legitimately need them
-  "PLR2004",   # magic values in comparisons -- exit codes and test assertions are clearer inline
+  "RUF002",    # ambiguous unicode characters in docstrings (en-dash) - typography choice
+  "RUF022",    # unsorted __all__ - kept in logical grouping order
+  "PLC0415",   # deferred imports inside functions - circular import prevention
+  "TC001",     # stdlib imports at runtime - needed, not just for type hints
+  "TC002",     # third-party imports at runtime - needed, not just for type hints
+  "TC003",     # stdlib imports - same as TC001
+  "TC006",     # cast() type expressions - existing code uses unquoted
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-# ignore the "unused import sys" in the jupyter notebook - which we need (it is a linter hickup)
+# Notebooks: unused imports are often intentional for side effects
 "notebooks/*.ipynb" = ["F401"]
-# scripts use print() for user interaction; partial executable paths (git, gh) are intentional
-"scripts/*.py" = ["T20", "S603", "S607"]
-# menu.py: Textual framework uses mutable class attributes (BINDINGS) by design; assert for type narrowing
-"scripts/menu.py" = ["T20", "RUF012", "S101"]
-# dependencies.py: numbered section comments (# 1. …) are not dead code
-"scripts/dependencies.py" = ["T20", "S603", "S607", "ERA001"]
-# bump_version.py: .splitlines(True) is a stdlib API, not a boolean trap
-"scripts/bump_version.py" = ["T20", "S603", "S607", "FBT003"]
-# run_cli.py: try-except inside retry loop is intentional
-"scripts/run_cli.py" = ["T20", "S603", "S607", "PERF203"]
-# test.py orchestrator: large function justified by sequential test phases
-"scripts/test.py" = ["T20", "S603", "S607", "PLR0912", "PLR0915"]
-# tests: assert is the standard; test passwords are not real secrets; boolean args in test helpers
-"tests/*.py" = ["T20", "S101", "S105", "S106", "FBT003"]
-# __init__conf__.py uses print() in print_info()
-"src/bitranox_template_py_cli/__init__conf__.py" = ["T20"]
-# main.py: global statement required for thread-safe service factory container
-"src/bitranox_template_py_cli/adapters/cli/main.py" = ["PLW0603"]
+# Scripts: tooling code with print(), subprocess, boolean params, large orchestrators
+"scripts/*.py" = ["T20", "S101", "S603", "S607", "ERA001", "FBT001", "FBT002", "FBT003", "PERF203", "PLR0912", "PLR0913", "PLR0915", "PLR2004", "RUF012"]
+# Tests: assert is standard, test fixtures have passwords, magic values are clearer inline
+"tests/*.py" = ["T20", "S101", "S105", "S106", "FBT001", "FBT003", "PLR0913", "PLR2004"]
+# CLI: Click framework injects boolean params; commands have many options
+"src/bitranox_template_py_cli/adapters/cli/**/*.py" = ["FBT001", "FBT002", "PLR0913"]
+# Protocols/adapters: many-param signatures by design
+"src/bitranox_template_py_cli/application/*.py" = ["PLR0913"]
+"src/bitranox_template_py_cli/adapters/email/*.py" = ["PLR0913"]
+"src/bitranox_template_py_cli/adapters/memory/email.py" = ["PLR0913"]
 
 [tool.pyright]
 typeCheckingMode = "strict"

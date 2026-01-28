@@ -18,6 +18,7 @@ from typing import Any, cast
 import lib_log_rich.runtime
 import rich_click as click
 from lib_layered_config import Config
+from pydantic import ValidationError
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 def filter_sentinels(**kwargs: Any) -> dict[str, Any]:
     """Filter out None and empty tuple sentinels, converting tuples to lists.
 
-    Used to prepare CLI option overrides for ``model_copy(update=...)``.
+    Used to prepare CLI option overrides for ``_apply_validated_overrides()``.
     Removes None values (unset options) and empty tuples (unset multiple options),
     and converts non-empty tuples to lists for Pydantic compatibility.
 
@@ -53,6 +54,29 @@ def filter_sentinels(**kwargs: Any) -> dict[str, Any]:
         else:
             result[k] = v
     return result
+
+
+def _apply_validated_overrides(base_config: EmailConfig, overrides: dict[str, Any]) -> EmailConfig:
+    """Apply overrides with full Pydantic validation.
+
+    Uses model_validate() with a merged dict instead of model_copy(update=...)
+    to ensure Pydantic validators run on all overridden values.
+
+    Args:
+        base_config: Base EmailConfig to merge overrides into.
+        overrides: Dict of field values to override (already filtered).
+
+    Returns:
+        New EmailConfig with overrides applied and validated.
+
+    Raises:
+        ValidationError: When overrides contain invalid values.
+    """
+    if not overrides:
+        return base_config
+    base_dict = base_config.model_dump()
+    merged = {**base_dict, **overrides}
+    return EmailConfig.model_validate(merged)
 
 
 def _smtp_config_options(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -131,7 +155,7 @@ def cli_send_email(
     Example:
         >>> from click.testing import CliRunner
         >>> runner = CliRunner()
-        >>> # Real invocation tested in test_cli.py
+        >>> # Real invocation tested in test_cli_email.py
     """
     cli_ctx = get_cli_context(ctx)
     resolved_recipients = list(recipients) if recipients else None
@@ -148,8 +172,12 @@ def cli_send_email(
             raise_on_missing_attachments=raise_on_missing_attachments,
             raise_on_invalid_recipient=raise_on_invalid_recipient,
         )
-        if overrides:
-            email_config = email_config.model_copy(update=overrides)
+        try:
+            email_config = _apply_validated_overrides(email_config, overrides)
+        except ValidationError as exc:
+            _handle_send_error(
+                exc, "Invalid configuration", "Invalid option value", exit_code=ExitCode.INVALID_ARGUMENT
+            )
         attachment_paths = [Path(p) for p in attachments] if attachments else None
 
         _log_send_email_start(resolved_recipients, subject, body_html, attachments)
@@ -291,7 +319,7 @@ def cli_send_notification(
     Example:
         >>> from click.testing import CliRunner
         >>> runner = CliRunner()
-        >>> # Real invocation tested in test_cli.py
+        >>> # Real invocation tested in test_cli_email.py
     """
     cli_ctx = get_cli_context(ctx)
     resolved_recipients = list(recipients) if recipients else None
@@ -308,8 +336,12 @@ def cli_send_notification(
             raise_on_missing_attachments=raise_on_missing_attachments,
             raise_on_invalid_recipient=raise_on_invalid_recipient,
         )
-        if overrides:
-            email_config = email_config.model_copy(update=overrides)
+        try:
+            email_config = _apply_validated_overrides(email_config, overrides)
+        except ValidationError as exc:
+            _handle_send_error(
+                exc, "Invalid configuration", "Invalid option value", exit_code=ExitCode.INVALID_ARGUMENT
+            )
         logger.info("Sending notification", extra={"recipients": resolved_recipients, "subject": subject})
         _execute_with_email_error_handling(
             operation=functools.partial(

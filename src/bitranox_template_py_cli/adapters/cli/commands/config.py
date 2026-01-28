@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 @click.command("config", context_settings=CLICK_CONTEXT_SETTINGS)
 @click.option(
     "--format",
+    "output_format",
     type=click.Choice([f.value for f in OutputFormat], case_sensitive=False),
     default=OutputFormat.HUMAN.value,
     help="Output format (human-readable or JSON)",
@@ -48,7 +49,7 @@ logger = logging.getLogger(__name__)
     help="Override profile from root command (e.g., 'production', 'test')",
 )
 @click.pass_context
-def cli_config(ctx: click.Context, format: str, section: str | None, profile: str | None) -> None:
+def cli_config(ctx: click.Context, output_format: str, section: str | None, profile: str | None) -> None:
     """Display the current merged configuration from all sources.
 
     Shows configuration loaded from defaults, application/user config files,
@@ -60,22 +61,22 @@ def cli_config(ctx: click.Context, format: str, section: str | None, profile: st
         >>> from click.testing import CliRunner
         >>> from unittest.mock import MagicMock
         >>> runner = CliRunner()
-        >>> # Real invocation tested in test_cli.py
+        >>> # Real invocation tested in test_cli_config.py
     """
     cli_ctx = get_cli_context(ctx)
     effective_config, effective_profile = _resolve_config(cli_ctx, profile)
-    output_format = OutputFormat(format.lower())
+    fmt = OutputFormat(output_format.lower())
 
-    extra = {"command": "config", "format": output_format.value, "profile": effective_profile}
+    extra = {"command": "config", "format": fmt.value, "profile": effective_profile}
     with lib_log_rich.runtime.bind(job_id="cli-config", extra=extra):
         logger.info(
             "Displaying configuration",
-            extra={"format": output_format.value, "section": section, "profile": effective_profile},
+            extra={"format": fmt.value, "section": section, "profile": effective_profile},
         )
         lib_log_rich.runtime.flush()
         click.echo()
         try:
-            cli_ctx.services.display_config(effective_config, format=output_format, section=section)
+            cli_ctx.services.display_config(effective_config, output_format=fmt, section=section)
         except ValueError as exc:
             click.echo(f"\nError: {exc}", err=True)
             raise SystemExit(ExitCode.INVALID_ARGUMENT) from exc
@@ -144,7 +145,7 @@ def cli_config_deploy(ctx: click.Context, targets: tuple[str, ...], force: bool,
     Example:
         >>> from click.testing import CliRunner
         >>> runner = CliRunner()
-        >>> # Real invocation tested in test_cli.py
+        >>> # Real invocation tested in test_cli_config.py
     """
     cli_ctx = get_cli_context(ctx)
     effective_profile = _get_effective_profile(cli_ctx, profile)

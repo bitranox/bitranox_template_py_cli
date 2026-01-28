@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner, Result
-from lib_layered_config import Config
 
 from bitranox_template_py_cli.adapters import cli as cli_mod
 
@@ -15,18 +14,15 @@ from bitranox_template_py_cli.adapters import cli as cli_mod
 @pytest.mark.os_agnostic
 def test_when_set_override_is_passed_config_reflects_change(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify --set override is visible in config command output."""
-    factory = inject_config(
-        config_factory(
-            {
-                "lib_log_rich": {
-                    "console_level": "INFO",
-                }
+    factory = config_cli_context(
+        {
+            "lib_log_rich": {
+                "console_level": "INFO",
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(
@@ -42,19 +38,16 @@ def test_when_set_override_is_passed_config_reflects_change(
 @pytest.mark.os_agnostic
 def test_when_multiple_set_overrides_are_passed_all_apply(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify multiple --set options all apply."""
-    factory = inject_config(
-        config_factory(
-            {
-                "lib_log_rich": {
-                    "console_level": "INFO",
-                    "force_color": False,
-                }
+    factory = config_cli_context(
+        {
+            "lib_log_rich": {
+                "console_level": "INFO",
+                "force_color": False,
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(
@@ -78,20 +71,17 @@ def test_when_multiple_set_overrides_are_passed_all_apply(
 @pytest.mark.os_agnostic
 def test_when_set_override_has_nested_key_it_works(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify nested key override (e.g., SECTION.SUB.KEY=VALUE) works."""
-    factory = inject_config(
-        config_factory(
-            {
-                "lib_log_rich": {
-                    "payload_limits": {
-                        "message_max_chars": 4096,
-                    },
-                }
+    factory = config_cli_context(
+        {
+            "lib_log_rich": {
+                "payload_limits": {
+                    "message_max_chars": 4096,
+                },
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(
@@ -153,18 +143,15 @@ def test_when_set_override_is_empty_string_it_shows_error(
 @pytest.mark.os_agnostic
 def test_when_no_set_overrides_config_is_unchanged(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify no --set leaves config unchanged."""
-    factory = inject_config(
-        config_factory(
-            {
-                "lib_log_rich": {
-                    "console_level": "WARNING",
-                }
+    factory = config_cli_context(
+        {
+            "lib_log_rich": {
+                "console_level": "WARNING",
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(

@@ -47,7 +47,7 @@ class DeployConfiguration(Protocol):
 class DisplayConfig(Protocol):
     """Display the provided configuration in the requested format."""
 
-    def __call__(self, config: Config, *, format: OutputFormat = ..., section: str | None = ...) -> None: ...
+    def __call__(self, config: Config, *, output_format: OutputFormat = ..., section: str | None = ...) -> None: ...
 
 
 class SendEmail(Protocol):

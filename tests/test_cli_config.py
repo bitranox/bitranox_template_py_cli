@@ -56,19 +56,16 @@ def test_when_config_is_invoked_with_nonexistent_section_it_fails(
 @pytest.mark.os_agnostic
 def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify config displays sections from mocked configuration."""
-    factory = inject_config(
-        config_factory(
-            {
-                "test_section": {
-                    "setting1": "value1",
-                    "setting2": 42,
-                }
+    factory = config_cli_context(
+        {
+            "test_section": {
+                "setting1": "value1",
+                "setting2": 42,
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
@@ -82,19 +79,16 @@ def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
 @pytest.mark.os_agnostic
 def test_when_config_is_invoked_with_json_format_and_section_it_shows_section(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify JSON format displays specific section content."""
-    factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "test@example.com",
-                }
+    factory = config_cli_context(
+        {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
+                "from_address": "test@example.com",
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json", "--section", "email"], obj=factory)
@@ -108,18 +102,15 @@ def test_when_config_is_invoked_with_json_format_and_section_it_shows_section(
 @pytest.mark.os_agnostic
 def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fails(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify JSON format with nonexistent section returns error."""
-    factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                }
+    factory = config_cli_context(
+        {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(
@@ -133,21 +124,18 @@ def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fail
 @pytest.mark.os_agnostic
 def test_when_config_is_invoked_with_section_showing_complex_values(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify human format with section containing lists and dicts."""
-    factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp1.test.com:587", "smtp2.test.com:587"],
-                    "from_address": "test@example.com",
-                    "metadata": {"key1": "value1", "key2": "value2"},
-                    "timeout": 60.0,
-                }
+    factory = config_cli_context(
+        {
+            "email": {
+                "smtp_hosts": ["smtp1.test.com:587", "smtp2.test.com:587"],
+                "from_address": "test@example.com",
+                "metadata": {"key1": "value1", "key2": "value2"},
+                "timeout": 60.0,
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--section", "email"], obj=factory)
@@ -165,23 +153,20 @@ def test_when_config_is_invoked_with_section_showing_complex_values(
 @pytest.mark.os_agnostic
 def test_when_config_shows_all_sections_with_complex_values(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Verify human format showing all sections with lists and dicts."""
-    factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "tags": {"environment": "test", "version": "1.0"},
-                },
-                "logging": {
-                    "level": "DEBUG",
-                    "handlers": ["console", "file"],
-                },
-            }
-        )
+    factory = config_cli_context(
+        {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
+                "tags": {"environment": "test", "version": "1.0"},
+            },
+            "logging": {
+                "level": "DEBUG",
+                "handlers": ["console", "file"],
+            },
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
@@ -382,19 +367,16 @@ def test_when_config_deploy_is_invoked_without_profile_it_passes_none(
 @pytest.mark.os_agnostic
 def test_when_config_displays_human_format_it_redacts_password(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Human-readable output must redact sensitive keys like smtp_password."""
-    factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_password": "super_secret_123",
-                    "from_address": "test@example.com",
-                }
+    factory = config_cli_context(
+        {
+            "email": {
+                "smtp_password": "super_secret_123",
+                "from_address": "test@example.com",
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
@@ -409,19 +391,16 @@ def test_when_config_displays_human_format_it_redacts_password(
 @pytest.mark.os_agnostic
 def test_when_config_displays_json_format_it_redacts_password(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """JSON output must redact sensitive keys like smtp_password."""
-    factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_password": "super_secret_123",
-                    "from_address": "test@example.com",
-                }
+    factory = config_cli_context(
+        {
+            "email": {
+                "smtp_password": "super_secret_123",
+                "from_address": "test@example.com",
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json"], obj=factory)
@@ -435,19 +414,16 @@ def test_when_config_displays_json_format_it_redacts_password(
 @pytest.mark.os_agnostic
 def test_when_config_displays_non_sensitive_values_it_shows_them(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Non-sensitive keys must show their real values, not be redacted."""
-    factory = inject_config(
-        config_factory(
-            {
-                "logging": {
-                    "level": "DEBUG",
-                    "service": "my_app",
-                }
+    factory = config_cli_context(
+        {
+            "logging": {
+                "level": "DEBUG",
+                "service": "my_app",
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
@@ -461,20 +437,17 @@ def test_when_config_displays_non_sensitive_values_it_shows_them(
 @pytest.mark.os_agnostic
 def test_when_config_displays_token_and_secret_keys_it_redacts_them(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Keys containing 'token', 'secret', or 'credential' must be redacted."""
-    factory = inject_config(
-        config_factory(
-            {
-                "auth": {
-                    "api_token": "tok_abc123",
-                    "client_secret": "sec_xyz789",
-                    "username": "admin",
-                }
+    factory = config_cli_context(
+        {
+            "auth": {
+                "api_token": "tok_abc123",
+                "client_secret": "sec_xyz789",
+                "username": "admin",
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
@@ -488,22 +461,19 @@ def test_when_config_displays_token_and_secret_keys_it_redacts_them(
 @pytest.mark.os_agnostic
 def test_when_config_displays_password_in_list_of_dicts_it_redacts(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Sensitive keys inside dicts nested in lists must be redacted."""
-    factory = inject_config(
-        config_factory(
-            {
-                "connections": {
-                    "servers": [
-                        {"host": "smtp.example.com", "password": "secret123"},
-                        {"host": "backup.example.com", "password": "secret456"},
-                    ],
-                    "name": "production",
-                }
+    factory = config_cli_context(
+        {
+            "connections": {
+                "servers": [
+                    {"host": "smtp.example.com", "password": "secret123"},
+                    {"host": "backup.example.com", "password": "secret456"},
+                ],
+                "name": "production",
             }
-        )
+        }
     )
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json"], obj=factory)
@@ -798,11 +768,10 @@ def test_when_config_subcommand_profile_reloads_it_preserves_root_set_overrides(
 @pytest.mark.os_agnostic
 def test_when_config_subcommand_has_no_profile_it_uses_stored_config_with_overrides(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
 ) -> None:
     """Without subcommand --profile, config uses already-overridden config from context."""
-    factory = inject_config(config_factory({"section": {"key": "original"}}))
+    factory = config_cli_context({"section": {"key": "original"}})
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,

@@ -130,3 +130,46 @@ def test_whitespace_only_from_address_coerces_to_none(whitespace: str) -> None:
     config = EmailConfig(from_address=whitespace)
 
     assert config.from_address is None
+
+
+# ======================== Runtime recipient validation tests ========================
+
+
+@pytest.mark.os_agnostic
+@given(invalid_email=st.from_regex(r"[a-z]{1,10}", fullmatch=True))
+@settings(max_examples=50)
+def test_invalid_runtime_recipients_are_rejected_in_memory_adapter(invalid_email: str) -> None:
+    """Invalid runtime recipients raise InvalidRecipientError in memory adapter."""
+    from bitranox_template_py_cli.adapters.memory.email import EmailSpy
+    from bitranox_template_py_cli.domain.errors import InvalidRecipientError
+
+    config = EmailConfig(smtp_hosts=["smtp.example.com:587"])
+    spy = EmailSpy()
+
+    with pytest.raises(InvalidRecipientError, match="Invalid recipient"):
+        spy.send_email(
+            config=config,
+            recipients=invalid_email,
+            subject="Test",
+            body="Test body",
+        )
+
+
+@pytest.mark.os_agnostic
+@given(invalid_email=st.from_regex(r"[a-z]{1,10}", fullmatch=True))
+@settings(max_examples=50)
+def test_invalid_runtime_recipients_are_rejected_in_notification(invalid_email: str) -> None:
+    """Invalid runtime recipients raise InvalidRecipientError in notification adapter."""
+    from bitranox_template_py_cli.adapters.memory.email import EmailSpy
+    from bitranox_template_py_cli.domain.errors import InvalidRecipientError
+
+    config = EmailConfig(smtp_hosts=["smtp.example.com:587"])
+    spy = EmailSpy()
+
+    with pytest.raises(InvalidRecipientError, match="Invalid recipient"):
+        spy.send_notification(
+            config=config,
+            recipients=invalid_email,
+            subject="Test",
+            message="Test message",
+        )

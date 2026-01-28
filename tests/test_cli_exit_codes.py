@@ -13,7 +13,7 @@ from lib_layered_config import Config
 from bitranox_template_py_cli.adapters import cli as cli_mod
 
 if TYPE_CHECKING:
-    from bitranox_template_py_cli.adapters.memory.email import EmailSpy
+    from conftest import EmailCliContext
 
 
 @pytest.mark.os_agnostic
@@ -88,29 +88,16 @@ def test_when_email_has_no_smtp_hosts_it_exits_with_code_78(
 @pytest.mark.os_agnostic
 def test_when_email_smtp_fails_it_exits_with_code_69(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """Send-email failure must exit with SMTP_FAILURE (69)."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
-    )
-    factory = inject_email_services(base_factory)
-    email_spy.should_fail = True
+    ctx = email_cli_context({"smtp_hosts": ["smtp.test.com:587"], "from_address": "sender@test.com"})
+    ctx.spy.should_fail = True
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 69
@@ -120,29 +107,16 @@ def test_when_email_smtp_fails_it_exits_with_code_69(
 @pytest.mark.os_agnostic
 def test_when_email_send_returns_false_it_exits_with_code_69(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """Send-email returning False must exit with SMTP_FAILURE (69)."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
-    )
-    factory = inject_email_services(base_factory)
-    email_spy.should_fail = True
+    ctx = email_cli_context({"smtp_hosts": ["smtp.test.com:587"], "from_address": "sender@test.com"})
+    ctx.spy.should_fail = True
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 69
@@ -152,29 +126,16 @@ def test_when_email_send_returns_false_it_exits_with_code_69(
 @pytest.mark.os_agnostic
 def test_when_email_has_unexpected_error_it_exits_with_code_1(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """Send-email unexpected Exception must exit with GENERAL_ERROR (1)."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
-    )
-    factory = inject_email_services(base_factory)
-    email_spy.raise_exception = TypeError("unexpected type error")
+    ctx = email_cli_context({"smtp_hosts": ["smtp.test.com:587"], "from_address": "sender@test.com"})
+    ctx.spy.raise_exception = TypeError("unexpected type error")
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 1

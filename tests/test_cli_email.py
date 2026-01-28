@@ -7,12 +7,11 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from click.testing import CliRunner, Result
-from lib_layered_config import Config
 
 from bitranox_template_py_cli.adapters import cli as cli_mod
 
 if TYPE_CHECKING:
-    from bitranox_template_py_cli.adapters.memory.email import EmailSpy
+    from conftest import EmailCliContext
 
 # ======================== Email Command Tests ========================
 
@@ -20,13 +19,10 @@ if TYPE_CHECKING:
 @pytest.mark.os_agnostic
 def test_when_send_email_is_invoked_without_smtp_hosts_it_fails(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When SMTP hosts are not configured, send-email should exit with CONFIG_ERROR (78)."""
-    base_factory = inject_config(config_factory({"email": {}}))
-    factory = inject_email_services(base_factory)
+    ctx = email_cli_context({})
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -39,7 +35,7 @@ def test_when_send_email_is_invoked_without_smtp_hosts_it_fails(
             "--body",
             "Hello",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 78
@@ -49,23 +45,15 @@ def test_when_send_email_is_invoked_without_smtp_hosts_it_fails(
 @pytest.mark.os_agnostic
 def test_when_send_email_is_invoked_with_valid_config_it_sends(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When SMTP is configured, send-email should successfully send."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -78,36 +66,28 @@ def test_when_send_email_is_invoked_with_valid_config_it_sends(
             "--body",
             "Test body",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
     assert "Email sent successfully" in result.output
-    assert len(email_spy.sent_emails) == 1
-    assert email_spy.sent_emails[0]["subject"] == "Test Subject"
-    assert email_spy.sent_emails[0]["recipients"] == ["recipient@test.com"]
+    assert len(ctx.spy.sent_emails) == 1
+    assert ctx.spy.sent_emails[0]["subject"] == "Test Subject"
+    assert ctx.spy.sent_emails[0]["recipients"] == ["recipient@test.com"]
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_receives_multiple_recipients_it_accepts_them(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When multiple --to flags are provided, send-email should accept them."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -122,33 +102,25 @@ def test_when_send_email_receives_multiple_recipients_it_accepts_them(
             "--body",
             "Hello",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_emails[0]["recipients"] == ["user1@test.com", "user2@test.com"]
+    assert ctx.spy.sent_emails[0]["recipients"] == ["user1@test.com", "user2@test.com"]
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_includes_html_body_it_sends(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When HTML body is provided, send-email should include it."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -163,21 +135,18 @@ def test_when_send_email_includes_html_body_it_sends(
             "--body-html",
             "<h1>HTML</h1>",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_emails[0]["body_html"] == "<h1>HTML</h1>"
+    assert ctx.spy.sent_emails[0]["body_html"] == "<h1>HTML</h1>"
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_has_attachments_it_sends(
     cli_runner: CliRunner,
     tmp_path: Any,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When attachments are provided, send-email should include them."""
     from pathlib import Path
@@ -185,17 +154,12 @@ def test_when_send_email_has_attachments_it_sends(
     attachment = tmp_path / "test.txt"
     attachment.write_text("Test content")
 
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -210,34 +174,26 @@ def test_when_send_email_has_attachments_it_sends(
             "--attachment",
             str(attachment),
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_emails[0]["attachments"] == [Path(attachment)]
+    assert ctx.spy.sent_emails[0]["attachments"] == [Path(attachment)]
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_smtp_fails_it_reports_error(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When SMTP returns failure, send-email should show SMTP_FAILURE (69) error."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
-    email_spy.should_fail = True
+    ctx.spy.should_fail = True
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -250,7 +206,7 @@ def test_when_send_email_smtp_fails_it_reports_error(
             "--body",
             "Hello",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 69
@@ -260,13 +216,10 @@ def test_when_send_email_smtp_fails_it_reports_error(
 @pytest.mark.os_agnostic
 def test_when_send_notification_is_invoked_without_smtp_hosts_it_fails(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When SMTP hosts are not configured, send-notification should exit with CONFIG_ERROR (78)."""
-    base_factory = inject_config(config_factory({"email": {}}))
-    factory = inject_email_services(base_factory)
+    ctx = email_cli_context({})
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -279,7 +232,7 @@ def test_when_send_notification_is_invoked_without_smtp_hosts_it_fails(
             "--message",
             "System notification",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 78
@@ -289,23 +242,15 @@ def test_when_send_notification_is_invoked_without_smtp_hosts_it_fails(
 @pytest.mark.os_agnostic
 def test_when_send_notification_is_invoked_with_valid_config_it_sends(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When SMTP is configured, send-notification should successfully send."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "alerts@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "alerts@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -318,36 +263,28 @@ def test_when_send_notification_is_invoked_with_valid_config_it_sends(
             "--message",
             "System notification",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
     assert "Notification sent successfully" in result.output
-    assert len(email_spy.sent_notifications) == 1
-    assert email_spy.sent_notifications[0]["subject"] == "Alert"
-    assert email_spy.sent_notifications[0]["message"] == "System notification"
+    assert len(ctx.spy.sent_notifications) == 1
+    assert ctx.spy.sent_notifications[0]["subject"] == "Alert"
+    assert ctx.spy.sent_notifications[0]["message"] == "System notification"
 
 
 @pytest.mark.os_agnostic
 def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When multiple --to flags are provided, send-notification should accept them."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "alerts@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "alerts@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -362,34 +299,26 @@ def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
             "--message",
             "System notification",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_notifications[0]["recipients"] == ["admin1@test.com", "admin2@test.com"]
+    assert ctx.spy.sent_notifications[0]["recipients"] == ["admin1@test.com", "admin2@test.com"]
 
 
 @pytest.mark.os_agnostic
 def test_when_send_notification_smtp_fails_it_reports_error(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When SMTP returns failure, send-notification should show SMTP_FAILURE (69) error."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "alerts@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "alerts@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
-    email_spy.should_fail = True
+    ctx.spy.should_fail = True
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -402,7 +331,7 @@ def test_when_send_notification_smtp_fails_it_reports_error(
             "--message",
             "System notification",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 69
@@ -415,23 +344,15 @@ def test_when_send_notification_smtp_fails_it_reports_error(
 @pytest.mark.os_agnostic
 def test_when_send_email_receives_smtp_host_override_it_uses_it(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When --smtp-host is provided, send-email should use the override instead of config value."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.config.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.config.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -446,33 +367,25 @@ def test_when_send_email_receives_smtp_host_override_it_uses_it(
             "--smtp-host",
             "smtp.override.com:465",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_emails[0]["config"].smtp_hosts == ["smtp.override.com:465"]
+    assert ctx.spy.sent_emails[0]["config"].smtp_hosts == ["smtp.override.com:465"]
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_receives_timeout_override_it_uses_it(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When --timeout is provided, send-email should use the overridden timeout."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -487,33 +400,25 @@ def test_when_send_email_receives_timeout_override_it_uses_it(
             "--timeout",
             "60",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_emails[0]["config"].timeout == 60.0
+    assert ctx.spy.sent_emails[0]["config"].timeout == 60.0
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_receives_no_use_starttls_override_it_applies_it(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When --no-use-starttls is provided, send-email should disable starttls in config."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -527,33 +432,25 @@ def test_when_send_email_receives_no_use_starttls_override_it_applies_it(
             "Hello",
             "--no-use-starttls",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_emails[0]["config"].use_starttls is False
+    assert ctx.spy.sent_emails[0]["config"].use_starttls is False
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_receives_credential_overrides_it_uses_them(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When --smtp-username and --smtp-password are provided, send-email should use them."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -570,34 +467,26 @@ def test_when_send_email_receives_credential_overrides_it_uses_them(
             "--smtp-password",
             "mypass",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_emails[0]["config"].smtp_username == "myuser"
-    assert email_spy.sent_emails[0]["config"].smtp_password == "mypass"
+    assert ctx.spy.sent_emails[0]["config"].smtp_username == "myuser"
+    assert ctx.spy.sent_emails[0]["config"].smtp_password == "mypass"
 
 
 @pytest.mark.os_agnostic
 def test_when_send_notification_receives_from_override_it_uses_it(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When --from is provided, send-notification should use the override sender."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "default@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "default@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -612,33 +501,25 @@ def test_when_send_notification_receives_from_override_it_uses_it(
             "--from",
             "override@test.com",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_notifications[0]["from_address"] == "override@test.com"
+    assert ctx.spy.sent_notifications[0]["from_address"] == "override@test.com"
 
 
 @pytest.mark.os_agnostic
 def test_when_send_notification_receives_smtp_host_override_it_uses_it(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
-    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
-    email_spy: EmailSpy,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
 ) -> None:
     """When --smtp-host is provided, send-notification should use the override host."""
-    base_factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.config.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-        )
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.config.com:587"],
+            "from_address": "sender@test.com",
+        }
     )
-    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -653,11 +534,11 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
             "--smtp-host",
             "smtp.override.com:465",
         ],
-        obj=factory,
+        obj=ctx.factory,
     )
 
     assert result.exit_code == 0
-    assert email_spy.sent_notifications[0]["config"].smtp_hosts == ["smtp.override.com:465"]
+    assert ctx.spy.sent_notifications[0]["config"].smtp_hosts == ["smtp.override.com:465"]
 
 
 # ======================== Attachment path validation ========================
@@ -666,8 +547,7 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
 @pytest.mark.os_agnostic
 def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
     tmp_path: Any,
 ) -> None:
     """Missing attachment with default raise behavior should fail with FILE_NOT_FOUND.
@@ -677,15 +557,13 @@ def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
     """
     from unittest.mock import patch
 
-    factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
+    factory = config_cli_context(
+        {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
+                "from_address": "sender@test.com",
             }
-        )
+        }
     )
 
     nonexistent_file = str(tmp_path / "nonexistent_attachment.txt")
@@ -716,8 +594,7 @@ def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
 @pytest.mark.os_agnostic
 def test_when_send_email_attachment_path_accepted_by_click(
     cli_runner: CliRunner,
-    config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], Callable[[], Any]],
+    config_cli_context: Callable[[dict[str, Any]], Callable[[], Any]],
     tmp_path: Any,
 ) -> None:
     """Click accepts nonexistent attachment paths (validation delegated to app).
@@ -726,15 +603,13 @@ def test_when_send_email_attachment_path_accepted_by_click(
     """
     from unittest.mock import patch
 
-    factory = inject_config(
-        config_factory(
-            {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
+    factory = config_cli_context(
+        {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
+                "from_address": "sender@test.com",
             }
-        )
+        }
     )
 
     nonexistent_file = str(tmp_path / "nonexistent_attachment.txt")
@@ -761,3 +636,136 @@ def test_when_send_email_attachment_path_accepted_by_click(
     # Error comes from application layer
     assert result.exit_code != 0
     assert "Attachment" in result.output or "not found" in result.output.lower()
+
+
+# ======================== CLI Override Validation Tests ========================
+
+
+@pytest.mark.os_agnostic
+def test_when_send_email_receives_negative_timeout_it_exits_invalid_argument(
+    cli_runner: CliRunner,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
+) -> None:
+    """When --timeout is negative, send-email should exit with INVALID_ARGUMENT (22)."""
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        [
+            "send-email",
+            "--to",
+            "recipient@test.com",
+            "--subject",
+            "Test",
+            "--body",
+            "Hello",
+            "--timeout",
+            "-5",
+        ],
+        obj=ctx.factory,
+    )
+
+    assert result.exit_code == 22
+    assert "Invalid option value" in result.output or "timeout must be positive" in result.output
+
+
+@pytest.mark.os_agnostic
+def test_when_send_email_receives_invalid_smtp_host_it_exits_invalid_argument(
+    cli_runner: CliRunner,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
+) -> None:
+    """When --smtp-host has invalid format, send-email should exit with INVALID_ARGUMENT (22)."""
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        [
+            "send-email",
+            "--to",
+            "recipient@test.com",
+            "--subject",
+            "Test",
+            "--body",
+            "Hello",
+            "--smtp-host",
+            "not-a-valid-host:99999",
+        ],
+        obj=ctx.factory,
+    )
+
+    assert result.exit_code == 22
+    assert "Invalid option value" in result.output
+
+
+@pytest.mark.os_agnostic
+def test_when_send_email_receives_invalid_runtime_recipient_it_fails(
+    cli_runner: CliRunner,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
+) -> None:
+    """When --to has invalid email format, send-email should fail with INVALID_ARGUMENT (22)."""
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        [
+            "send-email",
+            "--to",
+            "not-an-email",
+            "--subject",
+            "Test",
+            "--body",
+            "Hello",
+        ],
+        obj=ctx.factory,
+    )
+
+    assert result.exit_code == 22
+    assert "Invalid" in result.output
+
+
+@pytest.mark.os_agnostic
+def test_when_send_notification_receives_negative_timeout_it_exits_invalid_argument(
+    cli_runner: CliRunner,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
+) -> None:
+    """When --timeout is negative, send-notification should exit with INVALID_ARGUMENT (22)."""
+    ctx = email_cli_context(
+        {
+            "smtp_hosts": ["smtp.test.com:587"],
+            "from_address": "sender@test.com",
+        }
+    )
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        [
+            "send-notification",
+            "--to",
+            "recipient@test.com",
+            "--subject",
+            "Alert",
+            "--message",
+            "Hello",
+            "--timeout",
+            "-5",
+        ],
+        obj=ctx.factory,
+    )
+
+    assert result.exit_code == 22
+    assert "Invalid option value" in result.output or "timeout must be positive" in result.output

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any
 
 import lib_cli_exit_tools
@@ -13,50 +12,6 @@ from click.testing import CliRunner, Result
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod
 from bitranox_template_py_cli.composition import build_production
-
-
-@dataclass(slots=True)
-class CapturedRun:
-    """Record of a single ``lib_cli_exit_tools.run_cli`` invocation.
-
-    Attributes:
-        command: Command object passed to ``run_cli``.
-        argv: Argument vector forwarded to the command, when any.
-        prog_name: Program name announced in the help output.
-        signal_specs: Signal handlers registered by the runner.
-        install_signals: ``True`` when the runner installed default signal handlers.
-    """
-
-    command: Any
-    argv: Sequence[str] | None
-    prog_name: str | None
-    signal_specs: Any
-    install_signals: bool
-
-
-def capture_run_cli(target: list[CapturedRun]) -> Callable[..., int]:
-    """Return a stub that records lib_cli_exit_tools.run_cli invocations."""
-
-    def _run(
-        command: Any,
-        argv: Sequence[str] | None = None,
-        *,
-        prog_name: str | None = None,
-        signal_specs: Any = None,
-        install_signals: bool = True,
-    ) -> int:
-        target.append(
-            CapturedRun(
-                command=command,
-                argv=argv,
-                prog_name=prog_name,
-                signal_specs=signal_specs,
-                install_signals=install_signals,
-            )
-        )
-        return 42
-
-    return _run
 
 
 @pytest.mark.os_agnostic
@@ -125,31 +80,25 @@ def test_traceback_flags_restored_after_info_command(
 
 
 @pytest.mark.os_agnostic
-def test_when_main_is_called_it_delegates_to_run_cli(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify main() delegates to lib_cli_exit_tools.run_cli with correct args."""
-    ledger: list[CapturedRun] = []
-    monkeypatch.setattr(lib_cli_exit_tools, "run_cli", capture_run_cli(ledger))
-
+def test_when_main_is_called_it_invokes_cli_with_services_factory(
+    managed_traceback_state: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Verify main() invokes CLI with services_factory passed via ctx.obj."""
     result = cli_mod.main(["info"], services_factory=build_production)
 
-    assert result == 42
-    assert ledger == [
-        CapturedRun(
-            command=cli_mod.cli,
-            argv=["info"],
-            prog_name=__init__conf__.shell_command,
-            signal_specs=None,
-            install_signals=True,
-        )
-    ]
+    assert result == 0
+    captured = capsys.readouterr()
+    assert __init__conf__.name in captured.out
 
 
 @pytest.mark.os_agnostic
 def test_when_cli_runs_without_arguments_help_is_printed(
     cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify CLI with no arguments displays help text."""
-    result = cli_runner.invoke(cli_mod.cli, [])
+    result = cli_runner.invoke(cli_mod.cli, [], obj=production_factory)
 
     assert result.exit_code == 0
     assert "Usage:" in result.output
@@ -157,42 +106,24 @@ def test_when_cli_runs_without_arguments_help_is_printed(
 
 @pytest.mark.os_agnostic
 def test_when_main_receives_no_arguments_help_is_shown(
-    monkeypatch: pytest.MonkeyPatch,
-    cli_runner: CliRunner,
     managed_traceback_state: None,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Verify main with no args shows help."""
-    outputs: list[str] = []
-
-    def fake_run_cli(
-        command: Any,
-        argv: Sequence[str] | None = None,
-        *,
-        prog_name: str | None = None,
-        signal_specs: Any = None,
-        install_signals: bool = True,
-    ) -> int:
-        args = [] if argv is None else list(argv)
-        result: Result = cli_runner.invoke(command, args)
-        if result.exception is not None:
-            raise result.exception
-        outputs.append(result.output)
-        return result.exit_code
-
-    monkeypatch.setattr(lib_cli_exit_tools, "run_cli", fake_run_cli)
-
     exit_code = cli_mod.main([], services_factory=build_production)
 
     assert exit_code == 0
-    assert outputs and "Usage:" in outputs[0]
+    captured = capsys.readouterr()
+    assert "Usage:" in captured.out
 
 
 @pytest.mark.os_agnostic
 def test_when_traceback_is_requested_without_command_help_is_shown(
     cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify --traceback without command still shows help."""
-    result = cli_runner.invoke(cli_mod.cli, ["--traceback"])
+    result = cli_runner.invoke(cli_mod.cli, ["--traceback"], obj=production_factory)
 
     assert result.exit_code == 0
     assert "Usage:" in result.output
@@ -218,27 +149,36 @@ def test_traceback_flag_displays_full_exception_traceback(
 
 
 @pytest.mark.os_agnostic
-def test_hello_command_outputs_greeting(cli_runner: CliRunner) -> None:
+def test_hello_command_outputs_greeting(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """hello command outputs Hello World greeting."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["hello"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["hello"], obj=production_factory)
 
     assert result.exit_code == 0
     assert "Hello World" in result.output
 
 
 @pytest.mark.os_agnostic
-def test_fail_command_raises_runtime_error(cli_runner: CliRunner) -> None:
+def test_fail_command_raises_runtime_error(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """fail command raises RuntimeError."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["fail"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["fail"], obj=production_factory)
 
     assert result.exit_code != 0
     assert isinstance(result.exception, RuntimeError)
 
 
 @pytest.mark.os_agnostic
-def test_info_command_displays_project_metadata(cli_runner: CliRunner) -> None:
+def test_info_command_displays_project_metadata(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """info command displays project name and version."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["info"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["info"], obj=production_factory)
 
     assert result.exit_code == 0
     assert f"Info for {__init__conf__.name}:" in result.output
@@ -246,9 +186,12 @@ def test_info_command_displays_project_metadata(cli_runner: CliRunner) -> None:
 
 
 @pytest.mark.os_agnostic
-def test_unknown_command_shows_no_such_command_error(cli_runner: CliRunner) -> None:
+def test_unknown_command_shows_no_such_command_error(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """Unknown command produces 'No such command' error."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["does-not-exist"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["does-not-exist"], obj=production_factory)
 
     assert result.exit_code != 0
     assert "No such command" in result.output
@@ -270,9 +213,10 @@ def test_restore_traceback_false_keeps_flags_enabled(
 @pytest.mark.os_agnostic
 def test_when_logdemo_is_invoked_it_completes_successfully(
     cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify logdemo command runs and exits with code 0."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["logdemo"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["logdemo"], obj=production_factory)
 
     assert result.exit_code == 0
     assert "Log demo completed" in result.output

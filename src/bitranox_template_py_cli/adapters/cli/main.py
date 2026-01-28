@@ -5,16 +5,11 @@ execution, ensuring consistent error handling and traceback restoration.
 
 Contents:
     * :func:`main` - Primary entry point for CLI execution.
-    * :func:`get_services_factory` - Return the current services factory.
-    * :func:`set_services_factory_for_testing` - Set factory for tests.
-    * :func:`services_factory_context` - Context manager for temporary factory.
 """
 
 from __future__ import annotations
 
-import threading
-from collections.abc import Callable, Iterator, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
 import lib_cli_exit_tools
@@ -32,97 +27,46 @@ from .context import (
 if TYPE_CHECKING:
     from bitranox_template_py_cli.composition import AppServices
 
-# Thread-safe service factory container.
-# Set by main() before CLI runs, accessed by get_services_factory().
-_factory_lock = threading.Lock()
-_services_factory: Callable[[], AppServices] | None = None
 
-
-def _run_cli(argv: Sequence[str] | None) -> int:
-    """Execute the CLI via lib_cli_exit_tools with exception handling.
+def _run_cli(argv: Sequence[str] | None, *, services_factory: Callable[[], AppServices]) -> int:
+    """Execute the CLI with exception handling.
 
     Args:
         argv: Optional sequence of CLI arguments. None uses sys.argv.
+        services_factory: Factory function that returns AppServices. Passed via ctx.obj.
 
     Returns:
         Exit code produced by the command.
     """
+    import sys
+
+    import click
+
     from .root import cli
 
+    # Use Click's native invocation with obj parameter since lib_cli_exit_tools.run_cli
+    # doesn't support passing obj. We replicate its behavior while adding obj support.
+    args = list(argv) if argv is not None else sys.argv[1:]
+
     try:
-        return lib_cli_exit_tools.run_cli(
-            cli,
-            argv=list(argv) if argv is not None else None,
+        cli.main(
+            args=args,
             prog_name=__init__conf__.shell_command,
+            obj=services_factory,
+            standalone_mode=False,
         )
+        return 0
+    except click.exceptions.Exit as exc:
+        return exc.exit_code
+    except click.ClickException as exc:
+        exc.show()
+        return exc.exit_code
     except BaseException as exc:
         tracebacks_enabled = bool(getattr(lib_cli_exit_tools.config, "traceback", False))
         apply_traceback_preferences(tracebacks_enabled)
         length_limit = TRACEBACK_VERBOSE_LIMIT if tracebacks_enabled else TRACEBACK_SUMMARY_LIMIT
         lib_cli_exit_tools.print_exception_message(trace_back=tracebacks_enabled, length_limit=length_limit)
         return lib_cli_exit_tools.get_system_exit_code(exc)
-
-
-def get_services_factory() -> Callable[[], AppServices]:
-    """Return the current services factory. Thread-safe.
-
-    Returns:
-        The services factory set by main().
-
-    Raises:
-        RuntimeError: If no factory has been set (should not happen in normal use).
-    """
-    with _factory_lock:
-        if _services_factory is None:
-            raise RuntimeError("Services factory not initialized. Call main() first.")
-        return _services_factory
-
-
-def set_services_factory_for_testing(factory: Callable[[], AppServices] | None) -> None:
-    """Set or clear the services factory for testing. Thread-safe.
-
-    This function allows tests to inject a services factory without going
-    through main(). Pass None to clear the factory.
-
-    Args:
-        factory: Services factory to set, or None to clear.
-
-    Note:
-        This is intended for test use only. Production code should use main().
-    """
-    global _services_factory
-    with _factory_lock:
-        _services_factory = factory
-
-
-@contextmanager
-def services_factory_context(factory: Callable[[], AppServices]) -> Iterator[None]:
-    """Context manager for temporarily setting the services factory.
-
-    Thread-safe. Restores previous factory on exit.
-
-    Args:
-        factory: Services factory to set temporarily.
-
-    Yields:
-        None
-
-    Example:
-        >>> from bitranox_template_py_cli.composition import build_production
-        >>> with services_factory_context(build_production):  # doctest: +SKIP
-        ...     # factory is active here
-        ...     pass
-        >>> # previous factory restored
-    """
-    global _services_factory
-    with _factory_lock:
-        previous = _services_factory
-        _services_factory = factory
-    try:
-        yield
-    finally:
-        with _factory_lock:
-            _services_factory = previous
 
 
 def main(
@@ -157,13 +101,9 @@ def main(
     if services_factory is None:
         raise ValueError("services_factory is required. Pass build_production from composition layer.")
 
-    global _services_factory
-    with _factory_lock:
-        _services_factory = services_factory
-
     previous_state = snapshot_traceback_state()
     try:
-        return _run_cli(argv)
+        return _run_cli(argv, services_factory=services_factory)
     finally:
         if restore_traceback:
             restore_traceback_state(previous_state)
@@ -171,4 +111,4 @@ def main(
             lib_log_rich.runtime.shutdown()
 
 
-__all__ = ["get_services_factory", "main", "services_factory_context", "set_services_factory_for_testing"]
+__all__ = ["main"]

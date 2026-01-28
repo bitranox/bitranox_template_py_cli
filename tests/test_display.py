@@ -155,7 +155,7 @@ def test_display_config_raises_for_nonexistent_section(
     """Requesting a section that doesn't exist must raise ValueError."""
     config = config_factory({"existing_section": {"key": "value"}})
     with pytest.raises(ValueError, match="not found"):
-        display_config(config, format=OutputFormat.HUMAN, section="nonexistent")
+        display_config(config, output_format=OutputFormat.HUMAN, section="nonexistent")
 
 
 @pytest.mark.os_agnostic
@@ -165,7 +165,7 @@ def test_display_config_raises_for_nonexistent_section_json(
     """Requesting a nonexistent section in JSON format must also raise ValueError."""
     config = config_factory({"existing_section": {"key": "value"}})
     with pytest.raises(ValueError, match="not found"):
-        display_config(config, format=OutputFormat.JSON, section="nonexistent")
+        display_config(config, output_format=OutputFormat.JSON, section="nonexistent")
 
 
 # ======================== _format_source_line ========================
@@ -290,7 +290,7 @@ def test_print_section_adds_blank_line_after_each_entry(capsys: pytest.CaptureFi
 def test_display_human_renders_scalars_as_key_value(capsys: pytest.CaptureFixture[str]) -> None:
     """Top-level scalars must render as 'key = value', not as [key] section headers."""
     config = Config({"app_name": "myapp", "section": {"key": "val"}}, {})
-    display_config(config, format=OutputFormat.HUMAN)
+    display_config(config, output_format=OutputFormat.HUMAN)
     output = capsys.readouterr().out
 
     assert "[app_name]" not in output
@@ -308,7 +308,7 @@ def test_display_human_renders_scalar_provenance(
         "codecov_token": source_info_factory("codecov_token", "dotenv", "/app/.env"),
     }
     config = Config({"codecov_token": "***REDACTED***"}, metadata)
-    display_config(config, format=OutputFormat.HUMAN)
+    display_config(config, output_format=OutputFormat.HUMAN)
     output = capsys.readouterr().out
 
     assert "# source: dotenv (/app/.env)" in output
@@ -320,7 +320,7 @@ def test_display_human_renders_scalar_provenance(
 def test_display_human_scalars_before_sections(capsys: pytest.CaptureFixture[str]) -> None:
     """Top-level scalars must appear before dict sections in output."""
     config = Config({"token": "abc", "email": {"host": "smtp.test"}}, {})
-    display_config(config, format=OutputFormat.HUMAN)
+    display_config(config, output_format=OutputFormat.HUMAN)
     output = capsys.readouterr().out
 
     token_pos = output.index("token =")
@@ -336,7 +336,7 @@ def test_display_human_single_scalar_section(
     """Requesting a scalar key by name must render key=value, not a section header."""
     metadata: dict[str, SourceInfo] = {"app_name": source_info_factory("app_name", "env")}
     config = Config({"app_name": "myapp"}, metadata)
-    display_config(config, format=OutputFormat.HUMAN, section="app_name")
+    display_config(config, output_format=OutputFormat.HUMAN, section="app_name")
     output = capsys.readouterr().out
 
     assert "[app_name]" not in output
@@ -362,7 +362,7 @@ def test_display_human_empty_section_raises() -> None:
     config = Config({"other": {"key": "val"}}, {})
 
     with pytest.raises(ValueError, match="not found"):
-        display_config(config, format=OutputFormat.HUMAN, section="nonexistent")
+        display_config(config, output_format=OutputFormat.HUMAN, section="nonexistent")
 
 
 @pytest.mark.os_agnostic
@@ -371,7 +371,7 @@ def test_display_json_empty_section_raises() -> None:
     config = Config({"other": {"key": "val"}}, {})
 
     with pytest.raises(ValueError, match="not found"):
-        display_config(config, format=OutputFormat.JSON, section="nonexistent")
+        display_config(config, output_format=OutputFormat.JSON, section="nonexistent")
 
 
 @pytest.mark.os_agnostic
@@ -403,7 +403,7 @@ def test_display_human_deeply_nested_section(capsys: pytest.CaptureFixture[str])
     """Deeply nested dicts render as dotted TOML sub-sections."""
     config = Config({"top": {"mid": {"deep": "value"}}}, {})
 
-    display_config(config, format=OutputFormat.HUMAN)
+    display_config(config, output_format=OutputFormat.HUMAN)
 
     output = capsys.readouterr().out
     assert "[top.mid]" in output
@@ -418,7 +418,7 @@ def test_display_config_displays_section_with_zero_value(capsys: pytest.CaptureF
     """Section with integer zero value must display (not raise as 'not found')."""
     config = Config({"section": {"count": 0}}, {})
 
-    display_config(config, format=OutputFormat.HUMAN, section="section")
+    display_config(config, output_format=OutputFormat.HUMAN, section="section")
 
     output = capsys.readouterr().out
     assert "count = 0" in output
@@ -429,7 +429,7 @@ def test_display_config_displays_section_with_false_value(capsys: pytest.Capture
     """Section with boolean False value must display (not raise as 'not found')."""
     config = Config({"section": {"enabled": False}}, {})
 
-    display_config(config, format=OutputFormat.HUMAN, section="section")
+    display_config(config, output_format=OutputFormat.HUMAN, section="section")
 
     output = capsys.readouterr().out
     assert "enabled = False" in output
@@ -440,7 +440,7 @@ def test_display_config_displays_section_with_empty_string_value(capsys: pytest.
     """Section with empty string value must display (not raise as 'not found')."""
     config = Config({"section": {"name": ""}}, {})
 
-    display_config(config, format=OutputFormat.HUMAN, section="section")
+    display_config(config, output_format=OutputFormat.HUMAN, section="section")
 
     output = capsys.readouterr().out
     assert 'name = ""' in output
@@ -451,7 +451,7 @@ def test_display_config_displays_section_with_empty_list_value(capsys: pytest.Ca
     """Section with empty list value must display (not raise as 'not found')."""
     config = Config({"section": {"items": []}}, {})
 
-    display_config(config, format=OutputFormat.HUMAN, section="section")
+    display_config(config, output_format=OutputFormat.HUMAN, section="section")
 
     output = capsys.readouterr().out
     assert "items = []" in output
@@ -462,7 +462,7 @@ def test_display_config_json_displays_section_with_falsey_values(capsys: pytest.
     """JSON format with falsey values must display (not raise as 'not found')."""
     config = Config({"section": {"count": 0, "enabled": False, "items": []}}, {})
 
-    display_config(config, format=OutputFormat.JSON, section="section")
+    display_config(config, output_format=OutputFormat.JSON, section="section")
 
     output = capsys.readouterr().out
     assert '"count": 0' in output

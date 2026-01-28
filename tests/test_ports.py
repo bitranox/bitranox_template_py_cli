@@ -30,12 +30,11 @@ from bitranox_template_py_cli.adapters.email.sender import (
 )
 from bitranox_template_py_cli.adapters.logging.setup import init_logging
 from bitranox_template_py_cli.adapters.memory import (
+    EmailSpy,
     get_config_in_memory,
     get_default_config_path_in_memory,
     init_logging_in_memory,
     load_email_config_from_dict_in_memory,
-    send_email_in_memory,
-    send_notification_in_memory,
 )
 
 if TYPE_CHECKING:
@@ -126,7 +125,8 @@ def send_email_impl(request: pytest.FixtureRequest) -> SendEmail:
     """Provide both production and in-memory SendEmail implementations."""
     if request.param == "production":
         return send_email
-    return send_email_in_memory
+    spy = EmailSpy()
+    return spy.send_email
 
 
 @pytest.fixture(params=["production", "in_memory"], ids=["production", "in_memory"])
@@ -134,7 +134,8 @@ def send_notification_impl(request: pytest.FixtureRequest) -> SendNotification:
     """Provide both production and in-memory SendNotification implementations."""
     if request.param == "production":
         return send_notification
-    return send_notification_in_memory
+    spy = EmailSpy()
+    return spy.send_notification
 
 
 @pytest.fixture(params=["production", "in_memory"], ids=["production", "in_memory"])

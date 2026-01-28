@@ -5,9 +5,6 @@ adapters but perform no SMTP operations.
 
 Contents:
     * :class:`EmailSpy` - Captures email calls for test assertions.
-    * :func:`get_email_spy` - Access the global spy instance.
-    * :func:`send_email_in_memory` - In-memory send_email implementation.
-    * :func:`send_notification_in_memory` - In-memory send_notification implementation.
     * :func:`load_email_config_from_dict_in_memory` - In-memory config loader.
 """
 
@@ -18,6 +15,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from btx_lib_mail import validate_email_address
+
+from bitranox_template_py_cli.domain.errors import InvalidRecipientError
+
 from ..email.sender import EmailConfig
 
 
@@ -26,15 +27,57 @@ def _empty_email_list() -> list[dict[str, Any]]:
     return []
 
 
+def _validate_single_recipient(recipient: str) -> None:
+    """Validate a single runtime recipient email address.
+
+    Args:
+        recipient: Email address to validate.
+
+    Raises:
+        InvalidRecipientError: When the email address is invalid.
+    """
+    try:
+        validate_email_address(recipient)
+    except ValueError as e:
+        raise InvalidRecipientError(f"Invalid recipient: {recipient}") from e
+
+
+def _validate_runtime_recipients(recipients: str | Sequence[str] | None) -> None:
+    """Validate runtime recipients using btx_lib_mail.
+
+    Args:
+        recipients: Single address, sequence of addresses, or None (skip validation).
+
+    Raises:
+        InvalidRecipientError: When a recipient has invalid email format.
+    """
+    if recipients is None:
+        return
+    recipient_list = [recipients] if isinstance(recipients, str) else list(recipients)
+    for recipient in recipient_list:
+        _validate_single_recipient(recipient)
+
+
 @dataclass
 class EmailSpy:
     """Captures email operations for test assertions.
+
+    Each test should create its own EmailSpy instance to avoid cross-test pollution.
+    The spy's send methods match the Protocol signatures expected by AppServices.
 
     Attributes:
         sent_emails: List of captured send_email calls.
         sent_notifications: List of captured send_notification calls.
         should_fail: When True, send operations return False to simulate failure.
         raise_exception: When set, send operations raise this exception.
+
+    Example:
+        >>> spy = EmailSpy()
+        >>> config = EmailConfig(smtp_hosts=["smtp.test.com:587"])
+        >>> spy.send_email(config=config, recipients="test@example.com", subject="Hi", body="Hello")
+        True
+        >>> len(spy.sent_emails)
+        1
     """
 
     sent_emails: list[dict[str, Any]] = field(default_factory=_empty_email_list)
@@ -48,63 +91,89 @@ class EmailSpy:
         self.sent_notifications.clear()
         self.raise_exception = None
 
+    def send_email(
+        self,
+        *,
+        config: EmailConfig,
+        recipients: str | Sequence[str] | None = None,
+        subject: str,
+        body: str = "",
+        body_html: str = "",
+        from_address: str | None = None,
+        attachments: Sequence[Path] | None = None,
+    ) -> bool:
+        """Record the call and return success/failure based on spy state.
 
-_spy = EmailSpy()
+        Args:
+            config: Email configuration (captured for assertions).
+            recipients: Recipient addresses to validate and capture.
+            subject: Email subject line.
+            body: Plain text body.
+            body_html: HTML body.
+            from_address: Sender address override.
+            attachments: File paths to attach.
 
+        Returns:
+            False if should_fail is True, otherwise True.
 
-def get_email_spy() -> EmailSpy:
-    """Return the global email spy instance for test assertions."""
-    return _spy
+        Raises:
+            InvalidRecipientError: When recipients have invalid email format.
+            Exception: If raise_exception is set, raises that exception.
+        """
+        _validate_runtime_recipients(recipients)
+        self.sent_emails.append(
+            {
+                "config": config,
+                "recipients": recipients,
+                "subject": subject,
+                "body": body,
+                "body_html": body_html,
+                "from_address": from_address,
+                "attachments": list(attachments) if attachments else None,
+            }
+        )
+        if self.raise_exception is not None:
+            raise self.raise_exception
+        return not self.should_fail
 
+    def send_notification(
+        self,
+        *,
+        config: EmailConfig,
+        recipients: str | Sequence[str] | None = None,
+        subject: str,
+        message: str,
+        from_address: str | None = None,
+    ) -> bool:
+        """Record the call and return success/failure based on spy state.
 
-def send_email_in_memory(
-    *,
-    config: EmailConfig,
-    recipients: str | Sequence[str] | None = None,
-    subject: str,
-    body: str = "",
-    body_html: str = "",
-    from_address: str | None = None,
-    attachments: Sequence[Path] | None = None,
-) -> bool:
-    """Record the call and return success/failure based on spy state."""
-    _spy.sent_emails.append(
-        {
-            "config": config,
-            "recipients": recipients,
-            "subject": subject,
-            "body": body,
-            "body_html": body_html,
-            "from_address": from_address,
-            "attachments": list(attachments) if attachments else None,
-        }
-    )
-    if _spy.raise_exception is not None:
-        raise _spy.raise_exception
-    return not _spy.should_fail
+        Args:
+            config: Email configuration (captured for assertions).
+            recipients: Recipient addresses to validate and capture.
+            subject: Notification subject line.
+            message: Notification message body.
+            from_address: Sender address override.
 
+        Returns:
+            False if should_fail is True, otherwise True.
 
-def send_notification_in_memory(
-    *,
-    config: EmailConfig,
-    recipients: str | Sequence[str] | None = None,
-    subject: str,
-    message: str,
-    from_address: str | None = None,
-) -> bool:
-    """Record the call and return success/failure based on spy state."""
-    _spy.sent_notifications.append(
-        {
-            "config": config,
-            "recipients": recipients,
-            "subject": subject,
-            "message": message,
-            "from_address": from_address,
-        }
-    )
-    if _spy.raise_exception is not None:
-        raise _spy.raise_exception
-    return not _spy.should_fail
+        Raises:
+            InvalidRecipientError: When recipients have invalid email format.
+            Exception: If raise_exception is set, raises that exception.
+        """
+        _validate_runtime_recipients(recipients)
+        self.sent_notifications.append(
+            {
+                "config": config,
+                "recipients": recipients,
+                "subject": subject,
+                "message": message,
+                "from_address": from_address,
+            }
+        )
+        if self.raise_exception is not None:
+            raise self.raise_exception
+        return not self.should_fail
 
 
 def load_email_config_from_dict_in_memory(
@@ -117,8 +186,5 @@ def load_email_config_from_dict_in_memory(
 
 __all__ = [
     "EmailSpy",
-    "get_email_spy",
     "load_email_config_from_dict_in_memory",
-    "send_email_in_memory",
-    "send_notification_in_memory",
 ]

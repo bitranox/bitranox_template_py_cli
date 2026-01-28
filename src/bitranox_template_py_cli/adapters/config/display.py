@@ -127,7 +127,7 @@ def _print_section(
 def display_config(
     config: Config,
     *,
-    format: OutputFormat = OutputFormat.HUMAN,
+    output_format: OutputFormat = OutputFormat.HUMAN,
     section: str | None = None,
     console: Console | None = None,
 ) -> None:
@@ -168,7 +168,7 @@ def display_config(
             service = "bitranox_template_py_cli"
             environment = "prod"
 
-        >>> display_config(config, format=OutputFormat.JSON)  # doctest: +SKIP
+        >>> display_config(config, output_format=OutputFormat.JSON)  # doctest: +SKIP
         {
           "lib_log_rich": {
             "service": "bitranox_template_py_cli",
@@ -176,7 +176,7 @@ def display_config(
           }
         }
     """
-    if format == OutputFormat.JSON:
+    if output_format == OutputFormat.JSON:
         _display_json(config, section)
     else:
         _display_human(config, section, console=console)

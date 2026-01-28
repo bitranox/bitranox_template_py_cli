@@ -43,7 +43,7 @@ def deploy_configuration_in_memory(
 def display_config_in_memory(
     config: Config,
     *,
-    format: OutputFormat = OutputFormat.HUMAN,
+    output_format: OutputFormat = OutputFormat.HUMAN,
     section: str | None = None,
 ) -> None:
     """No-op display -- satisfies the DisplayConfig protocol."""

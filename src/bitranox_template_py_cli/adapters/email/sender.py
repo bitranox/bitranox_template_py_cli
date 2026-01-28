@@ -22,12 +22,13 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import btx_lib_mail.lib_mail as btx_mail
 from btx_lib_mail import validate_email_address, validate_smtp_host
 from btx_lib_mail.lib_mail import ConfMail
 from btx_lib_mail.lib_mail import send as btx_send
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
+from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError, InvalidRecipientError
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,21 @@ def _resolve_sender(config: EmailConfig, from_address: str | None) -> str:
     return sender
 
 
+def _validate_runtime_recipient(recipient: str) -> None:
+    """Validate a single runtime recipient email address.
+
+    Args:
+        recipient: Email address to validate.
+
+    Raises:
+        InvalidRecipientError: When the email address is invalid.
+    """
+    try:
+        validate_email_address(recipient)
+    except ValueError as e:
+        raise InvalidRecipientError(f"Invalid recipient: {recipient}") from e
+
+
 def _resolve_recipients(
     config: EmailConfig,
     recipients: str | Sequence[str] | None,
@@ -181,9 +197,13 @@ def _resolve_recipients(
 
     Raises:
         ValueError: When no recipients are available from either source.
+        InvalidRecipientError: When a runtime recipient has invalid email format.
     """
     if recipients is not None:
         recipient_list = [recipients] if isinstance(recipients, str) else list(recipients)
+        # Validate runtime recipients (config recipients validated by Pydantic)
+        for recipient in recipient_list:
+            _validate_runtime_recipient(recipient)
     else:
         recipient_list = list(config.recipients)
 
@@ -277,6 +297,10 @@ def send_email(
             "attachment_count": len(attachments) if attachments else 0,
         },
     )
+
+    # Apply config flags to btx_lib_mail global conf
+    btx_mail.conf.raise_on_missing_attachments = config.raise_on_missing_attachments
+    btx_mail.conf.raise_on_invalid_recipient = config.raise_on_invalid_recipient
 
     try:
         result = btx_send(

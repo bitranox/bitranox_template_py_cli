@@ -13,15 +13,18 @@ import os
 import re
 import tempfile
 from collections.abc import Callable, Iterator
-from dataclasses import fields
+from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import lib_cli_exit_tools
 import pytest
 from click.testing import CliRunner
 from lib_layered_config import Config
 from lib_layered_config.domain.config import SourceInfo
+
+if TYPE_CHECKING:
+    from bitranox_template_py_cli.adapters.memory.email import EmailSpy
 
 _COVERAGE_BASENAME = ".coverage.bitranox_template_py_cli"
 
@@ -369,74 +372,99 @@ def inject_test_services() -> Callable[[], Callable[[], Any]]:
     return _inject
 
 
-@pytest.fixture
-def inject_email_services() -> Callable[[Callable[[], Any]], Callable[[], Any]]:
-    """Wrap a factory to replace email services with memory adapters.
+@dataclass
+class EmailCliContext:
+    """Container for email CLI test setup.
 
-    Takes a base factory and returns a new factory that provides memory
-    email adapters while preserving other services from the base.
+    Bundles the services factory and email spy together for tests that need
+    both email configuration and email capture assertions.
 
-    Returns:
-        Function that accepts a base factory and returns a wrapped factory.
-
-    Example:
-        base_factory = inject_config(config_factory({...}))
-        factory = inject_email_services(base_factory)
-        result = cli_runner.invoke(cli, ["send-email", ...], obj=factory)
-        assert len(email_spy.sent_emails) == 1
+    Attributes:
+        factory: Callable that returns wired AppServices for CLI invocation.
+        spy: EmailSpy instance for asserting on sent emails/notifications.
     """
 
-    def _inject(base_factory: Callable[[], Any]) -> Callable[[], Any]:
-        def _factory() -> Any:
-            from bitranox_template_py_cli.adapters.memory import (
-                load_email_config_from_dict_in_memory,
-                send_email_in_memory,
-                send_notification_in_memory,
-            )
-            from bitranox_template_py_cli.composition import AppServices
-
-            current = base_factory()
-            return AppServices(
-                get_config=current.get_config,
-                get_default_config_path=current.get_default_config_path,
-                deploy_configuration=current.deploy_configuration,
-                display_config=current.display_config,
-                send_email=send_email_in_memory,
-                send_notification=send_notification_in_memory,
-                load_email_config_from_dict=load_email_config_from_dict_in_memory,
-                init_logging=current.init_logging,
-            )
-
-        return _factory
-
-    return _inject
+    factory: Callable[[], Any]
+    spy: EmailSpy
 
 
 @pytest.fixture
-def email_spy() -> Iterator[Any]:
-    """Provide the global email spy with auto-cleanup.
+def email_cli_context(
+    clear_config_cache: None,
+) -> Callable[[dict[str, Any]], EmailCliContext]:
+    """Create email CLI test context with configured factory and spy.
 
-    The spy captures all calls to memory email adapters. Use to assert
-    on sent emails/notifications and to simulate failures or exceptions.
+    Combines config creation, injection, and email service replacement
+    into a single fixture. Returns a function that takes email config
+    dict (the "email" section contents) and returns a context with
+    the wired factory and spy.
 
     Example:
-        def test_failure(email_spy, ...):
-            email_spy.should_fail = True
-            result = cli_runner.invoke(...)
-            assert result.exit_code == 69  # SMTP_FAILURE
-
-        def test_exception(email_spy, ...):
-            email_spy.raise_exception = TypeError("unexpected")
-            result = cli_runner.invoke(...)
-            assert result.exit_code == 1  # GENERAL_ERROR
+        def test_send_email(cli_runner, email_cli_context):
+            ctx = email_cli_context({"smtp_hosts": ["smtp.test.com:587"], ...})
+            result = cli_runner.invoke(cli, [...], obj=ctx.factory)
+            assert ctx.spy.sent_emails[0]["subject"] == "Test"
     """
-    from bitranox_template_py_cli.adapters.memory.email import get_email_spy
+    from bitranox_template_py_cli.adapters.memory import load_email_config_from_dict_in_memory
+    from bitranox_template_py_cli.adapters.memory.email import EmailSpy
+    from bitranox_template_py_cli.composition import AppServices, build_production
 
-    spy = get_email_spy()
-    spy.clear()
-    spy.should_fail = False
-    spy.raise_exception = None
-    yield spy
-    spy.clear()
-    spy.should_fail = False
-    spy.raise_exception = None
+    def _create(email_data: dict[str, Any]) -> EmailCliContext:
+        spy = EmailSpy()
+        config = Config({"email": email_data}, {})
+        prod = build_production()
+
+        def _fake_get_config(**_kwargs: Any) -> Config:
+            return config
+
+        test_services = AppServices(
+            get_config=_fake_get_config,
+            get_default_config_path=prod.get_default_config_path,
+            deploy_configuration=prod.deploy_configuration,
+            display_config=prod.display_config,
+            send_email=spy.send_email,
+            send_notification=spy.send_notification,
+            load_email_config_from_dict=load_email_config_from_dict_in_memory,
+            init_logging=prod.init_logging,
+        )
+        return EmailCliContext(factory=lambda: test_services, spy=spy)
+
+    return _create
+
+
+@pytest.fixture
+def config_cli_context(
+    clear_config_cache: None,
+) -> Callable[[dict[str, Any]], Callable[[], Any]]:
+    """Create CLI test context with injected config.
+
+    Combines config creation and injection into a single fixture.
+    Returns a function that takes config dict and returns a services factory.
+
+    Example:
+        def test_config(cli_runner, config_cli_context):
+            factory = config_cli_context({"section": {"key": "value"}})
+            result = cli_runner.invoke(cli, ["config"], obj=factory)
+    """
+    from bitranox_template_py_cli.composition import AppServices, build_production
+
+    def _create(config_data: dict[str, Any]) -> Callable[[], Any]:
+        config = Config(config_data, {})
+        prod = build_production()
+
+        def _fake_get_config(**_kwargs: Any) -> Config:
+            return config
+
+        test_services = AppServices(
+            get_config=_fake_get_config,
+            get_default_config_path=prod.get_default_config_path,
+            deploy_configuration=prod.deploy_configuration,
+            display_config=prod.display_config,
+            send_email=prod.send_email,
+            send_notification=prod.send_notification,
+            load_email_config_from_dict=prod.load_email_config_from_dict,
+            init_logging=prod.init_logging,
+        )
+        return lambda: test_services
+
+    return _create

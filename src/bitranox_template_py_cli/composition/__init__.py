@@ -37,6 +37,7 @@ from ..adapters.logging.setup import init_logging
 # Static conformance assertions — pyright verifies that each adapter function
 # structurally satisfies its corresponding Protocol at type-check time.
 if TYPE_CHECKING:
+    from ..adapters.memory.email import EmailSpy
     from ..application.ports import (
         DeployConfiguration,
         DisplayConfig,
@@ -97,26 +98,36 @@ def build_production() -> AppServices:
     )
 
 
-def build_testing() -> AppServices:
-    """Wire in-memory adapters into an AppServices container."""
+def build_testing(*, spy: EmailSpy | None = None) -> AppServices:
+    """Wire in-memory adapters into an AppServices container.
+
+    Args:
+        spy: Optional EmailSpy instance for capturing email operations.
+            When None, a fresh EmailSpy is created. Pass your own spy
+            to assert on captured emails in tests.
+
+    Returns:
+        AppServices container with in-memory adapters.
+    """
     from ..adapters.memory import (
+        EmailSpy,
         deploy_configuration_in_memory,
         display_config_in_memory,
         get_config_in_memory,
         get_default_config_path_in_memory,
         init_logging_in_memory,
         load_email_config_from_dict_in_memory,
-        send_email_in_memory,
-        send_notification_in_memory,
     )
+
+    email_spy = spy if spy is not None else EmailSpy()
 
     return AppServices(
         get_config=get_config_in_memory,
         get_default_config_path=get_default_config_path_in_memory,
         deploy_configuration=deploy_configuration_in_memory,
         display_config=display_config_in_memory,
-        send_email=send_email_in_memory,
-        send_notification=send_notification_in_memory,
+        send_email=email_spy.send_email,
+        send_notification=email_spy.send_notification,
         load_email_config_from_dict=load_email_config_from_dict_in_memory,
         init_logging=init_logging_in_memory,
     )
