@@ -961,6 +961,61 @@ def test_send_notification_raises_when_no_recipients_anywhere() -> None:
         )
 
 
+# ======================== send_email logging behavior ========================
+
+
+@pytest.mark.os_agnostic
+def test_send_email_logs_success_on_true_result(caplog: pytest.LogCaptureFixture) -> None:
+    """When btx_send returns True, send_email logs at INFO level with success message."""
+    import logging
+
+    config = EmailConfig(
+        smtp_hosts=["smtp.test.com:587"],
+        from_address="sender@test.com",
+    )
+
+    with (
+        patch("bitranox_template_py_cli.adapters.email.sender.btx_send", return_value=True),
+        caplog.at_level(logging.INFO),
+    ):
+        result = send_email(
+            config=config,
+            recipients="recipient@test.com",
+            subject="Test",
+            body="Hello",
+        )
+
+    assert result is True
+    assert "Email sent successfully" in caplog.text
+    assert "Email send returned failure" not in caplog.text
+
+
+@pytest.mark.os_agnostic
+def test_send_email_logs_warning_on_false_result(caplog: pytest.LogCaptureFixture) -> None:
+    """When btx_send returns False, send_email logs at WARNING level."""
+    import logging
+
+    config = EmailConfig(
+        smtp_hosts=["smtp.test.com:587"],
+        from_address="sender@test.com",
+    )
+
+    with (
+        patch("bitranox_template_py_cli.adapters.email.sender.btx_send", return_value=False),
+        caplog.at_level(logging.WARNING),
+    ):
+        result = send_email(
+            config=config,
+            recipients="recipient@test.com",
+            subject="Test",
+            body="Hello",
+        )
+
+    assert result is False
+    assert "Email send returned failure" in caplog.text
+    assert "Email sent successfully" not in caplog.text
+
+
 # ======================== Real SMTP Integration ========================
 
 

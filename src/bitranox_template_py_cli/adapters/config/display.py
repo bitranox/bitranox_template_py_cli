@@ -151,7 +151,7 @@ def display_config(
         Writes formatted configuration to stdout via click.echo().
 
     Raises:
-        ValueError: If a section was requested that doesn't exist or is empty.
+        ValueError: If a section was requested that doesn't exist.
 
     Note:
         The human-readable format mimics TOML syntax for consistency with the
@@ -185,9 +185,9 @@ def display_config(
 def _display_json(config: Config, section: str | None) -> None:
     """Render configuration as JSON to stdout."""
     if section:
-        section_data = config.get(section, default={})
-        if not section_data:
-            raise ValueError(f"Section '{section}' not found or empty")
+        section_data = config.get(section, default=None)
+        if section_data is None:
+            raise ValueError(f"Section '{section}' not found")
         redacted = redact_mapping({section: section_data})
         click.echo(orjson.dumps(redacted, option=orjson.OPT_INDENT_2).decode())
     else:
@@ -198,9 +198,9 @@ def _display_human(config: Config, section: str | None, *, console: Console | No
     """Render configuration as human-readable TOML-like output to stdout."""
     con = console or _DEFAULT_CONSOLE
     if section:
-        section_data = config.get(section, default={})
-        if not section_data:
-            raise ValueError(f"Section '{section}' not found or empty")
+        section_data = config.get(section, default=None)
+        if section_data is None:
+            raise ValueError(f"Section '{section}' not found")
         redacted_section = redact_mapping({section: section_data})
         redacted_value = redacted_section[section]
         if isinstance(redacted_value, dict):

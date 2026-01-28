@@ -40,7 +40,7 @@ def test_when_config_is_invoked_with_nonexistent_section_it_fails(cli_runner: Cl
     result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--section", "nonexistent_section_that_does_not_exist"])
 
     assert result.exit_code != 0
-    assert "not found or empty" in result.stderr
+    assert "not found" in result.stderr
 
 
 @pytest.mark.os_agnostic
@@ -115,7 +115,7 @@ def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fail
     result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json", "--section", "nonexistent"])
 
     assert result.exit_code != 0
-    assert "not found or empty" in result.stderr
+    assert "not found" in result.stderr
 
 
 @pytest.mark.os_agnostic
@@ -579,3 +579,63 @@ def test_when_config_generate_examples_missing_destination_it_fails(
 
     assert result.exit_code != 0
     assert "Missing option" in result.output or "required" in result.output.lower()
+
+
+# ======================== --set override preservation ========================
+
+
+@pytest.mark.os_agnostic
+def test_when_config_subcommand_profile_reloads_it_preserves_root_set_overrides(
+    cli_runner: CliRunner,
+    config_factory: Callable[[dict[str, Any]], Config],
+    monkeypatch: pytest.MonkeyPatch,
+    clear_config_cache: None,
+) -> None:
+    """Root --set overrides must be reapplied when config --profile reloads config.
+
+    When a user invokes:
+        cli --set section.key=override config --profile test
+
+    The subcommand-level profile triggers a config reload. The root-level
+    --set overrides must be reapplied to the new config.
+    """
+    base_config = config_factory({"section": {"key": "original"}})
+
+    # get_config is called twice: first in root.py, second in config.py (profile reload)
+    call_count = {"value": 0}
+
+    def mock_get_config(*, profile: str | None = None, **_kwargs: Any) -> Config:
+        call_count["value"] += 1
+        return base_config
+
+    monkeypatch.setattr(config_mod, "get_config", mock_get_config)
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["--set", "section.key=overridden", "config", "--profile", "test", "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    # Override was applied (verify in output)
+    assert "overridden" in result.stdout
+    # Original value should not appear
+    assert '"original"' not in result.stdout
+
+
+@pytest.mark.os_agnostic
+def test_when_config_subcommand_has_no_profile_it_uses_stored_config_with_overrides(
+    cli_runner: CliRunner,
+    config_factory: Callable[[dict[str, Any]], Config],
+    inject_config: Callable[[Config], None],
+) -> None:
+    """Without subcommand --profile, config uses already-overridden config from context."""
+    inject_config(config_factory({"section": {"key": "original"}}))
+
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["--set", "section.key=overridden", "config", "--format", "json"],
+    )
+
+    assert result.exit_code == 0
+    assert "overridden" in result.stdout
+    assert '"original"' not in result.stdout

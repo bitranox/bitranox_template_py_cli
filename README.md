@@ -86,6 +86,8 @@ bitranox-template-py-cli info
 bitranox-template-py-cli config
 ```
 
+---
+
 ## Usage
 
 The CLI leverages [rich-click](https://github.com/ewels/rich-click) so help output, validation errors, and prompts render with Rich styling while keeping the familiar click ergonomics.
@@ -102,12 +104,23 @@ bitranox-template-py-cli fail
 bitranox-template-py-cli --traceback fail
 
 # Configuration management
-bitranox-template-py-cli config                    # Show current configuration
-bitranox-template-py-cli config --format json      # Show as JSON
+bitranox-template-py-cli config                         # Show current configuration
+bitranox-template-py-cli config --format json           # Show as JSON
 bitranox-template-py-cli config --section lib_log_rich  # Show specific section
-bitranox-template-py-cli config --profile production   # Use a named profile
-bitranox-template-py-cli config-deploy --target user   # Deploy config to user directory
-bitranox-template-py-cli config-deploy --target user --profile production
+bitranox-template-py-cli config --profile production    # Use a named profile
+
+# Deploy configuration templates to target directories
+# Without profile:
+bitranox-template-py-cli config-deploy --target app    # → /etc/xdg/{slug}/config.toml
+bitranox-template-py-cli config-deploy --target host   # → /etc/xdg/{slug}/hosts/{hostname}.toml
+bitranox-template-py-cli config-deploy --target user   # → ~/.config/{slug}/config.toml
+
+# With profile:
+bitranox-template-py-cli config-deploy --target app --profile production   # → /etc/xdg/{slug}/profile/production/config.toml
+bitranox-template-py-cli config-deploy --target host --profile production  # → /etc/xdg/{slug}/profile/production/hosts/{hostname}.toml
+bitranox-template-py-cli config-deploy --target user --profile production  # → ~/.config/{slug}/profile/production/config.toml
+
+# Deploy configuration examples
 bitranox-template-py-cli config-generate-examples --destination ./examples
 
 # Override configuration at runtime (repeatable --set)
@@ -142,6 +155,84 @@ bitranox-template-py-cli send-notification \
 python -m bitranox_template_py_cli info
 uvx bitranox_template_py_cli info
 ```
+
+---
+
+### Configuration Files
+
+
+#### Precedence Order (lowest → highest)
+
+**Path placeholders for this project:**
+- `{slug}` = `bitranox-template-py-cli` (Linux)
+- `{vendor}` = `bitranox` (Windows)
+- `{app}` = `Bitranox Template Py Cli` (Windows)  
+
+
+#### Paths without Profile
+
+| Layer       | Linux Path                              | Windows Path                                                 | Purpose                               |
+|-------------|-----------------------------------------|--------------------------------------------------------------|---------------------------------------|
+| 1. defaults | (bundled with package)                  | (bundled with package)                                       | Fallback values shipped with app      |
+| 2. app      | `/etc/xdg/{slug}/config.toml`           | `C:\ProgramData\{vendor}\{app}\config.toml`                  | System-wide defaults for ALL machines |
+| 3. host     | `/etc/xdg/{slug}/hosts/{hostname}.toml` | `C:\ProgramData\{vendor}\{app}\hosts\{hostname}.toml`        | Overrides for THIS specific machine   |
+| 4. user     | `~/.config/{slug}/config.toml`          | `C:\Users\{user}\AppData\Roaming\{vendor}\{app}\config.toml` | User's personal settings              |
+| 5. .env     | (project directory)                     | (project directory)                                          | Project-level overrides               |
+| 6. env vars | `BITRANOX_TEMPLATE_PY_CLI___...`        | `BITRANOX_TEMPLATE_PY_CLI___...`                             | Runtime overrides                     |
+| 7. CLI      | `--set section.key=value`               | `--set section.key=value`                                    | Command-line overrides (highest)      |
+ The defaultconfig.d/ templates become the fallback defaults - the baseline that exists when no external configs are deployed.
+
+#### Paths with Profile "test"
+
+| Layer       | Linux Path                                            | Windows Path                                                               | Purpose                               |
+|-------------|-------------------------------------------------------|----------------------------------------------------------------------------|---------------------------------------|
+| 1. defaults | (bundled with package)                                | (bundled with package)                                                     | Fallback values shipped with app      |
+| 2. app      | `/etc/xdg/{slug}/profile/test/config.toml`            | `C:\ProgramData\{vendor}\{app}\profile\test\config.toml`                   | System-wide defaults for ALL machines |
+| 3. host     | `/etc/xdg/{slug}/profile/test/hosts/{hostname}.toml`  | `C:\ProgramData\{vendor}\{app}\profile\test\hosts\{hostname}.toml`         | Overrides for THIS specific machine   |
+| 4. user     | `~/.config/{slug}/profile/test/config.toml`           | `C:\Users\{user}\AppData\Roaming\{vendor}\{app}\profile\test\config.toml`  | User's personal settings              |
+| 5. .env     | (project directory)                                   | (project directory)                                                        | Project-level overrides               |
+| 6. env vars | `BITRANOX_TEMPLATE_PY_CLI___...`                      | `BITRANOX_TEMPLATE_PY_CLI___...`                                           | Runtime overrides                     |
+| 7. CLI      | `--set section.key=value`                             | `--set section.key=value`                                                  | Command-line overrides (highest)      |
+
+The defaultconfig.d/ templates become the fallback defaults - the baseline that exists when no external configs are deployed.
+
+#### layers effected by profile : 
+
+The default_file parameter is always provided, independent of the profile parameter.
+
+Profile only affects layers 2-4 (app, host, user) by inserting a `profile/<name>/` subdirectory. The other layers are unchanged:
+
+| Layer       | Affected by profile?                |
+|-------------|-------------------------------------|
+| 1. defaults | No - always loaded                  |
+| 2. app      | Yes - uses `profile/<name>/` subdir |
+| 3. host     | Yes - uses `profile/<name>/` subdir |
+| 4. user     | Yes - uses `profile/<name>/` subdir |
+| 5. .env     | No - project directory              |
+| 6. env vars | No - environment                    |
+| 7. CLI      | No - command line                   |       
+
+
+####  Deploy layers with profile
+
+```bash
+      # Deploy app layer with profile
+      config-deploy --target app --profile profile1  # Creates: /etc/xdg/{slug}/profile/profile1/config.toml
+
+      # Deploy user layer without profile
+      config-deploy --target user                    # Creates: ~/.config/{slug}/config.toml
+```
+
+#### Reading behavior with profiles
+
+| Read Command                | Sees app layer?            | Sees user layer?          |
+|-----------------------------|----------------------------|---------------------------|
+| `config` (no profile)       | No (app only has profile1) | Yes                       |
+| `config --profile profile1` | Yes                        | No (user has no profile1) |
+
+Profile directories are separate namespaces. Config deployed with a profile is only visible when reading with that same profile.        
+
+---
 
 ### Email Sending
 

@@ -294,10 +294,16 @@ def send_email(
     except RuntimeError as exc:
         raise DeliveryError(str(exc)) from exc
 
-    logger.info(
-        "Email sent successfully",
-        extra={"from": sender, "recipients": recipient_list},
-    )
+    if result:
+        logger.info(
+            "Email sent successfully",
+            extra={"from": sender, "recipients": recipient_list},
+        )
+    else:
+        logger.warning(
+            "Email send returned failure",
+            extra={"from": sender, "recipients": recipient_list},
+        )
 
     return result
 

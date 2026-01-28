@@ -93,7 +93,7 @@ def cli(ctx: click.Context, traceback: bool, profile: str | None, set_overrides:
     config = config_module.get_config(profile=profile)
     config = _apply_cli_overrides(config, set_overrides)
     init_logging(config)
-    store_cli_context(ctx, traceback=traceback, config=config, profile=profile)
+    store_cli_context(ctx, traceback=traceback, config=config, profile=profile, set_overrides=set_overrides)
     apply_traceback_preferences(traceback)
 
     if ctx.invoked_subcommand is None:

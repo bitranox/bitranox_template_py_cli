@@ -27,11 +27,13 @@ class CLIContext:
         traceback: Whether verbose tracebacks were requested.
         config: Loaded layered configuration object.
         profile: Optional configuration profile name.
+        set_overrides: Raw ``--set`` override strings from CLI for reapplication.
     """
 
     traceback: bool
     config: Config
     profile: str | None = None
+    set_overrides: tuple[str, ...] = ()
 
 
 def store_cli_context(
@@ -40,6 +42,7 @@ def store_cli_context(
     traceback: bool,
     config: Config,
     profile: str | None = None,
+    set_overrides: tuple[str, ...] = (),
 ) -> None:
     """Store CLI state in the Click context for subcommand access.
 
@@ -48,6 +51,8 @@ def store_cli_context(
         traceback: Whether verbose tracebacks were requested.
         config: Loaded layered configuration object for all subcommands.
         profile: Optional configuration profile name.
+        set_overrides: Raw ``--set`` override strings for reapplication when
+            subcommands reload config with a different profile.
 
     Example:
         >>> from click.testing import CliRunner
@@ -59,7 +64,7 @@ def store_cli_context(
         >>> ctx.obj.traceback
         True
     """
-    ctx.obj = CLIContext(traceback=traceback, config=config, profile=profile)
+    ctx.obj = CLIContext(traceback=traceback, config=config, profile=profile, set_overrides=set_overrides)
 
 
 def get_cli_context(ctx: click.Context) -> CLIContext:

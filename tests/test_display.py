@@ -154,7 +154,7 @@ def test_display_config_raises_for_nonexistent_section(
 ) -> None:
     """Requesting a section that doesn't exist must raise ValueError."""
     config = config_factory({"existing_section": {"key": "value"}})
-    with pytest.raises(ValueError, match="not found or empty"):
+    with pytest.raises(ValueError, match="not found"):
         display_config(config, format=OutputFormat.HUMAN, section="nonexistent")
 
 
@@ -164,7 +164,7 @@ def test_display_config_raises_for_nonexistent_section_json(
 ) -> None:
     """Requesting a nonexistent section in JSON format must also raise ValueError."""
     config = config_factory({"existing_section": {"key": "value"}})
-    with pytest.raises(ValueError, match="not found or empty"):
+    with pytest.raises(ValueError, match="not found"):
         display_config(config, format=OutputFormat.JSON, section="nonexistent")
 
 
@@ -361,7 +361,7 @@ def test_display_human_empty_section_raises() -> None:
     """Requesting a non-existent section raises ValueError."""
     config = Config({"other": {"key": "val"}}, {})
 
-    with pytest.raises(ValueError, match="not found or empty"):
+    with pytest.raises(ValueError, match="not found"):
         display_config(config, format=OutputFormat.HUMAN, section="nonexistent")
 
 
@@ -370,7 +370,7 @@ def test_display_json_empty_section_raises() -> None:
     """JSON format with non-existent section raises ValueError."""
     config = Config({"other": {"key": "val"}}, {})
 
-    with pytest.raises(ValueError, match="not found or empty"):
+    with pytest.raises(ValueError, match="not found"):
         display_config(config, format=OutputFormat.JSON, section="nonexistent")
 
 
@@ -408,3 +408,63 @@ def test_display_human_deeply_nested_section(capsys: pytest.CaptureFixture[str])
     output = capsys.readouterr().out
     assert "[top.mid]" in output
     assert "deep" in output
+
+
+# ======================== Falsey value handling ========================
+
+
+@pytest.mark.os_agnostic
+def test_display_config_displays_section_with_zero_value(capsys: pytest.CaptureFixture[str]) -> None:
+    """Section with integer zero value must display (not raise as 'not found')."""
+    config = Config({"section": {"count": 0}}, {})
+
+    display_config(config, format=OutputFormat.HUMAN, section="section")
+
+    output = capsys.readouterr().out
+    assert "count = 0" in output
+
+
+@pytest.mark.os_agnostic
+def test_display_config_displays_section_with_false_value(capsys: pytest.CaptureFixture[str]) -> None:
+    """Section with boolean False value must display (not raise as 'not found')."""
+    config = Config({"section": {"enabled": False}}, {})
+
+    display_config(config, format=OutputFormat.HUMAN, section="section")
+
+    output = capsys.readouterr().out
+    assert "enabled = False" in output
+
+
+@pytest.mark.os_agnostic
+def test_display_config_displays_section_with_empty_string_value(capsys: pytest.CaptureFixture[str]) -> None:
+    """Section with empty string value must display (not raise as 'not found')."""
+    config = Config({"section": {"name": ""}}, {})
+
+    display_config(config, format=OutputFormat.HUMAN, section="section")
+
+    output = capsys.readouterr().out
+    assert 'name = ""' in output
+
+
+@pytest.mark.os_agnostic
+def test_display_config_displays_section_with_empty_list_value(capsys: pytest.CaptureFixture[str]) -> None:
+    """Section with empty list value must display (not raise as 'not found')."""
+    config = Config({"section": {"items": []}}, {})
+
+    display_config(config, format=OutputFormat.HUMAN, section="section")
+
+    output = capsys.readouterr().out
+    assert "items = []" in output
+
+
+@pytest.mark.os_agnostic
+def test_display_config_json_displays_section_with_falsey_values(capsys: pytest.CaptureFixture[str]) -> None:
+    """JSON format with falsey values must display (not raise as 'not found')."""
+    config = Config({"section": {"count": 0, "enabled": False, "items": []}}, {})
+
+    display_config(config, format=OutputFormat.JSON, section="section")
+
+    output = capsys.readouterr().out
+    assert '"count": 0' in output
+    assert '"enabled": false' in output
+    assert '"items": []' in output

@@ -143,7 +143,7 @@ def _smtp_config_options(func: Callable[..., Any]) -> Callable[..., Any]:
     "--attachment",
     "attachments",
     multiple=True,
-    type=click.Path(exists=True, path_type=str),
+    type=click.Path(path_type=str),
     help="File to attach (can specify multiple)",
 )
 @_smtp_config_options

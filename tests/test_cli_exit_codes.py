@@ -19,7 +19,7 @@ def test_when_config_section_is_invalid_it_exits_with_code_22(cli_runner: CliRun
     result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--section", "nonexistent_section_that_does_not_exist"])
 
     assert result.exit_code == 22
-    assert "not found or empty" in result.stderr
+    assert "not found" in result.stderr
 
 
 @pytest.mark.os_agnostic

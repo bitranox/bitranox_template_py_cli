@@ -20,6 +20,7 @@ from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.config import deploy as config_deploy_module
 from bitranox_template_py_cli.adapters.config import loader as config_module
 from bitranox_template_py_cli.adapters.config.display import display_config
+from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
 from bitranox_template_py_cli.domain.enums import DeployTarget, OutputFormat
 
 from ..constants import CLICK_CONTEXT_SETTINGS
@@ -89,6 +90,10 @@ def _get_effective_profile(ctx: click.Context, profile_override: str | None) -> 
 def _resolve_config(ctx: click.Context, profile: str | None) -> tuple[Config, str | None]:
     """Resolve configuration from context or reload with profile override.
 
+    When a subcommand-level profile override is specified, reloads config
+    with that profile and reapplies any root-level ``--set`` overrides
+    stored in the CLI context.
+
     Args:
         ctx: Click context containing stored config.
         profile: Optional profile override.
@@ -97,9 +102,10 @@ def _resolve_config(ctx: click.Context, profile: str | None) -> tuple[Config, st
         Tuple of (config, effective_profile).
     """
     effective_profile = _get_effective_profile(ctx, profile)
-    if profile:
-        return config_module.get_config(profile=profile), effective_profile
     cli_ctx = get_cli_context(ctx)
+    if profile:
+        config = config_module.get_config(profile=profile)
+        return apply_overrides(config, cli_ctx.set_overrides), effective_profile
     return cli_ctx.config, effective_profile
 
 

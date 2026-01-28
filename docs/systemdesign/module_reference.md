@@ -48,9 +48,9 @@ Complete (v1.0.0)
 * src/bitranox_template_py_cli/__init__.py
 * src/bitranox_template_py_cli/__init__conf__.py
 
-### Deployment Templates
-* src/bitranox_template_py_cli/defaultconfig.d/50-mail.toml
-* src/bitranox_template_py_cli/defaultconfig.d/90-logging.toml
+### Configuration Defaults (adapters/config/)
+* src/bitranox_template_py_cli/adapters/config/defaultconfig.d/50-mail.toml
+* src/bitranox_template_py_cli/adapters/config/defaultconfig.d/90-logging.toml
 
 ### Tests
 * tests/test_behaviors.py

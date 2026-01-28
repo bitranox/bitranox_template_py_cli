@@ -640,3 +640,110 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
         smtp_calls = mock_smtp.call_args_list
         # SMTP(host, ...) — host is always the first positional arg
         assert any(len(c.args) > 0 and "smtp.override.com" in c.args[0] for c in smtp_calls)
+
+
+# ======================== Attachment path validation ========================
+
+
+@pytest.mark.os_agnostic
+def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
+    cli_runner: CliRunner,
+    config_factory: Callable[[dict[str, Any]], Config],
+    inject_config: Callable[[Config], None],
+    tmp_path: Any,
+) -> None:
+    """Missing attachment with default raise behavior should fail with FILE_NOT_FOUND.
+
+    With exists=True removed from --attachment, Click no longer validates the path.
+    The underlying btx_lib_mail handles the error based on raise_on_missing_attachments.
+    """
+    from unittest.mock import patch
+
+    inject_config(
+        config_factory(
+            {
+                "email": {
+                    "smtp_hosts": ["smtp.test.com:587"],
+                    "from_address": "sender@test.com",
+                }
+            }
+        )
+    )
+
+    nonexistent_file = str(tmp_path / "nonexistent_attachment.txt")
+
+    with patch("smtplib.SMTP"):
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-email",
+                "--to",
+                "recipient@test.com",
+                "--subject",
+                "Test",
+                "--body",
+                "Hello",
+                "--attachment",
+                nonexistent_file,
+            ],
+        )
+
+    # Default: raise_on_missing_attachments=True, so FileNotFoundError is raised
+    assert result.exit_code != 0
+    # Could be FILE_NOT_FOUND (66) or the error message in output
+    assert "not found" in result.output.lower() or result.exit_code == 66
+
+
+@pytest.mark.os_agnostic
+def test_when_send_email_attachment_path_accepted_by_click(
+    cli_runner: CliRunner,
+    config_factory: Callable[[dict[str, Any]], Config],
+    inject_config: Callable[[Config], None],
+    tmp_path: Any,
+) -> None:
+    """Click accepts nonexistent attachment paths (validation delegated to app).
+
+    With exists=True removed from --attachment, Click no longer validates paths.
+    The underlying btx_lib_mail validates the file and raises FileNotFoundError
+    (since the current implementation doesn't pass raise_on_missing_attachments).
+
+    This test verifies that:
+    1. Click doesn't reject the command with "Path ... does not exist"
+    2. The error comes from the application layer, not Click
+    """
+    from unittest.mock import patch
+
+    inject_config(
+        config_factory(
+            {
+                "email": {
+                    "smtp_hosts": ["smtp.test.com:587"],
+                    "from_address": "sender@test.com",
+                }
+            }
+        )
+    )
+
+    nonexistent_file = str(tmp_path / "nonexistent_attachment.txt")
+
+    with patch("smtplib.SMTP"):
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-email",
+                "--to",
+                "recipient@test.com",
+                "--subject",
+                "Test",
+                "--body",
+                "Hello",
+                "--attachment",
+                nonexistent_file,
+            ],
+        )
+
+    # Click doesn't reject with "Path ... does not exist"
+    assert "does not exist" not in result.output
+    # Error comes from application layer
+    assert result.exit_code != 0
+    assert "Attachment" in result.output or "not found" in result.output.lower()
