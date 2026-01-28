@@ -190,4 +190,7 @@ layers = [
 #   environment but is not a dependency of this project; no fix available.
 ignore-vulns = [
   "PYSEC-2022-42969",
+  "PYSEC-2022-43012",  # setuptools 65.5.0 — env-only, not a project dependency
+  "PYSEC-2025-49",     # setuptools 65.5.0 — env-only, not a project dependency
+  "CVE-2024-6345",     # setuptools 65.5.0 — env-only, not a project dependency
 ]
