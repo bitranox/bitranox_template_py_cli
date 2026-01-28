@@ -171,14 +171,67 @@ def test_coerce_value_negative_number() -> None:
     assert coerce_value("-5") == -5
 
 
+@pytest.mark.os_agnostic
+def test_coerce_value_unicode_string() -> None:
+    """Unicode string falls back to raw string."""
+    assert coerce_value("日本語") == "日本語"
+
+
+@pytest.mark.os_agnostic
+def test_coerce_value_string_with_spaces() -> None:
+    """String containing spaces falls back to raw string."""
+    assert coerce_value("hello world") == "hello world"
+
+
+@pytest.mark.os_agnostic
+def test_coerce_value_negative_float() -> None:
+    """Negative float coerces correctly."""
+    result = coerce_value("-3.14")
+    assert result == -3.14
+    assert isinstance(result, float)
+
+
+@pytest.mark.os_agnostic
+def test_coerce_value_scientific_notation() -> None:
+    """Scientific notation coerces to float."""
+    result = coerce_value("1e10")
+    assert result == 1e10
+
+
+@pytest.mark.os_agnostic
+def test_parse_override_deeply_nested_key() -> None:
+    """Three-level nesting produces correct key_path."""
+    result = parse_override("s.a.b.c=42")
+
+    assert result.section == "s"
+    assert result.key_path == ("a", "b", "c")
+    assert result.value == 42
+
+
+@pytest.mark.os_agnostic
+def test_parse_override_unicode_value() -> None:
+    """Unicode characters in the value are preserved."""
+    result = parse_override("s.key=こんにちは")
+
+    assert result.value == "こんにちは"
+
+
+@pytest.mark.os_agnostic
+def test_parse_override_value_with_newline_json() -> None:
+    """JSON string with escaped newline is parsed by orjson as a real newline."""
+    result = parse_override('s.key="line1\\nline2"')
+
+    assert result.value == "line1\nline2"
+
+
 # ======================== _nest_override tests ========================
 
 
 @pytest.mark.os_agnostic
 def test_nest_override_simple_key() -> None:
     """Setting a simple key in a section creates the expected structure."""
-    target: dict[str, Any] = {}
-    _nest_override(target, "s", ("a",), 99)
+    target: dict[str, dict[str, object]] = {}
+    _nest_override(target, ConfigOverride(section="s", key_path=("a",), value=99))
 
     assert target["s"]["a"] == 99
 
@@ -186,18 +239,20 @@ def test_nest_override_simple_key() -> None:
 @pytest.mark.os_agnostic
 def test_nest_override_nested_key() -> None:
     """Setting a nested key creates intermediate dicts."""
-    target: dict[str, Any] = {}
-    _nest_override(target, "s", ("x", "y"), 3)
+    target: dict[str, dict[str, object]] = {}
+    _nest_override(target, ConfigOverride(section="s", key_path=("x", "y"), value=3))
 
-    assert target["s"]["x"]["y"] == 3
+    inner = target["s"]["x"]
+    assert isinstance(inner, dict)
+    assert inner["y"] == 3
 
 
 @pytest.mark.os_agnostic
 def test_nest_override_multiple_keys_in_same_section() -> None:
     """Multiple overrides in the same section accumulate correctly."""
-    target: dict[str, Any] = {}
-    _nest_override(target, "s", ("a",), 1)
-    _nest_override(target, "s", ("b",), 2)
+    target: dict[str, dict[str, object]] = {}
+    _nest_override(target, ConfigOverride(section="s", key_path=("a",), value=1))
+    _nest_override(target, ConfigOverride(section="s", key_path=("b",), value=2))
 
     assert target["s"]["a"] == 1
     assert target["s"]["b"] == 2

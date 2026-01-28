@@ -115,9 +115,11 @@ def deploy_configuration(
     for result in results:
         if result.action in _DEPLOYED_ACTIONS:
             paths.append(result.destination)
-        for dot_d_result in result.dot_d_results:
-            if dot_d_result.action in _DEPLOYED_ACTIONS:
-                paths.append(dot_d_result.destination)
+        paths.extend(
+            dot_d_result.destination
+            for dot_d_result in result.dot_d_results
+            if dot_d_result.action in _DEPLOYED_ACTIONS
+        )
     return paths
 
 

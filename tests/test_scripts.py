@@ -17,13 +17,8 @@ import pytest
 from click.testing import CliRunner
 from pytest import MonkeyPatch
 
-import scripts.build as build
-import scripts.cli as cli
-import scripts.dev as dev
-import scripts.install as install
-import scripts.run_cli as run_cli
 import scripts.test as test_script
-from scripts import _utils
+from scripts import _test_steps, _utils, build, cli, dev, install, run_cli
 from scripts._utils import ProjectMetadata, RunResult
 
 RunCommand = Sequence[str] | str
@@ -155,7 +150,6 @@ def _capture_sync(record: list[ProjectMetadata]) -> Callable[[ProjectMetadata], 
     return _sync
 
 
-@pytest.mark.slow
 @pytest.mark.os_agnostic
 def test_get_project_metadata_fields() -> None:
     """Verify get_project_metadata returns expected fields."""
@@ -173,7 +167,6 @@ def test_get_project_metadata_fields() -> None:
     assert meta.metadata_module.as_posix().endswith("src/bitranox_template_py_cli/__init__conf__.py")
 
 
-@pytest.mark.slow
 @pytest.mark.os_agnostic
 def test_build_script_uses_metadata(monkeypatch: MonkeyPatch) -> None:
     """Verify build script invokes python -m build."""
@@ -188,7 +181,6 @@ def test_build_script_uses_metadata(monkeypatch: MonkeyPatch) -> None:
     assert any("python -m build" in cmd for cmd in commands)
 
 
-@pytest.mark.slow
 @pytest.mark.os_agnostic
 def test_dev_script_installs_dev_extras(monkeypatch: MonkeyPatch) -> None:
     """Verify dev script installs package with dev extras."""
@@ -204,7 +196,6 @@ def test_dev_script_installs_dev_extras(monkeypatch: MonkeyPatch) -> None:
     assert first_command == [sys.executable, "-m", "pip", "install", "-e", ".[dev]"]
 
 
-@pytest.mark.slow
 @pytest.mark.os_agnostic
 def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
     """Verify install script runs pip install -e."""
@@ -220,7 +211,6 @@ def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
     assert first_command == [sys.executable, "-m", "pip", "install", "-e", "."]
 
 
-@pytest.mark.slow
 @pytest.mark.os_agnostic
 def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
     """Verify run_cli dynamically imports the package CLI module."""
@@ -250,7 +240,6 @@ def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
         assert seen == [f"{package}.__main__", f"{package}.adapters.cli"]
 
 
-@pytest.mark.slow
 @pytest.mark.os_agnostic
 def test_test_script_uses_pyproject_configuration(monkeypatch: MonkeyPatch) -> None:
     """Verify test script runs pytest with coverage from pyproject config."""
@@ -265,7 +254,9 @@ def test_test_script_uses_pyproject_configuration(monkeypatch: MonkeyPatch) -> N
     monkeypatch.setattr(test_script, "bootstrap_dev", _noop)
     synced: list[ProjectMetadata] = []
     monkeypatch.setattr(_utils, "cmd_exists", _always_false)
-    monkeypatch.setattr(test_script, "run", _remember_runs(recorded))
+    stub = _remember_runs(recorded)
+    monkeypatch.setattr(test_script, "run", stub)
+    monkeypatch.setattr(_test_steps, "run", stub)
     monkeypatch.setattr(test_script, "sync_metadata_module", _capture_sync(synced))
     runner = CliRunner()
     result = runner.invoke(cli.main, ["test"])

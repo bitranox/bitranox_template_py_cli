@@ -21,6 +21,7 @@ import lib_cli_exit_tools
 import pytest
 from click.testing import CliRunner
 from lib_layered_config import Config
+from lib_layered_config.domain.config import SourceInfo
 
 _COVERAGE_BASENAME = ".coverage.bitranox_template_py_cli"
 
@@ -113,21 +114,22 @@ def strip_ansi() -> Callable[[str], str]:
 
 
 @pytest.fixture
-def preserve_traceback_state() -> Iterator[None]:
-    """Snapshot and restore the entire lib_cli_exit_tools configuration."""
+def managed_traceback_state() -> Iterator[None]:
+    """Reset traceback flags to a known baseline and restore after the test.
+
+    Combines the responsibilities of the former ``isolated_traceback_config``
+    (reset to clean state) and ``preserve_traceback_state`` (snapshot/restore)
+    into a single fixture.  Use this whenever a test reads or mutates the
+    global ``lib_cli_exit_tools.config`` traceback flags.
+    """
+    lib_cli_exit_tools.reset_config()
+    lib_cli_exit_tools.config.traceback = False
+    lib_cli_exit_tools.config.traceback_force_color = False
     snapshot = _snapshot_cli_config()
     try:
         yield
     finally:
         _restore_cli_config(snapshot)
-
-
-@pytest.fixture
-def isolated_traceback_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Reset traceback flags to a known baseline before each test."""
-    lib_cli_exit_tools.reset_config()
-    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
-    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
 
 
 @pytest.fixture
@@ -151,6 +153,43 @@ def config_factory() -> Callable[[dict[str, Any]], Config]:
         return Config(data, {})
 
     return _factory
+
+
+@pytest.fixture
+def source_info_factory() -> Callable[[str, str, str | None], SourceInfo]:
+    """Create SourceInfo dicts for provenance-tracking tests.
+
+    Reduces coupling to the SourceInfo TypedDict structure.  If
+    ``lib_layered_config`` adds or renames keys, only this factory
+    needs updating.
+    """
+
+    def _factory(key: str, layer: str, path: str | None = None) -> SourceInfo:
+        return {"layer": layer, "path": path, "key": key}
+
+    return _factory
+
+
+@pytest.fixture
+def email_ready_config(config_factory: Callable[[dict[str, Any]], Config]) -> Config:
+    """Create a Config pre-loaded with standard email settings for tests.
+
+    Provides a reusable email configuration with smtp_hosts, from_address,
+    and recipients so email tests do not repeat the same setup boilerplate.
+    Combine with ``inject_config`` to wire into the CLI path:
+
+        inject_config(email_ready_config)
+    """
+    return config_factory(
+        {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
+                "from_address": "sender@test.com",
+                "recipients": ["recipient@test.com"],
+                "subject_prefix": "[TEST] ",
+            }
+        }
+    )
 
 
 @pytest.fixture

@@ -16,7 +16,7 @@ System Role:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import cast
 
 import lib_log_rich.config
 import lib_log_rich.runtime
@@ -31,6 +31,17 @@ class LoggingConfigModel(BaseModel):
 
     Used at the boundary to parse configuration dictionaries into typed fields.
     Extra fields are allowed to pass through to lib_log_rich.RuntimeConfig.
+
+    Example:
+        >>> model = LoggingConfigModel(service="myapp", environment="staging")
+        >>> model.service
+        'myapp'
+        >>> model.environment
+        'staging'
+
+        >>> default = LoggingConfigModel()
+        >>> default.environment
+        'prod'
     """
 
     service: str | None = None
@@ -57,8 +68,8 @@ def _build_runtime_config(config: Config) -> lib_log_rich.runtime.RuntimeConfig:
         use lib_log_rich's built-in defaults. The service and environment
         parameters default to package metadata when not configured.
     """
-    log_raw: Any = config.get("lib_log_rich", default={})
-    parsed = LoggingConfigModel.model_validate(log_raw if log_raw else {})
+    log_raw: object = config.get("lib_log_rich", default={})
+    parsed = LoggingConfigModel.model_validate(cast("dict[str, object]", log_raw) if log_raw else {})
 
     # Apply defaults for required fields
     service = parsed.service or __init__conf__.name
@@ -101,6 +112,11 @@ def init_logging(config: Config) -> None:
         The .env loading enables lib_log_rich to read LOG_* environment variables
         from .env files in the current directory or parent directories. This
         provides the highest precedence override mechanism for logging configuration.
+
+    Example:
+        >>> from lib_layered_config import Config
+        >>> config = Config({"lib_log_rich": {"environment": "test"}}, {})
+        >>> init_logging(config)  # doctest: +SKIP
     """
     if not lib_log_rich.runtime.is_initialised():
         lib_log_rich.config.enable_dotenv()

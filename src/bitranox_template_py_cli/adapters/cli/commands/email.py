@@ -73,7 +73,7 @@ class SmtpConfigOverrides:
             A new EmailConfig with overrides applied, or the same instance
             when no overrides are set.
         """
-        overrides: dict[str, Any] = {}
+        overrides: dict[str, str | bool | float | list[str] | None] = {}
         if self.smtp_hosts:
             overrides["smtp_hosts"] = list(self.smtp_hosts)
         if self.smtp_username is not None:

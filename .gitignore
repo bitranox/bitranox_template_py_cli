@@ -1,14 +1,4 @@
 # ====================================
-# ROTEK SPEZIFISCH: Git commands you might run once
-# git add .gitignore && git commit -m "Ignore IDE settings"
-# git push
-# git rm -r --cached .idea
-# git commit -m "Remove .idea and add to .gitignore"
-# git push
-# alternative : BE CAREFUL: overwrites remote history
-# git push origin master --force
-
-# ====================================
 # APP
 # ====================================
 website/build/

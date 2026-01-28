@@ -146,15 +146,15 @@ def coverage_command(verbose: bool) -> None:
     test_module.run_coverage(verbose=verbose)
 
 
-@main.command(name="test-slow", help="Run slow integration tests (requires external resources)")
+@main.command(name="test-local", help="Run local-only tests (requires external resources)")
 @click.option("--verbose", is_flag=True, help="Print verbose test output")
-def test_slow_command(verbose: bool) -> None:
-    """Run only slow integration tests.
+def test_local_command(verbose: bool) -> None:
+    """Run tests marked local_only (skipped in CI).
 
-    These tests require external resources (SMTP server, etc.) and are excluded
-    from normal CI runs. Configure EMAIL__SMTP_HOSTS and EMAIL__FROM_ADDRESS in .env.
+    These tests require external resources (SMTP server, etc.) or the local
+    dev environment. Configure EMAIL__SMTP_HOSTS and EMAIL__FROM_ADDRESS in .env.
     """
-    test_module.run_slow_tests(verbose=verbose)
+    test_module.run_local_tests(verbose=verbose)
 
 
 @main.command(name="build", help="Build wheel/sdist artifacts")

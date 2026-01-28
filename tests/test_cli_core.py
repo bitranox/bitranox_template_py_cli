@@ -60,14 +60,14 @@ def capture_run_cli(target: list[CapturedRun]) -> Callable[..., int]:
 
 
 @pytest.mark.os_agnostic
-def test_when_we_snapshot_traceback_the_initial_state_is_quiet(isolated_traceback_config: None) -> None:
-    """Verify snapshot_traceback_state returns disabled state initially."""
+def test_snapshot_traceback_state_returns_disabled_by_default(managed_traceback_state: None) -> None:
+    """snapshot_traceback_state returns both flags disabled initially."""
     assert cli_mod.snapshot_traceback_state() == TracebackState(traceback_enabled=False, force_color=False)
 
 
 @pytest.mark.os_agnostic
-def test_when_we_enable_traceback_the_config_sings_true(isolated_traceback_config: None) -> None:
-    """Verify apply_traceback_preferences enables traceback flags."""
+def test_apply_traceback_preferences_enables_both_flags(managed_traceback_state: None) -> None:
+    """apply_traceback_preferences(True) enables traceback and force_color."""
     cli_mod.apply_traceback_preferences(True)
 
     assert lib_cli_exit_tools.config.traceback is True
@@ -75,8 +75,8 @@ def test_when_we_enable_traceback_the_config_sings_true(isolated_traceback_confi
 
 
 @pytest.mark.os_agnostic
-def test_when_we_restore_traceback_the_config_whispers_false(isolated_traceback_config: None) -> None:
-    """Verify restore_traceback_state resets traceback flags to previous values."""
+def test_restore_traceback_state_resets_flags_to_previous(managed_traceback_state: None) -> None:
+    """restore_traceback_state resets flags to their pre-apply values."""
     previous = cli_mod.snapshot_traceback_state()
     cli_mod.apply_traceback_preferences(True)
 
@@ -87,12 +87,11 @@ def test_when_we_restore_traceback_the_config_whispers_false(isolated_traceback_
 
 
 @pytest.mark.os_agnostic
-def test_when_info_runs_with_traceback_the_choice_is_shared(
+def test_traceback_flag_is_active_during_info_command(
     monkeypatch: pytest.MonkeyPatch,
-    isolated_traceback_config: None,
-    preserve_traceback_state: None,
+    managed_traceback_state: None,
 ) -> None:
-    """Verify traceback flag is active during info command then restored."""
+    """--traceback enables both flags during command execution."""
     notes: list[tuple[bool, bool]] = []
 
     def record() -> None:
@@ -109,6 +108,18 @@ def test_when_info_runs_with_traceback_the_choice_is_shared(
 
     assert exit_code == 0
     assert notes == [(True, True)]
+
+
+@pytest.mark.os_agnostic
+def test_traceback_flags_restored_after_info_command(
+    monkeypatch: pytest.MonkeyPatch,
+    managed_traceback_state: None,
+) -> None:
+    """--traceback flags are restored to disabled after command completes."""
+    monkeypatch.setattr(__init__conf__, "print_info", lambda: None)
+
+    cli_mod.main(["--traceback", "info"])
+
     assert lib_cli_exit_tools.config.traceback is False
     assert lib_cli_exit_tools.config.traceback_force_color is False
 
@@ -148,7 +159,7 @@ def test_when_cli_runs_without_arguments_help_is_printed(
 def test_when_main_receives_no_arguments_help_is_shown(
     monkeypatch: pytest.MonkeyPatch,
     cli_runner: CliRunner,
-    isolated_traceback_config: None,
+    managed_traceback_state: None,
 ) -> None:
     """Verify main with no args shows help."""
     outputs: list[str] = []
@@ -188,12 +199,12 @@ def test_when_traceback_is_requested_without_command_help_is_shown(
 
 
 @pytest.mark.os_agnostic
-def test_when_traceback_flag_is_passed_the_full_story_is_printed(
-    isolated_traceback_config: None,
+def test_traceback_flag_displays_full_exception_traceback(
+    managed_traceback_state: None,
     capsys: pytest.CaptureFixture[str],
     strip_ansi: Callable[[str], str],
 ) -> None:
-    """Verify --traceback displays full exception traceback on failure."""
+    """--traceback prints the complete traceback on failure."""
     exit_code = cli_mod.main(["--traceback", "fail"])
 
     plain_err = strip_ansi(capsys.readouterr().err)
@@ -207,8 +218,8 @@ def test_when_traceback_flag_is_passed_the_full_story_is_printed(
 
 
 @pytest.mark.os_agnostic
-def test_when_hello_is_invoked_the_cli_smiles(cli_runner: CliRunner) -> None:
-    """Verify hello command outputs Hello World greeting."""
+def test_hello_command_outputs_greeting(cli_runner: CliRunner) -> None:
+    """hello command outputs Hello World greeting."""
     result: Result = cli_runner.invoke(cli_mod.cli, ["hello"])
 
     assert result.exit_code == 0
@@ -216,8 +227,8 @@ def test_when_hello_is_invoked_the_cli_smiles(cli_runner: CliRunner) -> None:
 
 
 @pytest.mark.os_agnostic
-def test_when_fail_is_invoked_the_cli_raises(cli_runner: CliRunner) -> None:
-    """Verify fail command raises RuntimeError."""
+def test_fail_command_raises_runtime_error(cli_runner: CliRunner) -> None:
+    """fail command raises RuntimeError."""
     result: Result = cli_runner.invoke(cli_mod.cli, ["fail"])
 
     assert result.exit_code != 0
@@ -225,8 +236,8 @@ def test_when_fail_is_invoked_the_cli_raises(cli_runner: CliRunner) -> None:
 
 
 @pytest.mark.os_agnostic
-def test_when_info_is_invoked_the_metadata_is_displayed(cli_runner: CliRunner) -> None:
-    """Verify info command displays project metadata."""
+def test_info_command_displays_project_metadata(cli_runner: CliRunner) -> None:
+    """info command displays project name and version."""
     result: Result = cli_runner.invoke(cli_mod.cli, ["info"])
 
     assert result.exit_code == 0
@@ -235,8 +246,8 @@ def test_when_info_is_invoked_the_metadata_is_displayed(cli_runner: CliRunner) -
 
 
 @pytest.mark.os_agnostic
-def test_when_an_unknown_command_is_used_a_helpful_error_appears(cli_runner: CliRunner) -> None:
-    """Verify unknown command shows No such command error."""
+def test_unknown_command_shows_no_such_command_error(cli_runner: CliRunner) -> None:
+    """Unknown command produces 'No such command' error."""
     result: Result = cli_runner.invoke(cli_mod.cli, ["does-not-exist"])
 
     assert result.exit_code != 0
@@ -244,11 +255,10 @@ def test_when_an_unknown_command_is_used_a_helpful_error_appears(cli_runner: Cli
 
 
 @pytest.mark.os_agnostic
-def test_when_restore_is_disabled_the_traceback_choice_remains(
-    isolated_traceback_config: None,
-    preserve_traceback_state: None,
+def test_restore_traceback_false_keeps_flags_enabled(
+    managed_traceback_state: None,
 ) -> None:
-    """Verify restore_traceback=False keeps traceback flags enabled."""
+    """restore_traceback=False leaves traceback flags enabled after command."""
     cli_mod.apply_traceback_preferences(False)
 
     cli_mod.main(["--traceback", "hello"], restore_traceback=False)

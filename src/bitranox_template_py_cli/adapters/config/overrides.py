@@ -15,10 +15,13 @@ Contents:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import cast
 
 import orjson
 from lib_layered_config import Config
+
+CoercedValue = str | int | float | bool | None | list[object] | dict[str, object]
+"""Union of types that :func:`coerce_value` can produce."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +37,7 @@ class ConfigOverride:
 
     section: str
     key_path: tuple[str, ...]
-    value: Any
+    value: CoercedValue
 
 
 def parse_override(raw: str) -> ConfigOverride:
@@ -93,7 +96,7 @@ def parse_override(raw: str) -> ConfigOverride:
     )
 
 
-def coerce_value(raw: str) -> Any:
+def coerce_value(raw: str) -> CoercedValue:
     """Coerce a raw string value using JSON parsing with string fallback.
 
     Attempts ``orjson.loads`` first (handling booleans, numbers, null, arrays,
@@ -129,32 +132,34 @@ def coerce_value(raw: str) -> Any:
         return raw
 
 
-def _nest_override(target: dict[str, Any], section: str, key_path: tuple[str, ...], value: Any) -> None:
-    """Build a nested override dict from section, key path, and value.
+def _nest_override(target: dict[str, dict[str, object]], override: ConfigOverride) -> None:
+    """Build a nested override dict from a parsed ConfigOverride.
 
     Creates intermediate dicts as needed. The resulting dict structure
     is passed to ``Config.with_overrides()`` for merge.
 
     Args:
         target: Mutable override dictionary being built.
-        section: Top-level section key.
-        key_path: Sequence of sub-keys leading to the target.
-        value: Value to set at the target location.
+        override: Parsed override containing section, key_path, and value.
 
     Examples:
-        >>> d: dict[str, Any] = {}
-        >>> _nest_override(d, "s", ("a",), 2)
+        >>> d: dict[str, dict[str, object]] = {}
+        >>> _nest_override(d, ConfigOverride(section="s", key_path=("a",), value=2))
         >>> d["s"]["a"]
         2
-        >>> d2: dict[str, Any] = {}
-        >>> _nest_override(d2, "new", ("x", "y"), 3)
+        >>> d2: dict[str, dict[str, object]] = {}
+        >>> _nest_override(d2, ConfigOverride(section="new", key_path=("x", "y"), value=3))
         >>> d2["new"]["x"]["y"]
         3
     """
-    node = target.setdefault(section, {})
-    for part in key_path[:-1]:
-        node = node.setdefault(part, {})
-    node[key_path[-1]] = value
+    node: dict[str, object] = target.setdefault(override.section, {})
+    for part in override.key_path[:-1]:
+        existing = node.setdefault(part, {})
+        if not isinstance(existing, dict):
+            msg = f"Expected dict at key {part!r}, got {type(existing).__name__}"
+            raise TypeError(msg)
+        node = cast("dict[str, object]", existing)
+    node[override.key_path[-1]] = override.value
 
 
 def apply_overrides(config: Config, raw_overrides: tuple[str, ...]) -> Config:
@@ -186,15 +191,16 @@ def apply_overrides(config: Config, raw_overrides: tuple[str, ...]) -> Config:
     if not raw_overrides:
         return config
 
-    overrides: dict[str, Any] = {}
+    overrides: dict[str, dict[str, object]] = {}
     for raw in raw_overrides:
         parsed = parse_override(raw)
-        _nest_override(overrides, parsed.section, parsed.key_path, parsed.value)
+        _nest_override(overrides, parsed)
 
     return config.with_overrides(overrides)
 
 
 __all__ = [
+    "CoercedValue",
     "ConfigOverride",
     "parse_override",
     "coerce_value",

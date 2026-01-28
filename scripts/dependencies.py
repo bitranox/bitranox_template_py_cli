@@ -33,7 +33,14 @@ import orjson
 
 from .toml_config import PyprojectConfig, load_pyproject_config
 
-__all__ = ["DependencyInfo", "check_dependencies", "print_report", "update_dependencies"]
+__all__ = [
+    "DependencyInfo",
+    "check_dependencies",
+    "compare_versions",
+    "fetch_latest_version",
+    "print_report",
+    "update_dependencies",
+]
 
 # Precompiled regex patterns for version parsing and dependency matching
 _RE_NAME_SEPARATOR = re.compile(r"[-_.]+")
@@ -135,7 +142,7 @@ def _fetch_pypi_data(package_name: str) -> dict[str, Any] | None:
         return None
 
 
-def _fetch_latest_version(package_name: str) -> str | None:
+def fetch_latest_version(package_name: str) -> str | None:
     """Fetch the latest version of a package from PyPI."""
     data = _fetch_pypi_data(package_name)
     if data is None:
@@ -213,7 +220,7 @@ def _version_gte(version_a: str, version_b: str) -> bool:
     return a_padded >= b_padded
 
 
-def _compare_versions(current: str, latest: str) -> str:
+def compare_versions(current: str, latest: str) -> str:
     """Compare two version strings and return status."""
     if not current or not latest:
         return "unknown"
@@ -248,7 +255,7 @@ def _extract_dependencies_from_list(
             continue
 
         # Fetch latest version (respecting upper bound if present)
-        latest_absolute = _fetch_latest_version(name)
+        latest_absolute = fetch_latest_version(name)
         if latest_absolute is None:
             status = "error"
             latest_str = "not found"
@@ -271,7 +278,7 @@ def _extract_dependencies_from_list(
                 latest_str = f"{latest_in_range} (max <{upper_bound}, absolute: {latest_absolute})"
         else:
             # No upper bound constraint or latest is within range
-            status = _compare_versions(min_version, latest_absolute)
+            status = compare_versions(min_version, latest_absolute)
             latest_str = latest_absolute
 
         results.append(

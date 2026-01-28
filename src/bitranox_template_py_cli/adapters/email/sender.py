@@ -147,6 +147,64 @@ def _build_credentials(config: EmailConfig) -> tuple[str, str] | None:
     return None
 
 
+def _resolve_sender(config: EmailConfig, from_address: str | None) -> str:
+    """Determine the sender address from override or config default.
+
+    Args:
+        config: Email configuration with optional default from_address.
+        from_address: Explicit override, or None to use config default.
+
+    Returns:
+        Resolved sender address.
+
+    Raises:
+        ValueError: When neither override nor config provides a from_address.
+    """
+    sender = from_address if from_address is not None else config.from_address
+    if sender is None:
+        raise ValueError("No from_address configured and no override provided")
+    return sender
+
+
+def _resolve_recipients(
+    config: EmailConfig,
+    recipients: str | Sequence[str] | None,
+) -> list[str]:
+    """Normalize recipients from override or config default.
+
+    Args:
+        config: Email configuration with optional default recipients.
+        recipients: Single address, sequence of addresses, or None for config default.
+
+    Returns:
+        Non-empty list of recipient addresses.
+
+    Raises:
+        ValueError: When no recipients are available from either source.
+    """
+    if recipients is not None:
+        recipient_list = [recipients] if isinstance(recipients, str) else list(recipients)
+    else:
+        recipient_list = list(config.recipients)
+
+    if not recipient_list:
+        raise ValueError("No recipients configured and no override provided")
+    return recipient_list
+
+
+def _validate_smtp_hosts(config: EmailConfig) -> None:
+    """Ensure at least one SMTP host is configured.
+
+    Args:
+        config: Email configuration to validate.
+
+    Raises:
+        ConfigurationError: When smtp_hosts is empty.
+    """
+    if not config.smtp_hosts:
+        raise ConfigurationError("No SMTP hosts configured (email.smtp_hosts is empty)")
+
+
 def send_email(
     *,
     config: EmailConfig,
@@ -205,20 +263,9 @@ def send_email(
         >>> result
         True
     """
-    sender = from_address if from_address is not None else config.from_address
-    if sender is None:
-        raise ValueError("No from_address configured and no override provided")
-
-    if not config.smtp_hosts:
-        raise ConfigurationError("No SMTP hosts configured (email.smtp_hosts is empty)")
-
-    if recipients is not None:
-        recipient_list = [recipients] if isinstance(recipients, str) else list(recipients)
-    else:
-        recipient_list = list(config.recipients)
-
-    if not recipient_list:
-        raise ValueError("No recipients configured and no override provided")
+    sender = _resolve_sender(config, from_address)
+    _validate_smtp_hosts(config)
+    recipient_list = _resolve_recipients(config, recipients)
 
     logger.info(
         "Sending email",
@@ -231,8 +278,6 @@ def send_email(
         },
     )
 
-    credentials = _build_credentials(config)
-
     try:
         result = btx_send(
             mail_from=sender,
@@ -242,7 +287,7 @@ def send_email(
             mail_body_html=body_html,
             smtphosts=config.smtp_hosts,
             attachment_file_paths=attachments,
-            credentials=credentials,
+            credentials=_build_credentials(config),
             use_starttls=config.use_starttls,
             timeout=config.timeout,
         )
@@ -251,10 +296,7 @@ def send_email(
 
     logger.info(
         "Email sent successfully",
-        extra={
-            "from": sender,
-            "recipients": recipient_list,
-        },
+        extra={"from": sender, "recipients": recipient_list},
     )
 
     return result

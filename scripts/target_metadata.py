@@ -107,8 +107,8 @@ def _build_targets() -> tuple[TargetSpec, ...]:
             ),
         ),
         TargetSpec(
-            "test-slow",
-            "Run slow integration tests (SMTP, external resources)",
+            "test-local",
+            "Run local-only tests (SMTP, script composition, external resources)",
             (
                 ParamSpec(
                     "TEST_VERBOSE",

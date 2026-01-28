@@ -82,7 +82,9 @@ def release(*, remote: str = _DEFAULT_REMOTE) -> None:
 
 
 def _ensure_clean() -> None:
-    if run(["bash", "-lc", "! git diff --quiet || ! git diff --cached --quiet"], check=False).code == 0:
+    unstaged = run(["git", "diff", "--quiet"], check=False, capture=True)
+    staged = run(["git", "diff", "--cached", "--quiet"], check=False, capture=True)
+    if unstaged.code != 0 or staged.code != 0:
         raise SystemExit("[release] Working tree not clean. Commit or stash changes first.")
 
 

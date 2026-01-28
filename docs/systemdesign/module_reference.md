@@ -34,6 +34,12 @@ Complete (v1.0.0)
   - commands/email.py (send-email, send-notification)
   - commands/logging.py (logdemo)
 
+### Adapters Layer (In-Memory / Testing)
+* src/bitranox_template_py_cli/adapters/memory/__init__.py (public facade + Protocol conformance assertions)
+* src/bitranox_template_py_cli/adapters/memory/config.py (in-memory config: get, deploy, display)
+* src/bitranox_template_py_cli/adapters/memory/email.py (in-memory email: send, notify, load config)
+* src/bitranox_template_py_cli/adapters/memory/logging.py (in-memory logging: no-op init)
+
 ### Composition Layer
 * src/bitranox_template_py_cli/composition/__init__.py
 
@@ -92,6 +98,7 @@ enforced by ``import-linter`` contracts.
 | ``adapters/email/sender.py`` | Adapters | SMTP email with EmailConfig (Pydantic BaseModel) |
 | ``adapters/logging/setup.py`` | Adapters | lib_log_rich initialization |
 | ``adapters/cli/`` | Adapters | Click CLI framework integration |
+| ``adapters/memory/`` | Adapters | In-memory implementations for testing (no I/O, no SMTP, no logging framework) |
 | ``composition/__init__.py`` | Composition | Wires adapters to ports |
 | ``__init__conf__.py`` | Entry Point | Package metadata constants |
 | ``__main__.py`` | Entry Point | Thin shim delegating to ``adapters.cli.main()`` |
@@ -255,6 +262,42 @@ Run ``lint-imports`` to verify compliance (automatically runs on ``make test``).
 * **Input:** None.
 * **Output:** Writes the hard-coded metadata block to ``stdout``.
 * **Location:** src/bitranox_template_py_cli/__init__conf__.py
+
+### In-Memory Adapters (Testing)
+
+The ``adapters/memory/`` package provides lightweight implementations of all
+application ports that operate entirely in memory.  They are distributed inside
+``src/`` (see [ADR 0001](../adr/0001-memory-adapters-in-src.md)) so both tests
+and library consumers can reuse them.
+
+**Modules:**
+
+| Module | Functions | Protocol Satisfied |
+|--------|-----------|-------------------|
+| ``memory/config.py`` | ``get_config_in_memory``, ``get_default_config_path_in_memory``, ``deploy_configuration_in_memory``, ``display_config_in_memory`` | ``GetConfig``, ``GetDefaultConfigPath``, ``DeployConfiguration``, ``DisplayConfig`` |
+| ``memory/email.py`` | ``send_email_in_memory``, ``send_notification_in_memory``, ``load_email_config_from_dict_in_memory`` | ``SendEmail``, ``SendNotification``, ``LoadEmailConfigFromDict`` |
+| ``memory/logging.py`` | ``init_logging_in_memory`` | ``InitLogging`` |
+
+**Protocol conformance** is verified at type-check time via ``TYPE_CHECKING``
+assertions in ``memory/__init__.py``.
+
+### composition.build_testing
+
+* **Purpose:** Wire in-memory adapters into an ``AppServices`` container for test isolation.
+* **Signature:** ``build_testing() -> AppServices``
+* **Output:** Frozen ``AppServices`` dataclass with all ports backed by no-op in-memory implementations.
+* **Location:** src/bitranox_template_py_cli/composition/__init__.py
+
+**Usage in tests:**
+
+```python
+from bitranox_template_py_cli.composition import build_testing
+
+services = build_testing()
+config = services.get_config()       # returns empty Config({}, {})
+services.send_email(...)             # returns True without SMTP
+services.init_logging(config)        # no-op
+```
 
 ### Package Exports
 

@@ -50,6 +50,14 @@ uv venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
 uv pip install bitranox_template_py_cli
 ```
 
+## Verify installation
+
+After any install method, confirm the CLI is available:
+
+```bash
+bitranox-template-py-cli --version
+```
+
 ---
 
 ## Installation via pip

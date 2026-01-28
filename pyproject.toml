@@ -39,6 +39,7 @@ Issues = "https://github.com/bitranox/bitranox_template_py_cli/issues"
 dev = [
   "pytest>=9.0.2",
   "pytest-cov>=7.0.0",
+  "hypothesis>=6.151.3",
   "ruff>=0.14.14",
   "pyright[nodejs]>=1.1.408",
   "bandit>=1.9.3",
@@ -51,12 +52,12 @@ dev = [
   "rtoml>=0.13.0",
   "httpx>=0.28.1",
   # Transitive CVE pins
-  "jaraco-context>=6.1.0",       # CVE-2026-23949
-  "python-multipart>=0.0.22",    # CVE-2026-24486
-  "wheel>=0.46.3",               # CVE-2026-24049
+  "jaraco-context>=6.1.0",       # CVE-2025-23949
+  "python-multipart>=0.0.22",    # CVE-2025-24486
+  "wheel>=0.46.3",               # CVE-2025-24049
   "pynacl>=1.6.2",               # CVE-2025-69277
-  "urllib3>=2.6.3",              # CVE-2026-21441
-  "virtualenv>=20.36.1",         # CVE-2026-22702
+  "urllib3>=2.6.3",              # CVE-2025-21441
+  "virtualenv>=20.36.1",         # CVE-2025-22702
 ]
 
 [project.scripts]
@@ -94,6 +95,12 @@ select = [
   "T20",         # print statements
   "PTH",         # pathlib preference
   "PLC", "PLE",  # pylint conventions/errors
+  "S",           # flake8-bandit security checks
+  "PERF",        # performance anti-patterns
+  "ERA",         # eradicate dead/commented-out code
+  "FBT",         # boolean trap (boolean positional args)
+  "PLR",         # pylint refactor
+  "PLW",         # pylint warnings
 ]
 ignore = [
   "RUF002",    # ambiguous unicode characters in docstrings (en-dash)
@@ -104,6 +111,10 @@ ignore = [
   "TC002",     # moving third-party imports into TYPE_CHECKING can break runtime
   "TC003",     # moving stdlib imports into TYPE_CHECKING can break runtime
   "TC006",     # quoting cast() type expressions -- existing code uses unquoted
+  "FBT001",    # boolean positional arg -- Click/CLI options use bool params by design
+  "FBT002",    # boolean default positional arg -- same Click/CLI pattern
+  "PLR0913",   # too many arguments -- some functions (subprocess wrapper, email) legitimately need them
+  "PLR2004",   # magic values in comparisons -- exit codes and test assertions are clearer inline
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -112,12 +123,20 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 # ignore the "unused import sys" in the jupyter notebook - which we need (it is a linter hickup)
 "notebooks/*.ipynb" = ["F401"]
-# scripts use print() for user interaction
-"scripts/*.py" = ["T20"]
-# menu.py: Textual framework uses mutable class attributes (BINDINGS) by design
-"scripts/menu.py" = ["T20", "RUF012"]
-# tests use print() for debugging, assertions with type-checking imports
-"tests/*.py" = ["T20"]
+# scripts use print() for user interaction; partial executable paths (git, gh) are intentional
+"scripts/*.py" = ["T20", "S603", "S607"]
+# menu.py: Textual framework uses mutable class attributes (BINDINGS) by design; assert for type narrowing
+"scripts/menu.py" = ["T20", "RUF012", "S101"]
+# dependencies.py: numbered section comments (# 1. …) are not dead code
+"scripts/dependencies.py" = ["T20", "S603", "S607", "ERA001"]
+# bump_version.py: .splitlines(True) is a stdlib API, not a boolean trap
+"scripts/bump_version.py" = ["T20", "S603", "S607", "FBT003"]
+# run_cli.py: try-except inside retry loop is intentional
+"scripts/run_cli.py" = ["T20", "S603", "S607", "PERF203"]
+# test.py orchestrator: large function justified by sequential test phases
+"scripts/test.py" = ["T20", "S603", "S607", "PLR0912", "PLR0915"]
+# tests: assert is the standard; test passwords are not real secrets; boolean args in test helpers
+"tests/*.py" = ["T20", "S101", "S105", "S106", "FBT003"]
 # __init__conf__.py uses print() in print_info()
 "src/bitranox_template_py_cli/__init__conf__.py" = ["T20"]
 
@@ -137,18 +156,17 @@ markers = [
   "os_macos: test exercises macOS-only behavior",
   "os_posix: test exercises behavior requiring POSIX semantics",
   "os_linux: test exercises Linux-only behavior",
-  "slow: slow integration tests requiring external resources (skipped in CI)",
+  "local_only: tests that require the local dev environment (external resources, script composition); skipped in CI",
 ]
 
 [tool.coverage.run]
 branch = true
 parallel = false
-# Fallback for bare ``coverage run`` invocations on Linux/macOS.
 # The primary redirect is the pytest_configure hook in tests/conftest.py
 # which sets COVERAGE_FILE to tempfile.gettempdir() before pytest-cov
 # creates its Coverage() object.  CI also sets COVERAGE_FILE via the
-# workflow env block.  This static path is a last-resort fallback.
-data_file = "/tmp/.coverage.bitranox_template_py_cli"
+# workflow env block.  No static data_file fallback is set here to
+# avoid a hard-coded Unix path that would fail on Windows.
 source = ["src/bitranox_template_py_cli"]
 
 [tool.coverage.report]

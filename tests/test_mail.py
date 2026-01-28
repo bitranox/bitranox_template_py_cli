@@ -25,46 +25,46 @@ from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryE
 
 
 @pytest.mark.os_agnostic
-def test_when_no_hosts_given_the_config_starts_empty() -> None:
-    """Without SMTP hosts, the list begins empty and waiting."""
+def test_email_config_default_smtp_hosts_is_empty_list() -> None:
+    """Default EmailConfig has an empty smtp_hosts list."""
     assert EmailConfig().smtp_hosts == []
 
 
 @pytest.mark.os_agnostic
-def test_when_no_sender_given_none_stands_in() -> None:
-    """Without a from address, None signals not configured."""
+def test_email_config_default_from_address_is_none() -> None:
+    """Default EmailConfig has from_address set to None."""
     assert EmailConfig().from_address is None
 
 
 @pytest.mark.os_agnostic
-def test_when_no_credentials_given_none_is_remembered() -> None:
-    """Without credentials, username and password stay absent."""
+def test_email_config_default_credentials_are_none() -> None:
+    """Default EmailConfig has username and password set to None."""
     config = EmailConfig()
     assert config.smtp_username is None
     assert config.smtp_password is None
 
 
 @pytest.mark.os_agnostic
-def test_when_security_unspecified_starttls_guards_the_gate() -> None:
-    """Without explicit security, STARTTLS protects by default."""
+def test_email_config_default_use_starttls_is_true() -> None:
+    """Default EmailConfig enables STARTTLS."""
     assert EmailConfig().use_starttls is True
 
 
 @pytest.mark.os_agnostic
-def test_when_patience_unset_thirty_seconds_is_the_wait() -> None:
-    """Without a timeout, thirty seconds patience is given."""
+def test_email_config_default_timeout_is_thirty_seconds() -> None:
+    """Default EmailConfig uses a 30-second timeout."""
     assert EmailConfig().timeout == 30.0
 
 
 @pytest.mark.os_agnostic
-def test_when_strictness_unspecified_missing_attachments_halt() -> None:
-    """Without relaxation, missing attachments raise alarms."""
+def test_email_config_default_raises_on_missing_attachments() -> None:
+    """Default EmailConfig raises on missing attachments."""
     assert EmailConfig().raise_on_missing_attachments is True
 
 
 @pytest.mark.os_agnostic
-def test_when_validation_unspecified_bad_recipients_fail() -> None:
-    """Without leniency, invalid recipients are rejected."""
+def test_email_config_default_raises_on_invalid_recipient() -> None:
+    """Default EmailConfig raises on invalid recipients."""
     assert EmailConfig().raise_on_invalid_recipient is True
 
 
@@ -239,22 +239,36 @@ def test_email_config_rejects_double_at_sign() -> None:
 
 
 @pytest.mark.os_agnostic
-def test_email_config_converts_to_conf_mail() -> None:
-    """to_conf_mail produces btx_lib_mail compatible configuration."""
-    config = EmailConfig(
-        smtp_hosts=["smtp.example.com:587"],
-        smtp_username="user",
-        smtp_password="pass",
-        timeout=45.0,
-    )
+def test_to_conf_mail_maps_smtp_hosts() -> None:
+    """to_conf_mail maps smtp_hosts to ConfMail.smtphosts."""
+    config = EmailConfig(smtp_hosts=["smtp.example.com:587"])
 
+    assert config.to_conf_mail().smtphosts == ["smtp.example.com:587"]
+
+
+@pytest.mark.os_agnostic
+def test_to_conf_mail_maps_credentials() -> None:
+    """to_conf_mail maps username and password to ConfMail fields."""
+    config = EmailConfig(smtp_username="user", smtp_password="pass")
     conf = config.to_conf_mail()
 
-    assert conf.smtphosts == ["smtp.example.com:587"]
     assert conf.smtp_username == "user"
     assert conf.smtp_password == "pass"
-    assert conf.smtp_timeout == 45.0
-    assert conf.smtp_use_starttls is True
+
+
+@pytest.mark.os_agnostic
+def test_to_conf_mail_maps_timeout() -> None:
+    """to_conf_mail maps timeout to ConfMail.smtp_timeout."""
+    config = EmailConfig(timeout=45.0)
+
+    assert config.to_conf_mail().smtp_timeout == 45.0
+
+
+@pytest.mark.os_agnostic
+def test_to_conf_mail_maps_starttls() -> None:
+    """to_conf_mail maps use_starttls to ConfMail.smtp_use_starttls."""
+    assert EmailConfig(use_starttls=True).to_conf_mail().smtp_use_starttls is True
+    assert EmailConfig(use_starttls=False).to_conf_mail().smtp_use_starttls is False
 
 
 # ======================== load_email_config_from_dict ========================
@@ -730,12 +744,40 @@ def test_send_email_raises_when_all_smtp_hosts_fail() -> None:
             )
 
 
+@pytest.mark.os_agnostic
+def test_send_email_falls_back_to_second_host_when_first_fails() -> None:
+    """When the first SMTP host fails, email is sent via the second host."""
+    config = EmailConfig(
+        smtp_hosts=["smtp1.test.com:587", "smtp2.test.com:587"],
+        from_address="sender@test.com",
+    )
+
+    success_mock = MagicMock()
+    success_mock.__enter__ = MagicMock(return_value=success_mock)
+    success_mock.__exit__ = MagicMock(return_value=False)
+
+    side_effects: list[MagicMock | ConnectionError] = [
+        ConnectionError("First host down"),
+        success_mock,
+    ]
+
+    with patch("smtplib.SMTP", side_effect=side_effects) as mock_smtp:
+        send_email(
+            config=config,
+            recipients="recipient@test.com",
+            subject="Fallback Test",
+            body="Should arrive via second host",
+        )
+
+    assert mock_smtp.call_count == 2, "SMTP should have been attempted twice (first fail, second succeed)"
+
+
 # ======================== EmailConfig Recipients Defaults ========================
 
 
 @pytest.mark.os_agnostic
-def test_when_no_recipients_given_the_list_starts_empty() -> None:
-    """Without recipients, the list begins empty and waiting."""
+def test_email_config_default_recipients_is_empty_list() -> None:
+    """Default EmailConfig has an empty recipients list."""
     assert EmailConfig().recipients == []
 
 
@@ -938,7 +980,7 @@ def smtp_config_from_env() -> EmailConfig:
     return email_config
 
 
-@pytest.mark.slow
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_real_smtp_sends_email(smtp_config_from_env: EmailConfig) -> None:
     """Integration: send real email via configured SMTP server."""
@@ -955,7 +997,7 @@ def test_real_smtp_sends_email(smtp_config_from_env: EmailConfig) -> None:
     assert result is True
 
 
-@pytest.mark.slow
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_real_smtp_sends_html_email(smtp_config_from_env: EmailConfig) -> None:
     """Integration: send HTML email via configured SMTP server."""
@@ -970,7 +1012,7 @@ def test_real_smtp_sends_html_email(smtp_config_from_env: EmailConfig) -> None:
     assert result is True
 
 
-@pytest.mark.slow
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_real_smtp_sends_notification(smtp_config_from_env: EmailConfig) -> None:
     """Integration: send notification via configured SMTP server."""

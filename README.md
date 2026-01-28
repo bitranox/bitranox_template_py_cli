@@ -71,6 +71,21 @@ For alternative install paths (pip, pipx, source builds, etc.), see
   alongside the latest available 3.x release provided by Actions.
 
 
+## Quick Start
+
+```bash
+# Install
+uv tool install bitranox_template_py_cli
+
+# Verify
+bitranox-template-py-cli --version
+
+# Try it out
+bitranox-template-py-cli hello
+bitranox-template-py-cli info
+bitranox-template-py-cli config
+```
+
 ## Usage
 
 The CLI leverages [rich-click](https://github.com/ewels/rich-click) so help output, validation errors, and prompts render with Rich styling while keeping the familiar click ergonomics.

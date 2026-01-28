@@ -172,16 +172,20 @@ def test_display_config_raises_for_nonexistent_section_json(
 
 
 @pytest.mark.os_agnostic
-def test_format_source_line_returns_layer_and_path() -> None:
+def test_format_source_line_returns_layer_and_path(
+    source_info_factory: Callable[..., SourceInfo],
+) -> None:
     """Source comment must include both layer name and file path when path is available."""
-    info: SourceInfo = {"layer": "dotenv", "path": "/app/.env", "key": "email.smtp_hosts"}
+    info = source_info_factory("email.smtp_hosts", "dotenv", "/app/.env")
     assert _format_source_line(info) == "  # source: dotenv (/app/.env)"
 
 
 @pytest.mark.os_agnostic
-def test_format_source_line_returns_layer_only_when_path_is_none() -> None:
+def test_format_source_line_returns_layer_only_when_path_is_none(
+    source_info_factory: Callable[..., SourceInfo],
+) -> None:
     """Source comment must omit parenthesized path when path is None (e.g. env vars)."""
-    info: SourceInfo = {"layer": "env", "path": None, "key": "app.debug"}
+    info = source_info_factory("app.debug", "env")
     assert _format_source_line(info) == "  # source: env"
 
 
@@ -193,10 +197,12 @@ def test_format_source_line_returns_none_for_unknown_key_via_config() -> None:
 
 
 @pytest.mark.os_agnostic
-def test_format_source_line_defaults_layer() -> None:
+def test_format_source_line_defaults_layer(
+    source_info_factory: Callable[..., SourceInfo],
+) -> None:
     """Source comment for the defaults layer must include the config file path."""
     path = "/src/pkg/adapters/config/defaultconfig.toml"
-    info: SourceInfo = {"layer": "defaults", "path": path, "key": "lib_log_rich.service"}
+    info = source_info_factory("lib_log_rich.service", "defaults", path)
     assert _format_source_line(info) == f"  # source: defaults ({path})"
 
 
@@ -204,12 +210,15 @@ def test_format_source_line_defaults_layer() -> None:
 
 
 @pytest.mark.os_agnostic
-def test_print_section_includes_source_comments(capsys: pytest.CaptureFixture[str]) -> None:
+def test_print_section_includes_source_comments(
+    capsys: pytest.CaptureFixture[str],
+    source_info_factory: Callable[..., SourceInfo],
+) -> None:
     """When a Config with metadata is provided, each leaf must be preceded by a source comment."""
     data: dict[str, Any] = {"smtp_hosts": "mail.example.com:25", "from_address": "cli@local"}
     metadata: dict[str, SourceInfo] = {
-        "email.smtp_hosts": {"layer": "dotenv", "path": "/app/.env", "key": "email.smtp_hosts"},
-        "email.from_address": {"layer": "user", "path": "/home/user/config.toml", "key": "email.from_address"},
+        "email.smtp_hosts": source_info_factory("email.smtp_hosts", "dotenv", "/app/.env"),
+        "email.from_address": source_info_factory("email.from_address", "user", "/home/user/config.toml"),
     }
     config = Config({"email": data}, metadata)
     _print_section("email", data, config)
@@ -239,10 +248,13 @@ def test_print_section_omits_source_when_no_config(capsys: pytest.CaptureFixture
 
 
 @pytest.mark.os_agnostic
-def test_print_section_omits_source_for_keys_without_metadata(capsys: pytest.CaptureFixture[str]) -> None:
+def test_print_section_omits_source_for_keys_without_metadata(
+    capsys: pytest.CaptureFixture[str],
+    source_info_factory: Callable[..., SourceInfo],
+) -> None:
     """Keys with no provenance metadata must not get source comments."""
     data: dict[str, Any] = {"known": "val1", "unknown": "val2"}
-    metadata: dict[str, SourceInfo] = {"sec.known": {"layer": "defaults", "path": "/defaults.toml", "key": "sec.known"}}
+    metadata: dict[str, SourceInfo] = {"sec.known": source_info_factory("sec.known", "defaults", "/defaults.toml")}
     config = Config({"sec": data}, metadata)
     _print_section("sec", data, config)
     output = capsys.readouterr().out
@@ -287,10 +299,13 @@ def test_display_human_renders_scalars_as_key_value(capsys: pytest.CaptureFixtur
 
 
 @pytest.mark.os_agnostic
-def test_display_human_renders_scalar_provenance(capsys: pytest.CaptureFixture[str]) -> None:
+def test_display_human_renders_scalar_provenance(
+    capsys: pytest.CaptureFixture[str],
+    source_info_factory: Callable[..., SourceInfo],
+) -> None:
     """Top-level scalars must show source provenance comment when metadata exists."""
     metadata: dict[str, SourceInfo] = {
-        "codecov_token": {"layer": "dotenv", "path": "/app/.env", "key": "codecov_token"}
+        "codecov_token": source_info_factory("codecov_token", "dotenv", "/app/.env"),
     }
     config = Config({"codecov_token": "***REDACTED***"}, metadata)
     display_config(config, format=OutputFormat.HUMAN)
@@ -314,9 +329,12 @@ def test_display_human_scalars_before_sections(capsys: pytest.CaptureFixture[str
 
 
 @pytest.mark.os_agnostic
-def test_display_human_single_scalar_section(capsys: pytest.CaptureFixture[str]) -> None:
+def test_display_human_single_scalar_section(
+    capsys: pytest.CaptureFixture[str],
+    source_info_factory: Callable[..., SourceInfo],
+) -> None:
     """Requesting a scalar key by name must render key=value, not a section header."""
-    metadata: dict[str, SourceInfo] = {"app_name": {"layer": "env", "path": None, "key": "app_name"}}
+    metadata: dict[str, SourceInfo] = {"app_name": source_info_factory("app_name", "env")}
     config = Config({"app_name": "myapp"}, metadata)
     display_config(config, format=OutputFormat.HUMAN, section="app_name")
     output = capsys.readouterr().out
@@ -333,3 +351,60 @@ def test_display_human_single_scalar_section(capsys: pytest.CaptureFixture[str])
 def test_format_raw_value_quotes_string_consistently() -> None:
     """All string values must be double-quoted regardless of content."""
     assert _format_raw_value("smtp.test") == '"smtp.test"'
+
+
+# ======================== Edge cases ========================
+
+
+@pytest.mark.os_agnostic
+def test_display_human_empty_section_raises() -> None:
+    """Requesting a non-existent section raises ValueError."""
+    config = Config({"other": {"key": "val"}}, {})
+
+    with pytest.raises(ValueError, match="not found or empty"):
+        display_config(config, format=OutputFormat.HUMAN, section="nonexistent")
+
+
+@pytest.mark.os_agnostic
+def test_display_json_empty_section_raises() -> None:
+    """JSON format with non-existent section raises ValueError."""
+    config = Config({"other": {"key": "val"}}, {})
+
+    with pytest.raises(ValueError, match="not found or empty"):
+        display_config(config, format=OutputFormat.JSON, section="nonexistent")
+
+
+@pytest.mark.os_agnostic
+def test_format_raw_value_empty_string() -> None:
+    """Empty string is rendered as empty quoted string."""
+    assert _format_raw_value("") == '""'
+
+
+@pytest.mark.os_agnostic
+def test_format_raw_value_none() -> None:
+    """None value is rendered as string representation."""
+    assert _format_raw_value(None) == "None"
+
+
+@pytest.mark.os_agnostic
+def test_format_raw_value_boolean_true() -> None:
+    """Boolean True is rendered without quotes."""
+    assert _format_raw_value(True) == "True"
+
+
+@pytest.mark.os_agnostic
+def test_format_raw_value_unicode_string() -> None:
+    """Unicode string is properly quoted."""
+    assert _format_raw_value("日本語") == '"日本語"'
+
+
+@pytest.mark.os_agnostic
+def test_display_human_deeply_nested_section(capsys: pytest.CaptureFixture[str]) -> None:
+    """Deeply nested dicts render as dotted TOML sub-sections."""
+    config = Config({"top": {"mid": {"deep": "value"}}}, {})
+
+    display_config(config, format=OutputFormat.HUMAN)
+
+    output = capsys.readouterr().out
+    assert "[top.mid]" in output
+    assert "deep" in output

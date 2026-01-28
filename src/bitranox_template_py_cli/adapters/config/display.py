@@ -15,7 +15,7 @@ System Role:
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import cast
 
 import orjson
 import rich_click as click
@@ -29,10 +29,10 @@ from bitranox_template_py_cli.domain.enums import OutputFormat
 _REDACTED = "***REDACTED***"
 _SECTION_INDENT = "    "
 _TOPLEVEL_INDENT = ""
-_console = Console(highlight=False)
+_DEFAULT_CONSOLE = Console(highlight=False)
 
 
-def _format_raw_value(value: Any) -> str:
+def _format_raw_value(value: object) -> str:
     """Format a config value without key prefix.
 
     Args:
@@ -48,7 +48,7 @@ def _format_raw_value(value: Any) -> str:
     return f"{value}"
 
 
-def _styled_entry(key: str, value: Any, *, indent: str = "  ") -> Text:
+def _styled_entry(key: str, value: object, *, indent: str = "  ") -> Text:
     """Build a Rich Text object for a styled config key-value line.
 
     Args:
@@ -92,8 +92,10 @@ def _format_source_line(info: SourceInfo, indent: str = "  ") -> str:
 
 def _print_section(
     section_name: str,
-    data: dict[str, Any],
+    data: dict[str, object],
     config: Config | None = None,
+    *,
+    console: Console | None = None,
 ) -> None:
     """Print a configuration section, recursing into nested dicts as TOML sub-sections.
 
@@ -103,21 +105,23 @@ def _print_section(
         data: Key-value pairs for this section.
         config: Optional Config object for provenance comments. When provided,
             each leaf value is preceded by a ``# source:`` comment line.
+        console: Optional Rich Console for output. Uses module default when None.
     """
+    con = console or _DEFAULT_CONSOLE
     header = Text(f"\n[{section_name}]")
     header.stylize("bold cyan")
-    _console.print(header)
+    con.print(header)
     for key, value in data.items():
         if isinstance(value, dict):
-            _print_section(f"{section_name}.{key}", cast(dict[str, Any], value), config)
+            _print_section(f"{section_name}.{key}", cast("dict[str, object]", value), config, console=con)
         else:
             if config is not None:
                 dotted_key = f"{section_name}.{key}"
                 info = config.origin(dotted_key)
                 if info is not None:
-                    _console.print(_format_source_line(info, _SECTION_INDENT), style="yellow")
-            _console.print(_styled_entry(key, value, indent=_SECTION_INDENT))
-            _console.print()
+                    con.print(_format_source_line(info, _SECTION_INDENT), style="yellow")
+            con.print(_styled_entry(key, value, indent=_SECTION_INDENT))
+            con.print()
 
 
 def display_config(
@@ -125,6 +129,7 @@ def display_config(
     *,
     format: OutputFormat = OutputFormat.HUMAN,
     section: str | None = None,
+    console: Console | None = None,
 ) -> None:
     """Display the provided configuration in the requested format.
 
@@ -139,6 +144,8 @@ def display_config(
             OutputFormat.JSON for JSON. Defaults to OutputFormat.HUMAN.
         section: Optional section name to display only that section. When None,
             displays all configuration.
+        console: Optional Rich Console for output. When None, uses the module-level
+            default. Primarily useful for testing.
 
     Side Effects:
         Writes formatted configuration to stdout via click.echo().
@@ -172,7 +179,7 @@ def display_config(
     if format == OutputFormat.JSON:
         _display_json(config, section)
     else:
-        _display_human(config, section)
+        _display_human(config, section, console=console)
 
 
 def _display_json(config: Config, section: str | None) -> None:
@@ -187,8 +194,9 @@ def _display_json(config: Config, section: str | None) -> None:
         click.echo(config.to_json(indent=2, redact=True))
 
 
-def _display_human(config: Config, section: str | None) -> None:
+def _display_human(config: Config, section: str | None, *, console: Console | None = None) -> None:
     """Render configuration as human-readable TOML-like output to stdout."""
+    con = console or _DEFAULT_CONSOLE
     if section:
         section_data = config.get(section, default={})
         if not section_data:
@@ -196,25 +204,25 @@ def _display_human(config: Config, section: str | None) -> None:
         redacted_section = redact_mapping({section: section_data})
         redacted_value = redacted_section[section]
         if isinstance(redacted_value, dict):
-            _print_section(section, cast(dict[str, Any], redacted_value), config)
+            _print_section(section, cast("dict[str, object]", redacted_value), config, console=con)
         else:
             info = config.origin(section)
             if info is not None:
-                _console.print(_format_source_line(info, _TOPLEVEL_INDENT), style="yellow")
-            _console.print(_styled_entry(section, redacted_value, indent=_TOPLEVEL_INDENT))
-            _console.print()
+                con.print(_format_source_line(info, _TOPLEVEL_INDENT), style="yellow")
+            con.print(_styled_entry(section, redacted_value, indent=_TOPLEVEL_INDENT))
+            con.print()
     else:
-        data: dict[str, Any] = config.as_dict(redact=True)
+        data: dict[str, object] = config.as_dict(redact=True)
         for key, value in data.items():
             if not isinstance(value, dict):
                 info = config.origin(key)
                 if info is not None:
-                    _console.print(_format_source_line(info, _TOPLEVEL_INDENT), style="yellow")
-                _console.print(_styled_entry(key, value, indent=_TOPLEVEL_INDENT))
-                _console.print()
+                    con.print(_format_source_line(info, _TOPLEVEL_INDENT), style="yellow")
+                con.print(_styled_entry(key, value, indent=_TOPLEVEL_INDENT))
+                con.print()
         for name, value in data.items():
             if isinstance(value, dict):
-                _print_section(name, cast(dict[str, Any], value), config)
+                _print_section(name, cast("dict[str, object]", value), config, console=con)
 
 
 __all__ = [

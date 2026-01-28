@@ -39,6 +39,16 @@ def validate_profile(profile: str) -> None:
     Raises:
         ValueError: If the profile name contains characters other than
             alphanumeric, hyphens, and underscores.
+
+    Examples:
+        >>> validate_profile("production")  # valid, no exception
+
+        >>> validate_profile("staging-v2")  # hyphens allowed
+
+        >>> validate_profile("../etc/passwd")
+        Traceback (most recent call last):
+        ...
+        ValueError: Invalid profile name '../etc/passwd': must contain only alphanumeric ...hyphens, and underscores
     """
     if not _PROFILE_PATTERN.match(profile):
         raise ValueError(

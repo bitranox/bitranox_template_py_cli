@@ -62,8 +62,8 @@ def _record_print_message(target: list[PrintedTraceback]) -> Callable[..., None]
 
 
 @pytest.mark.os_agnostic
-def test_when_module_entry_returns_zero_the_story_matches_cli(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify python -m invocation delegates to CLI with correct args."""
+def test_module_entry_delegates_to_cli_with_correct_args(monkeypatch: pytest.MonkeyPatch) -> None:
+    """python -m invocation delegates to CLI with correct prog_name."""
     ledger: dict[str, object] = {}
 
     monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli"], raising=False)
@@ -92,8 +92,8 @@ def test_when_module_entry_returns_zero_the_story_matches_cli(monkeypatch: pytes
 
 
 @pytest.mark.os_agnostic
-def test_when_module_entry_raises_the_exit_helpers_format_the_song(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verify exceptions are formatted by lib_cli_exit_tools helpers."""
+def test_module_entry_formats_exceptions_via_exit_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exceptions during module entry are formatted by lib_cli_exit_tools."""
     printed: list[PrintedTraceback] = []
     codes: list[str] = []
     monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli"], raising=False)
@@ -127,12 +127,12 @@ def test_when_module_entry_raises_the_exit_helpers_format_the_song(monkeypatch: 
 
 
 @pytest.mark.os_agnostic
-def test_when_traceback_flag_is_used_via_module_entry_the_full_poem_is_printed(
+def test_module_entry_traceback_flag_prints_full_traceback(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     strip_ansi: Callable[[str], str],
 ) -> None:
-    """Verify --traceback via module entry prints full traceback on error."""
+    """--traceback via module entry prints complete traceback on error."""
     monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "--traceback", "fail"])
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
@@ -151,8 +151,8 @@ def test_when_traceback_flag_is_used_via_module_entry_the_full_poem_is_printed(
 
 
 @pytest.mark.os_agnostic
-def test_when_module_entry_imports_cli_all_commands_are_exported() -> None:
-    """Verify the CLI facade exports all registered commands."""
+def test_module_entry_cli_exports_all_registered_commands() -> None:
+    """CLI facade exports all registered commands."""
     expected_commands = {
         "cli_config",
         "cli_config_deploy",
