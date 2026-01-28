@@ -1,10 +1,7 @@
-"""Port behavioral contract tests — verify adapter implementations.
+"""Port behavioral contract tests — verify in-memory adapter implementations.
 
-Parametrized tests exercise both production and in-memory adapters against
-the same expectations, verifying they fulfill their port contracts.
-
-Static type conformance is enforced by pyright at type-check time via
-protocol assignments in the codebase, making runtime conformance tests redundant.
+Tests exercise in-memory adapters only - production adapters are tested
+via CLI integration tests. Static type conformance is enforced by pyright.
 """
 
 from __future__ import annotations
@@ -15,14 +12,7 @@ from typing import TYPE_CHECKING
 import pytest
 from lib_layered_config import Config
 
-from bitranox_template_py_cli.adapters.config.loader import get_config, get_default_config_path
-from bitranox_template_py_cli.adapters.email.sender import (
-    EmailConfig,
-    load_email_config_from_dict,
-    send_email,
-    send_notification,
-)
-from bitranox_template_py_cli.adapters.logging.setup import init_logging
+from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 from bitranox_template_py_cli.adapters.memory import (
     EmailSpy,
     get_config_in_memory,
@@ -42,56 +32,44 @@ if TYPE_CHECKING:
     )
 
 
-# ======================== Behavioral Contract Tests ========================
+# ======================== In-Memory Adapter Contract Tests ========================
 
 
-@pytest.fixture(params=["production", "in_memory"], ids=["production", "in_memory"])
-def get_config_impl(request: pytest.FixtureRequest, clear_config_cache: None) -> GetConfig:
-    """Provide both production and in-memory GetConfig implementations."""
-    if request.param == "production":
-        return get_config
+@pytest.fixture
+def get_config_impl() -> GetConfig:
+    """Provide in-memory GetConfig implementation."""
     return get_config_in_memory
 
 
-@pytest.fixture(params=["production", "in_memory"], ids=["production", "in_memory"])
-def get_default_config_path_impl(request: pytest.FixtureRequest) -> GetDefaultConfigPath:
-    """Provide both production and in-memory GetDefaultConfigPath implementations."""
-    if request.param == "production":
-        return get_default_config_path
+@pytest.fixture
+def get_default_config_path_impl() -> GetDefaultConfigPath:
+    """Provide in-memory GetDefaultConfigPath implementation."""
     return get_default_config_path_in_memory
 
 
-@pytest.fixture(params=["production", "in_memory"], ids=["production", "in_memory"])
-def send_email_impl(request: pytest.FixtureRequest) -> SendEmail:
-    """Provide both production and in-memory SendEmail implementations."""
-    if request.param == "production":
-        return send_email
+@pytest.fixture
+def send_email_impl() -> SendEmail:
+    """Provide in-memory SendEmail implementation."""
     spy = EmailSpy()
     return spy.send_email
 
 
-@pytest.fixture(params=["production", "in_memory"], ids=["production", "in_memory"])
-def send_notification_impl(request: pytest.FixtureRequest) -> SendNotification:
-    """Provide both production and in-memory SendNotification implementations."""
-    if request.param == "production":
-        return send_notification
+@pytest.fixture
+def send_notification_impl() -> SendNotification:
+    """Provide in-memory SendNotification implementation."""
     spy = EmailSpy()
     return spy.send_notification
 
 
-@pytest.fixture(params=["production", "in_memory"], ids=["production", "in_memory"])
-def load_email_config_impl(request: pytest.FixtureRequest) -> LoadEmailConfigFromDict:
-    """Provide both production and in-memory LoadEmailConfigFromDict implementations."""
-    if request.param == "production":
-        return load_email_config_from_dict
+@pytest.fixture
+def load_email_config_impl() -> LoadEmailConfigFromDict:
+    """Provide in-memory LoadEmailConfigFromDict implementation."""
     return load_email_config_from_dict_in_memory
 
 
-@pytest.fixture(params=["production", "in_memory"], ids=["production", "in_memory"])
-def init_logging_impl(request: pytest.FixtureRequest) -> InitLogging:
-    """Provide both production and in-memory InitLogging implementations."""
-    if request.param == "production":
-        return init_logging
+@pytest.fixture
+def init_logging_impl() -> InitLogging:
+    """Provide in-memory InitLogging implementation."""
     return init_logging_in_memory
 
 
@@ -114,32 +92,26 @@ def test_get_default_config_path_returns_toml_path(get_default_config_path_impl:
 @pytest.mark.os_agnostic
 def test_send_email_returns_bool_with_valid_config(send_email_impl: SendEmail) -> None:
     """SendEmail must return a bool when called with a valid EmailConfig."""
-    from unittest.mock import patch
-
     config = EmailConfig(smtp_hosts=["smtp.test.com:587"], from_address="a@b.com")
-    with patch("smtplib.SMTP"):
-        result = send_email_impl(
-            config=config,
-            recipients=["test@example.com"],
-            subject="Contract test",
-            body="Hello",
-        )
+    result = send_email_impl(
+        config=config,
+        recipients=["test@example.com"],
+        subject="Contract test",
+        body="Hello",
+    )
     assert isinstance(result, bool)
 
 
 @pytest.mark.os_agnostic
 def test_send_notification_returns_bool_with_valid_config(send_notification_impl: SendNotification) -> None:
     """SendNotification must return a bool when called with a valid EmailConfig."""
-    from unittest.mock import patch
-
     config = EmailConfig(smtp_hosts=["smtp.test.com:587"], from_address="a@b.com")
-    with patch("smtplib.SMTP"):
-        result = send_notification_impl(
-            config=config,
-            recipients=["test@example.com"],
-            subject="Contract test",
-            message="Hello",
-        )
+    result = send_notification_impl(
+        config=config,
+        recipients=["test@example.com"],
+        subject="Contract test",
+        message="Hello",
+    )
     assert isinstance(result, bool)
 
 
