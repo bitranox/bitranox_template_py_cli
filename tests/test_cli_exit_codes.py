@@ -17,9 +17,14 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.os_agnostic
-def test_when_config_section_is_invalid_it_exits_with_code_22(cli_runner: CliRunner) -> None:
+def test_when_config_section_is_invalid_it_exits_with_code_22(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """Config --section with nonexistent section must exit with INVALID_ARGUMENT (22)."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--section", "nonexistent_section_that_does_not_exist"])
+    result: Result = cli_runner.invoke(
+        cli_mod.cli, ["config", "--section", "nonexistent_section_that_does_not_exist"], obj=production_factory
+    )
 
     assert result.exit_code == 22
     assert "not found" in result.stderr
@@ -28,16 +33,16 @@ def test_when_config_section_is_invalid_it_exits_with_code_22(cli_runner: CliRun
 @pytest.mark.os_agnostic
 def test_when_config_deploy_has_permission_error_it_exits_with_code_13(
     cli_runner: CliRunner,
-    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], Callable[[], Any]],
 ) -> None:
     """Config-deploy PermissionError must exit with PERMISSION_DENIED (13)."""
 
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Any]:
         raise PermissionError("Permission denied")
 
-    inject_deploy_configuration(mock_deploy)
+    factory = inject_deploy_configuration(mock_deploy)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "app"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "app"], obj=factory)
 
     assert result.exit_code == 13
     assert "Permission denied" in result.stderr
@@ -46,16 +51,16 @@ def test_when_config_deploy_has_permission_error_it_exits_with_code_13(
 @pytest.mark.os_agnostic
 def test_when_config_deploy_has_generic_error_it_exits_with_code_1(
     cli_runner: CliRunner,
-    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], Callable[[], Any]],
 ) -> None:
     """Config-deploy generic Exception must exit with GENERAL_ERROR (1)."""
 
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Any]:
         raise OSError("Disk full")
 
-    inject_deploy_configuration(mock_deploy)
+    factory = inject_deploy_configuration(mock_deploy)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=factory)
 
     assert result.exit_code == 1
     assert "Disk full" in result.stderr
@@ -65,14 +70,15 @@ def test_when_config_deploy_has_generic_error_it_exits_with_code_1(
 def test_when_email_has_no_smtp_hosts_it_exits_with_code_78(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Send-email with no SMTP hosts configured must exit with CONFIG_ERROR (78)."""
-    inject_config(config_factory({"email": {}}))
+    factory = inject_config(config_factory({"email": {}}))
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
+        obj=factory,
     )
 
     assert result.exit_code == 78
@@ -83,12 +89,12 @@ def test_when_email_has_no_smtp_hosts_it_exits_with_code_78(
 def test_when_email_smtp_fails_it_exits_with_code_69(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """Send-email failure must exit with SMTP_FAILURE (69)."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -98,12 +104,13 @@ def test_when_email_smtp_fails_it_exits_with_code_69(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
     email_spy.should_fail = True
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
+        obj=factory,
     )
 
     assert result.exit_code == 69
@@ -114,12 +121,12 @@ def test_when_email_smtp_fails_it_exits_with_code_69(
 def test_when_email_send_returns_false_it_exits_with_code_69(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """Send-email returning False must exit with SMTP_FAILURE (69)."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -129,12 +136,13 @@ def test_when_email_send_returns_false_it_exits_with_code_69(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
     email_spy.should_fail = True
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
+        obj=factory,
     )
 
     assert result.exit_code == 69
@@ -145,12 +153,12 @@ def test_when_email_send_returns_false_it_exits_with_code_69(
 def test_when_email_has_unexpected_error_it_exits_with_code_1(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """Send-email unexpected Exception must exit with GENERAL_ERROR (1)."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -160,12 +168,13 @@ def test_when_email_has_unexpected_error_it_exits_with_code_1(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
     email_spy.raise_exception = TypeError("unexpected type error")
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["send-email", "--to", "a@b.com", "--subject", "x", "--body", "y"],
+        obj=factory,
     )
 
     assert result.exit_code == 1

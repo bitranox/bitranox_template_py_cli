@@ -21,12 +21,12 @@ if TYPE_CHECKING:
 def test_when_send_email_is_invoked_without_smtp_hosts_it_fails(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
 ) -> None:
     """When SMTP hosts are not configured, send-email should exit with CONFIG_ERROR (78)."""
-    inject_config(config_factory({"email": {}}))
-    inject_email_services()
+    base_factory = inject_config(config_factory({"email": {}}))
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -39,6 +39,7 @@ def test_when_send_email_is_invoked_without_smtp_hosts_it_fails(
             "--body",
             "Hello",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 78
@@ -49,12 +50,12 @@ def test_when_send_email_is_invoked_without_smtp_hosts_it_fails(
 def test_when_send_email_is_invoked_with_valid_config_it_sends(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When SMTP is configured, send-email should successfully send."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -64,7 +65,7 @@ def test_when_send_email_is_invoked_with_valid_config_it_sends(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -77,6 +78,7 @@ def test_when_send_email_is_invoked_with_valid_config_it_sends(
             "--body",
             "Test body",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -90,12 +92,12 @@ def test_when_send_email_is_invoked_with_valid_config_it_sends(
 def test_when_send_email_receives_multiple_recipients_it_accepts_them(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When multiple --to flags are provided, send-email should accept them."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -105,7 +107,7 @@ def test_when_send_email_receives_multiple_recipients_it_accepts_them(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -120,6 +122,7 @@ def test_when_send_email_receives_multiple_recipients_it_accepts_them(
             "--body",
             "Hello",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -130,12 +133,12 @@ def test_when_send_email_receives_multiple_recipients_it_accepts_them(
 def test_when_send_email_includes_html_body_it_sends(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When HTML body is provided, send-email should include it."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -145,7 +148,7 @@ def test_when_send_email_includes_html_body_it_sends(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -160,6 +163,7 @@ def test_when_send_email_includes_html_body_it_sends(
             "--body-html",
             "<h1>HTML</h1>",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -171,8 +175,8 @@ def test_when_send_email_has_attachments_it_sends(
     cli_runner: CliRunner,
     tmp_path: Any,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When attachments are provided, send-email should include them."""
@@ -181,7 +185,7 @@ def test_when_send_email_has_attachments_it_sends(
     attachment = tmp_path / "test.txt"
     attachment.write_text("Test content")
 
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -191,7 +195,7 @@ def test_when_send_email_has_attachments_it_sends(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -206,6 +210,7 @@ def test_when_send_email_has_attachments_it_sends(
             "--attachment",
             str(attachment),
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -216,12 +221,12 @@ def test_when_send_email_has_attachments_it_sends(
 def test_when_send_email_smtp_fails_it_reports_error(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When SMTP returns failure, send-email should show SMTP_FAILURE (69) error."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -231,7 +236,7 @@ def test_when_send_email_smtp_fails_it_reports_error(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
     email_spy.should_fail = True
 
     result: Result = cli_runner.invoke(
@@ -245,6 +250,7 @@ def test_when_send_email_smtp_fails_it_reports_error(
             "--body",
             "Hello",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 69
@@ -255,12 +261,12 @@ def test_when_send_email_smtp_fails_it_reports_error(
 def test_when_send_notification_is_invoked_without_smtp_hosts_it_fails(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
 ) -> None:
     """When SMTP hosts are not configured, send-notification should exit with CONFIG_ERROR (78)."""
-    inject_config(config_factory({"email": {}}))
-    inject_email_services()
+    base_factory = inject_config(config_factory({"email": {}}))
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -273,6 +279,7 @@ def test_when_send_notification_is_invoked_without_smtp_hosts_it_fails(
             "--message",
             "System notification",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 78
@@ -283,12 +290,12 @@ def test_when_send_notification_is_invoked_without_smtp_hosts_it_fails(
 def test_when_send_notification_is_invoked_with_valid_config_it_sends(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When SMTP is configured, send-notification should successfully send."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -298,7 +305,7 @@ def test_when_send_notification_is_invoked_with_valid_config_it_sends(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -311,6 +318,7 @@ def test_when_send_notification_is_invoked_with_valid_config_it_sends(
             "--message",
             "System notification",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -324,12 +332,12 @@ def test_when_send_notification_is_invoked_with_valid_config_it_sends(
 def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When multiple --to flags are provided, send-notification should accept them."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -339,7 +347,7 @@ def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -354,6 +362,7 @@ def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
             "--message",
             "System notification",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -364,12 +373,12 @@ def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
 def test_when_send_notification_smtp_fails_it_reports_error(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When SMTP returns failure, send-notification should show SMTP_FAILURE (69) error."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -379,7 +388,7 @@ def test_when_send_notification_smtp_fails_it_reports_error(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
     email_spy.should_fail = True
 
     result: Result = cli_runner.invoke(
@@ -393,6 +402,7 @@ def test_when_send_notification_smtp_fails_it_reports_error(
             "--message",
             "System notification",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 69
@@ -406,12 +416,12 @@ def test_when_send_notification_smtp_fails_it_reports_error(
 def test_when_send_email_receives_smtp_host_override_it_uses_it(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When --smtp-host is provided, send-email should use the override instead of config value."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -421,7 +431,7 @@ def test_when_send_email_receives_smtp_host_override_it_uses_it(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -436,6 +446,7 @@ def test_when_send_email_receives_smtp_host_override_it_uses_it(
             "--smtp-host",
             "smtp.override.com:465",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -446,12 +457,12 @@ def test_when_send_email_receives_smtp_host_override_it_uses_it(
 def test_when_send_email_receives_timeout_override_it_uses_it(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When --timeout is provided, send-email should use the overridden timeout."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -461,7 +472,7 @@ def test_when_send_email_receives_timeout_override_it_uses_it(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -476,6 +487,7 @@ def test_when_send_email_receives_timeout_override_it_uses_it(
             "--timeout",
             "60",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -486,12 +498,12 @@ def test_when_send_email_receives_timeout_override_it_uses_it(
 def test_when_send_email_receives_no_use_starttls_override_it_applies_it(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When --no-use-starttls is provided, send-email should disable starttls in config."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -501,7 +513,7 @@ def test_when_send_email_receives_no_use_starttls_override_it_applies_it(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -515,6 +527,7 @@ def test_when_send_email_receives_no_use_starttls_override_it_applies_it(
             "Hello",
             "--no-use-starttls",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -525,12 +538,12 @@ def test_when_send_email_receives_no_use_starttls_override_it_applies_it(
 def test_when_send_email_receives_credential_overrides_it_uses_them(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When --smtp-username and --smtp-password are provided, send-email should use them."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -540,7 +553,7 @@ def test_when_send_email_receives_credential_overrides_it_uses_them(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -557,6 +570,7 @@ def test_when_send_email_receives_credential_overrides_it_uses_them(
             "--smtp-password",
             "mypass",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -568,12 +582,12 @@ def test_when_send_email_receives_credential_overrides_it_uses_them(
 def test_when_send_notification_receives_from_override_it_uses_it(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When --from is provided, send-notification should use the override sender."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -583,7 +597,7 @@ def test_when_send_notification_receives_from_override_it_uses_it(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -598,6 +612,7 @@ def test_when_send_notification_receives_from_override_it_uses_it(
             "--from",
             "override@test.com",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -608,12 +623,12 @@ def test_when_send_notification_receives_from_override_it_uses_it(
 def test_when_send_notification_receives_smtp_host_override_it_uses_it(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
-    inject_email_services: Callable[[], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
+    inject_email_services: Callable[[Callable[[], Any]], Callable[[], Any]],
     email_spy: EmailSpy,
 ) -> None:
     """When --smtp-host is provided, send-notification should use the override host."""
-    inject_config(
+    base_factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -623,7 +638,7 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
             }
         )
     )
-    inject_email_services()
+    factory = inject_email_services(base_factory)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -638,6 +653,7 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
             "--smtp-host",
             "smtp.override.com:465",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -651,7 +667,7 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
 def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
     tmp_path: Any,
 ) -> None:
     """Missing attachment with default raise behavior should fail with FILE_NOT_FOUND.
@@ -661,7 +677,7 @@ def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
     """
     from unittest.mock import patch
 
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -688,6 +704,7 @@ def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
                 "--attachment",
                 nonexistent_file,
             ],
+            obj=factory,
         )
 
     # Default: raise_on_missing_attachments=True, so FileNotFoundError is raised
@@ -700,7 +717,7 @@ def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
 def test_when_send_email_attachment_path_accepted_by_click(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
     tmp_path: Any,
 ) -> None:
     """Click accepts nonexistent attachment paths (validation delegated to app).
@@ -709,7 +726,7 @@ def test_when_send_email_attachment_path_accepted_by_click(
     """
     from unittest.mock import patch
 
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -736,6 +753,7 @@ def test_when_send_email_attachment_path_accepted_by_click(
                 "--attachment",
                 nonexistent_file,
             ],
+            obj=factory,
         )
 
     # Click doesn't reject with "Path ... does not exist"

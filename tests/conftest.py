@@ -104,6 +104,20 @@ def cli_runner() -> CliRunner:
 
 
 @pytest.fixture
+def production_factory() -> Callable[[], Any]:
+    """Provide the production services factory for tests.
+
+    Use this when invoking CLI commands that don't need custom injection.
+
+    Example:
+        result = cli_runner.invoke(cli, ["config"], obj=production_factory)
+    """
+    from bitranox_template_py_cli.composition import build_production
+
+    return build_production
+
+
+@pytest.fixture
 def strip_ansi() -> Callable[[str], str]:
     """Return a helper that strips ANSI escape sequences from a string."""
 
@@ -194,22 +208,27 @@ def email_ready_config(config_factory: Callable[[dict[str, Any]], Config]) -> Co
 
 @pytest.fixture
 def inject_config(
-    monkeypatch: pytest.MonkeyPatch,
     clear_config_cache: None,
-) -> Callable[[Config], None]:
-    """Inject a Config into the CLI's get_config path.
+) -> Callable[[Config], Callable[[], Any]]:
+    """Return a factory that provides test services with injected Config.
 
-    Creates a new services factory with the injected config loader,
+    Creates a services factory with the injected config loader,
     avoiding filesystem I/O while exercising the real Config API.
+
+    Returns:
+        Function that accepts a Config and returns a services factory callable.
+
+    Example:
+        factory = inject_config(config_factory({"section": {"key": "value"}}))
+        result = cli_runner.invoke(cli, ["config"], obj=factory)
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _inject(config: Config) -> None:
+    def _inject(config: Config) -> Callable[[], Any]:
         def _fake_get_config(**_kwargs: Any) -> Config:
             return config
 
         prod = build_production()
-        # Replace only the get_config service
         test_services = AppServices(
             get_config=_fake_get_config,
             get_default_config_path=prod.get_default_config_path,
@@ -220,7 +239,7 @@ def inject_config(
             load_email_config_from_dict=prod.load_email_config_from_dict,
             init_logging=prod.init_logging,
         )
-        _set_services_factory(lambda: test_services)
+        return lambda: test_services
 
     return _inject
 
@@ -228,19 +247,22 @@ def inject_config(
 @pytest.fixture
 def inject_config_with_profile_capture(
     clear_config_cache: None,
-) -> Callable[[Config, list[str | None]], None]:
-    """Inject a Config that captures profile arguments.
+) -> Callable[[Config, list[str | None]], Callable[[], Any]]:
+    """Return a factory that captures profile arguments during get_config.
 
-    Creates a new services factory with a get_config that records profile
+    Creates a services factory with a get_config that records profile
     arguments for assertion in tests.
 
     Args:
         config: The Config to return.
         captured_profiles: A list to append captured profile values to.
+
+    Returns:
+        Function that accepts (Config, capture_list) and returns a services factory.
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _inject(config: Config, captured_profiles: list[str | None]) -> None:
+    def _inject(config: Config, captured_profiles: list[str | None]) -> Callable[[], Any]:
         def _capturing_get_config(*, profile: str | None = None, **_kwargs: Any) -> Config:
             captured_profiles.append(profile)
             return config
@@ -256,7 +278,7 @@ def inject_config_with_profile_capture(
             load_email_config_from_dict=prod.load_email_config_from_dict,
             init_logging=prod.init_logging,
         )
-        _set_services_factory(lambda: test_services)
+        return lambda: test_services
 
     return _inject
 
@@ -264,15 +286,18 @@ def inject_config_with_profile_capture(
 @pytest.fixture
 def inject_deploy_with_profile_capture(
     clear_config_cache: None,
-) -> Callable[[Path, list[str | None]], None]:
-    """Inject a deploy_configuration that captures profile arguments.
+) -> Callable[[Path, list[str | None]], Callable[[], Any]]:
+    """Return a factory with deploy_configuration that captures profile arguments.
 
-    Creates a new services factory with a deploy_configuration that records
+    Creates a services factory with a deploy_configuration that records
     profile arguments for assertion in tests.
+
+    Returns:
+        Function that accepts (deployed_path, capture_list) and returns a services factory.
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _inject(deployed_path: Path, captured_profiles: list[str | None]) -> None:
+    def _inject(deployed_path: Path, captured_profiles: list[str | None]) -> Callable[[], Any]:
         def _capturing_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
             captured_profiles.append(profile)
             return [deployed_path]
@@ -288,21 +313,24 @@ def inject_deploy_with_profile_capture(
             load_email_config_from_dict=prod.load_email_config_from_dict,
             init_logging=prod.init_logging,
         )
-        _set_services_factory(lambda: test_services)
+        return lambda: test_services
 
     return _inject
 
 
 @pytest.fixture
-def inject_deploy_configuration() -> Callable[[Callable[..., list[Path]]], None]:
-    """Inject a custom deploy_configuration function.
+def inject_deploy_configuration() -> Callable[[Callable[..., list[Path]]], Callable[[], Any]]:
+    """Return a factory with a custom deploy_configuration function.
 
-    Creates a new services factory with the provided deploy_configuration
+    Creates a services factory with the provided deploy_configuration
     function while keeping other services as production.
+
+    Returns:
+        Function that accepts a deploy function and returns a services factory.
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _inject(deploy_fn: Callable[..., list[Path]]) -> None:
+    def _inject(deploy_fn: Callable[..., list[Path]]) -> Callable[[], Any]:
         prod = build_production()
         test_services = AppServices(
             get_config=prod.get_config,
@@ -314,98 +342,72 @@ def inject_deploy_configuration() -> Callable[[Callable[..., list[Path]]], None]
             load_email_config_from_dict=prod.load_email_config_from_dict,
             init_logging=prod.init_logging,
         )
-        _set_services_factory(lambda: test_services)
+        return lambda: test_services
 
     return _inject
 
 
-def _set_services_factory(factory: Callable[[], Any] | None) -> None:
-    """Set the services factory in the main module.
-
-    This helper allows tests to inject services without going through main().
-    """
-    from bitranox_template_py_cli.adapters.cli.main import set_services_factory_for_testing
-
-    set_services_factory_for_testing(factory)
-
-
-@pytest.fixture(autouse=True)
-def setup_production_services() -> Iterator[None]:
-    """Ensure production services are available for all tests.
-
-    This autouse fixture sets up the services factory with build_production
-    before each test, ensuring CliRunner.invoke(cli, ...) works properly.
-    The factory is cleared after the test to avoid cross-test pollution.
-    """
-    from bitranox_template_py_cli.composition import build_production
-
-    _set_services_factory(build_production)
-    yield
-    _set_services_factory(None)
-
-
 @pytest.fixture
-def inject_test_services(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
-    """Inject memory adapters from build_testing() into CLI.
+def inject_test_services() -> Callable[[], Callable[[], Any]]:
+    """Return the build_testing factory for full in-memory testing.
 
     For full service replacement. Use inject_email_services for
     granular email-only testing.
 
+    Returns:
+        Function that returns the build_testing factory.
+
     Example:
-        def test_full_memory(inject_test_services, ...):
-            inject_test_services()
-            result = cli_runner.invoke(...)
+        factory = inject_test_services()
+        result = cli_runner.invoke(cli, ["config"], obj=factory)
     """
     from bitranox_template_py_cli.composition import build_testing
 
-    def _inject() -> None:
-        _set_services_factory(build_testing)
+    def _inject() -> Callable[[], Any]:
+        return build_testing
 
     return _inject
 
 
 @pytest.fixture
-def inject_email_services(monkeypatch: pytest.MonkeyPatch) -> Callable[[], None]:
-    """Inject memory email adapters while keeping other services as-is.
+def inject_email_services() -> Callable[[Callable[[], Any]], Callable[[], Any]]:
+    """Wrap a factory to replace email services with memory adapters.
 
-    Call the returned function to activate the injection. This sets the
-    services factory to return an AppServices with memory email adapters
-    while preserving the current get_config (which may have been customized
-    by inject_config).
+    Takes a base factory and returns a new factory that provides memory
+    email adapters while preserving other services from the base.
+
+    Returns:
+        Function that accepts a base factory and returns a wrapped factory.
 
     Example:
-        def test_email(inject_email_services, email_spy, ...):
-            inject_email_services()
-            result = cli_runner.invoke(...)
-            assert len(email_spy.sent_emails) == 1
-
-    Note:
-        If using both inject_config and inject_email_services, call
-        inject_config FIRST, then inject_email_services.
+        base_factory = inject_config(config_factory({...}))
+        factory = inject_email_services(base_factory)
+        result = cli_runner.invoke(cli, ["send-email", ...], obj=factory)
+        assert len(email_spy.sent_emails) == 1
     """
-    from bitranox_template_py_cli.adapters.cli.main import get_services_factory
-    from bitranox_template_py_cli.adapters.memory import (
-        load_email_config_from_dict_in_memory,
-        send_email_in_memory,
-        send_notification_in_memory,
-    )
-    from bitranox_template_py_cli.composition import AppServices
 
-    def _inject() -> None:
-        # Get the current services (may include inject_config's custom get_config)
-        current = get_services_factory()()
-        # Replace only email services
-        test_services = AppServices(
-            get_config=current.get_config,
-            get_default_config_path=current.get_default_config_path,
-            deploy_configuration=current.deploy_configuration,
-            display_config=current.display_config,
-            send_email=send_email_in_memory,
-            send_notification=send_notification_in_memory,
-            load_email_config_from_dict=load_email_config_from_dict_in_memory,
-            init_logging=current.init_logging,
-        )
-        _set_services_factory(lambda: test_services)
+    def _inject(base_factory: Callable[[], Any]) -> Callable[[], Any]:
+        def _factory() -> Any:
+            from bitranox_template_py_cli.adapters.memory import (
+                load_email_config_from_dict_in_memory,
+                send_email_in_memory,
+                send_notification_in_memory,
+            )
+            from bitranox_template_py_cli.composition import AppServices
+
+            current = base_factory()
+            return AppServices(
+                get_config=current.get_config,
+                get_default_config_path=current.get_default_config_path,
+                deploy_configuration=current.deploy_configuration,
+                display_config=current.display_config,
+                send_email=send_email_in_memory,
+                send_notification=send_notification_in_memory,
+                load_email_config_from_dict=load_email_config_from_dict_in_memory,
+                init_logging=current.init_logging,
+            )
+
+        return _factory
 
     return _inject
 

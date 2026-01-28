@@ -15,18 +15,24 @@ from bitranox_template_py_cli.adapters.config import loader as config_mod
 
 
 @pytest.mark.os_agnostic
-def test_when_config_is_invoked_it_displays_configuration(cli_runner: CliRunner) -> None:
+def test_when_config_is_invoked_it_displays_configuration(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """Verify config command displays configuration."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=production_factory)
 
     assert result.exit_code == 0
     # With default config (all commented), output may be empty or show only log messages
 
 
 @pytest.mark.os_agnostic
-def test_when_config_is_invoked_with_json_format_it_outputs_json(cli_runner: CliRunner) -> None:
+def test_when_config_is_invoked_with_json_format_it_outputs_json(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """Verify config --format json outputs JSON."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json"], obj=production_factory)
 
     assert result.exit_code == 0
     # Use result.stdout to avoid async log messages from stderr
@@ -34,9 +40,14 @@ def test_when_config_is_invoked_with_json_format_it_outputs_json(cli_runner: Cli
 
 
 @pytest.mark.os_agnostic
-def test_when_config_is_invoked_with_nonexistent_section_it_fails(cli_runner: CliRunner) -> None:
+def test_when_config_is_invoked_with_nonexistent_section_it_fails(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """Verify config with nonexistent section returns error."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--section", "nonexistent_section_that_does_not_exist"])
+    result: Result = cli_runner.invoke(
+        cli_mod.cli, ["config", "--section", "nonexistent_section_that_does_not_exist"], obj=production_factory
+    )
 
     assert result.exit_code != 0
     assert "not found" in result.stderr
@@ -46,10 +57,10 @@ def test_when_config_is_invoked_with_nonexistent_section_it_fails(cli_runner: Cl
 def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify config displays sections from mocked configuration."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "test_section": {
@@ -60,7 +71,7 @@ def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
 
     assert result.exit_code == 0
     assert "test_section" in result.output
@@ -72,10 +83,10 @@ def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
 def test_when_config_is_invoked_with_json_format_and_section_it_shows_section(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify JSON format displays specific section content."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -86,7 +97,7 @@ def test_when_config_is_invoked_with_json_format_and_section_it_shows_section(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json", "--section", "email"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json", "--section", "email"], obj=factory)
 
     assert result.exit_code == 0
     assert "email" in result.output
@@ -98,10 +109,10 @@ def test_when_config_is_invoked_with_json_format_and_section_it_shows_section(
 def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fails(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify JSON format with nonexistent section returns error."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -111,7 +122,9 @@ def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fail
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json", "--section", "nonexistent"])
+    result: Result = cli_runner.invoke(
+        cli_mod.cli, ["config", "--format", "json", "--section", "nonexistent"], obj=factory
+    )
 
     assert result.exit_code != 0
     assert "not found" in result.stderr
@@ -121,10 +134,10 @@ def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fail
 def test_when_config_is_invoked_with_section_showing_complex_values(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify human format with section containing lists and dicts."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -137,7 +150,7 @@ def test_when_config_is_invoked_with_section_showing_complex_values(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--section", "email"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--section", "email"], obj=factory)
 
     assert result.exit_code == 0
     assert "[email]" in result.output
@@ -153,10 +166,10 @@ def test_when_config_is_invoked_with_section_showing_complex_values(
 def test_when_config_shows_all_sections_with_complex_values(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify human format showing all sections with lists and dicts."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -171,7 +184,7 @@ def test_when_config_shows_all_sections_with_complex_values(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
 
     assert result.exit_code == 0
     assert "[email]" in result.output
@@ -182,9 +195,12 @@ def test_when_config_shows_all_sections_with_complex_values(
 
 
 @pytest.mark.os_agnostic
-def test_when_config_deploy_is_invoked_without_target_it_fails(cli_runner: CliRunner) -> None:
+def test_when_config_deploy_is_invoked_without_target_it_fails(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+) -> None:
     """Verify config-deploy without --target option fails."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy"], obj=production_factory)
 
     assert result.exit_code != 0
     assert "Missing option" in result.output or "required" in result.output.lower()
@@ -194,7 +210,7 @@ def test_when_config_deploy_is_invoked_without_target_it_fails(cli_runner: CliRu
 def test_when_config_deploy_is_invoked_it_deploys_configuration(
     cli_runner: CliRunner,
     tmp_path: Any,
-    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], Callable[[], Any]],
 ) -> None:
     """Verify config-deploy creates configuration files."""
     deployed_path = tmp_path / "config.toml"
@@ -203,9 +219,9 @@ def test_when_config_deploy_is_invoked_it_deploys_configuration(
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
         return [deployed_path]
 
-    inject_deploy_configuration(mock_deploy)
+    factory = inject_deploy_configuration(mock_deploy)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=factory)
 
     assert result.exit_code == 0
     assert "Configuration deployed successfully" in result.output
@@ -215,16 +231,16 @@ def test_when_config_deploy_is_invoked_it_deploys_configuration(
 @pytest.mark.os_agnostic
 def test_when_config_deploy_finds_no_files_to_create_it_informs_user(
     cli_runner: CliRunner,
-    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], Callable[[], Any]],
 ) -> None:
     """Verify config-deploy reports when no files are created."""
 
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
         return []
 
-    inject_deploy_configuration(mock_deploy)
+    factory = inject_deploy_configuration(mock_deploy)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=factory)
 
     assert result.exit_code == 0
     assert "No files were created" in result.output
@@ -234,16 +250,16 @@ def test_when_config_deploy_finds_no_files_to_create_it_informs_user(
 @pytest.mark.os_agnostic
 def test_when_config_deploy_encounters_permission_error_it_handles_gracefully(
     cli_runner: CliRunner,
-    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], Callable[[], Any]],
 ) -> None:
     """Verify config-deploy handles PermissionError gracefully."""
 
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Any]:
         raise PermissionError("Permission denied")
 
-    inject_deploy_configuration(mock_deploy)
+    factory = inject_deploy_configuration(mock_deploy)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "app"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "app"], obj=factory)
 
     assert result.exit_code != 0
     assert "Permission denied" in result.stderr
@@ -254,7 +270,7 @@ def test_when_config_deploy_encounters_permission_error_it_handles_gracefully(
 def test_when_config_deploy_supports_multiple_targets(
     cli_runner: CliRunner,
     tmp_path: Any,
-    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], Callable[[], Any]],
 ) -> None:
     """Verify config-deploy accepts multiple --target options."""
     from bitranox_template_py_cli.domain.enums import DeployTarget
@@ -271,9 +287,11 @@ def test_when_config_deploy_supports_multiple_targets(
         assert "host" in target_values
         return [path1, path2]
 
-    inject_deploy_configuration(mock_deploy)
+    factory = inject_deploy_configuration(mock_deploy)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", "--target", "host"])
+    result: Result = cli_runner.invoke(
+        cli_mod.cli, ["config-deploy", "--target", "user", "--target", "host"], obj=factory
+    )
 
     assert result.exit_code == 0
     assert str(path1) in result.output
@@ -284,16 +302,18 @@ def test_when_config_deploy_supports_multiple_targets(
 def test_when_config_deploy_is_invoked_with_profile_it_passes_profile(
     cli_runner: CliRunner,
     tmp_path: Any,
-    inject_deploy_with_profile_capture: Callable[[Path, list[str | None]], None],
+    inject_deploy_with_profile_capture: Callable[[Path, list[str | None]], Callable[[], Any]],
 ) -> None:
     """Verify config-deploy passes profile to deploy_configuration."""
     deployed_path = tmp_path / "config.toml"
     deployed_path.touch()
     captured_profile: list[str | None] = []
 
-    inject_deploy_with_profile_capture(deployed_path, captured_profile)
+    factory = inject_deploy_with_profile_capture(deployed_path, captured_profile)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", "--profile", "production"])
+    result: Result = cli_runner.invoke(
+        cli_mod.cli, ["config-deploy", "--target", "user", "--profile", "production"], obj=factory
+    )
 
     assert result.exit_code == 0
     assert captured_profile == ["production"]
@@ -304,15 +324,15 @@ def test_when_config_deploy_is_invoked_with_profile_it_passes_profile(
 def test_when_config_is_invoked_with_profile_it_passes_profile_to_get_config(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config_with_profile_capture: Callable[[Config, list[str | None]], None],
+    inject_config_with_profile_capture: Callable[[Config, list[str | None]], Callable[[], Any]],
 ) -> None:
     """Verify config command passes --profile to get_config."""
     captured_profiles: list[str | None] = []
     config = config_factory({"test_section": {"key": "value"}})
 
-    inject_config_with_profile_capture(config, captured_profiles)
+    factory = inject_config_with_profile_capture(config, captured_profiles)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--profile", "staging"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--profile", "staging"], obj=factory)
 
     assert result.exit_code == 0
     assert "staging" in captured_profiles
@@ -322,15 +342,15 @@ def test_when_config_is_invoked_with_profile_it_passes_profile_to_get_config(
 def test_when_config_is_invoked_without_profile_it_passes_none(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config_with_profile_capture: Callable[[Config, list[str | None]], None],
+    inject_config_with_profile_capture: Callable[[Config, list[str | None]], Callable[[], Any]],
 ) -> None:
     """Verify config command passes None when no --profile specified."""
     captured_profiles: list[str | None] = []
     config = config_factory({"test_section": {"key": "value"}})
 
-    inject_config_with_profile_capture(config, captured_profiles)
+    factory = inject_config_with_profile_capture(config, captured_profiles)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
 
     assert result.exit_code == 0
     assert None in captured_profiles
@@ -340,16 +360,16 @@ def test_when_config_is_invoked_without_profile_it_passes_none(
 def test_when_config_deploy_is_invoked_without_profile_it_passes_none(
     cli_runner: CliRunner,
     tmp_path: Any,
-    inject_deploy_with_profile_capture: Callable[[Path, list[str | None]], None],
+    inject_deploy_with_profile_capture: Callable[[Path, list[str | None]], Callable[[], Any]],
 ) -> None:
     """Verify config-deploy passes None when no --profile specified."""
     deployed_path = tmp_path / "config.toml"
     deployed_path.touch()
     captured_profiles: list[str | None] = []
 
-    inject_deploy_with_profile_capture(deployed_path, captured_profiles)
+    factory = inject_deploy_with_profile_capture(deployed_path, captured_profiles)
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=factory)
 
     assert result.exit_code == 0
     assert captured_profiles == [None]
@@ -363,10 +383,10 @@ def test_when_config_deploy_is_invoked_without_profile_it_passes_none(
 def test_when_config_displays_human_format_it_redacts_password(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Human-readable output must redact sensitive keys like smtp_password."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -377,7 +397,7 @@ def test_when_config_displays_human_format_it_redacts_password(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
 
     assert result.exit_code == 0
     assert "super_secret_123" not in result.output
@@ -390,10 +410,10 @@ def test_when_config_displays_human_format_it_redacts_password(
 def test_when_config_displays_json_format_it_redacts_password(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """JSON output must redact sensitive keys like smtp_password."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "email": {
@@ -404,7 +424,7 @@ def test_when_config_displays_json_format_it_redacts_password(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json"], obj=factory)
 
     assert result.exit_code == 0
     assert "super_secret_123" not in result.stdout
@@ -416,10 +436,10 @@ def test_when_config_displays_json_format_it_redacts_password(
 def test_when_config_displays_non_sensitive_values_it_shows_them(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Non-sensitive keys must show their real values, not be redacted."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "logging": {
@@ -430,7 +450,7 @@ def test_when_config_displays_non_sensitive_values_it_shows_them(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
 
     assert result.exit_code == 0
     assert "DEBUG" in result.output
@@ -442,10 +462,10 @@ def test_when_config_displays_non_sensitive_values_it_shows_them(
 def test_when_config_displays_token_and_secret_keys_it_redacts_them(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Keys containing 'token', 'secret', or 'credential' must be redacted."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "auth": {
@@ -457,7 +477,7 @@ def test_when_config_displays_token_and_secret_keys_it_redacts_them(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config"], obj=factory)
 
     assert result.exit_code == 0
     assert "tok_abc123" not in result.output
@@ -469,10 +489,10 @@ def test_when_config_displays_token_and_secret_keys_it_redacts_them(
 def test_when_config_displays_password_in_list_of_dicts_it_redacts(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Sensitive keys inside dicts nested in lists must be redacted."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "connections": {
@@ -486,7 +506,7 @@ def test_when_config_displays_password_in_list_of_dicts_it_redacts(
         )
     )
 
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--format", "json"], obj=factory)
 
     assert result.exit_code == 0
     assert "secret123" not in result.stdout
@@ -500,6 +520,7 @@ def test_when_config_generate_examples_is_invoked_it_creates_files(
     cli_runner: CliRunner,
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify config-generate-examples creates files in the target directory."""
     created_file = tmp_path / "example.toml"
@@ -517,6 +538,7 @@ def test_when_config_generate_examples_is_invoked_it_creates_files(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["config-generate-examples", "--destination", str(tmp_path)],
+        obj=production_factory,
     )
 
     assert result.exit_code == 0
@@ -529,6 +551,7 @@ def test_when_config_generate_examples_has_no_files_it_informs_user(
     cli_runner: CliRunner,
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify config-generate-examples reports when all files already exist."""
 
@@ -544,6 +567,7 @@ def test_when_config_generate_examples_has_no_files_it_informs_user(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["config-generate-examples", "--destination", str(tmp_path)],
+        obj=production_factory,
     )
 
     assert result.exit_code == 0
@@ -554,9 +578,10 @@ def test_when_config_generate_examples_has_no_files_it_informs_user(
 @pytest.mark.os_agnostic
 def test_when_config_generate_examples_missing_destination_it_fails(
     cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify config-generate-examples without --destination fails."""
-    result: Result = cli_runner.invoke(cli_mod.cli, ["config-generate-examples"])
+    result: Result = cli_runner.invoke(cli_mod.cli, ["config-generate-examples"], obj=production_factory)
 
     assert result.exit_code != 0
     assert "Missing option" in result.output or "required" in result.output.lower()
@@ -567,6 +592,7 @@ def test_when_config_generate_examples_with_force_it_passes_force_flag(
     cli_runner: CliRunner,
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify config-generate-examples passes --force flag to generate_examples."""
     captured_force: list[bool] = []
@@ -586,6 +612,7 @@ def test_when_config_generate_examples_with_force_it_passes_force_flag(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["config-generate-examples", "--destination", str(tmp_path), "--force"],
+        obj=production_factory,
     )
 
     assert result.exit_code == 0
@@ -597,6 +624,7 @@ def test_when_config_generate_examples_without_force_it_defaults_to_false(
     cli_runner: CliRunner,
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify config-generate-examples defaults force=False."""
     captured_force: list[bool] = []
@@ -616,6 +644,7 @@ def test_when_config_generate_examples_without_force_it_defaults_to_false(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["config-generate-examples", "--destination", str(tmp_path)],
+        obj=production_factory,
     )
 
     assert result.exit_code == 0
@@ -627,6 +656,7 @@ def test_when_config_generate_examples_encounters_error_it_exits_with_general_er
     cli_runner: CliRunner,
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify config-generate-examples handles exceptions gracefully."""
 
@@ -642,6 +672,7 @@ def test_when_config_generate_examples_encounters_error_it_exits_with_general_er
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["config-generate-examples", "--destination", str(tmp_path)],
+        obj=production_factory,
     )
 
     assert result.exit_code == 1  # GENERAL_ERROR
@@ -653,6 +684,7 @@ def test_when_config_generate_examples_it_passes_correct_metadata(
     cli_runner: CliRunner,
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify config-generate-examples passes correct slug, vendor, app from __init__conf__."""
     from bitranox_template_py_cli import __init__conf__
@@ -674,6 +706,7 @@ def test_when_config_generate_examples_it_passes_correct_metadata(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["config-generate-examples", "--destination", str(tmp_path)],
+        obj=production_factory,
     )
 
     assert result.exit_code == 0
@@ -689,6 +722,7 @@ def test_when_config_generate_examples_creates_multiple_files_it_lists_all(
     cli_runner: CliRunner,
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify config-generate-examples lists all created files."""
     file1 = tmp_path / "config.toml"
@@ -709,6 +743,7 @@ def test_when_config_generate_examples_creates_multiple_files_it_lists_all(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["config-generate-examples", "--destination", str(tmp_path)],
+        obj=production_factory,
     )
 
     assert result.exit_code == 0
@@ -726,6 +761,7 @@ def test_when_config_subcommand_profile_reloads_it_preserves_root_set_overrides(
     config_factory: Callable[[dict[str, Any]], Config],
     monkeypatch: pytest.MonkeyPatch,
     clear_config_cache: None,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Root --set overrides must be reapplied when config --profile reloads config.
 
@@ -749,6 +785,7 @@ def test_when_config_subcommand_profile_reloads_it_preserves_root_set_overrides(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["--set", "section.key=overridden", "config", "--profile", "test", "--format", "json"],
+        obj=production_factory,
     )
 
     assert result.exit_code == 0
@@ -762,14 +799,15 @@ def test_when_config_subcommand_profile_reloads_it_preserves_root_set_overrides(
 def test_when_config_subcommand_has_no_profile_it_uses_stored_config_with_overrides(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Without subcommand --profile, config uses already-overridden config from context."""
-    inject_config(config_factory({"section": {"key": "original"}}))
+    factory = inject_config(config_factory({"section": {"key": "original"}}))
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["--set", "section.key=overridden", "config", "--format", "json"],
+        obj=factory,
     )
 
     assert result.exit_code == 0

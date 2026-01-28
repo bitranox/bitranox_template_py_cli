@@ -9,6 +9,8 @@ Contents:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import rich_click as click
 from lib_layered_config import Config
 
@@ -18,6 +20,9 @@ from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
 from .constants import CLICK_CONTEXT_SETTINGS
 from .context import apply_traceback_preferences, store_cli_context
 from .main import get_services_factory
+
+if TYPE_CHECKING:
+    from bitranox_template_py_cli.composition import AppServices
 
 
 def _apply_cli_overrides(config: Config, set_overrides: tuple[str, ...]) -> Config:
@@ -88,7 +93,13 @@ def cli(ctx: click.Context, traceback: bool, profile: str | None, set_overrides:
         >>> "Hello World" in result.output
         True
     """
-    services = get_services_factory()()
+    # Allow factory injection via ctx.obj for testing (explicit > implicit)
+    # When ctx.obj is callable, it's a test-injected factory returning AppServices
+    services: AppServices
+    if callable(ctx.obj):  # noqa: SIM108  # if-else clearer than ternary
+        services = ctx.obj()  # type: ignore[assignment]  # Test factory returns AppServices
+    else:
+        services = get_services_factory()()
     config = services.get_config(profile=profile)
     config = _apply_cli_overrides(config, set_overrides)
     services.init_logging(config)

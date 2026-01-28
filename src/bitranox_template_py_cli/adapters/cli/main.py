@@ -5,11 +5,16 @@ execution, ensuring consistent error handling and traceback restoration.
 
 Contents:
     * :func:`main` - Primary entry point for CLI execution.
+    * :func:`get_services_factory` - Return the current services factory.
+    * :func:`set_services_factory_for_testing` - Set factory for tests.
+    * :func:`services_factory_context` - Context manager for temporary factory.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import threading
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 import lib_cli_exit_tools
@@ -27,9 +32,10 @@ from .context import (
 if TYPE_CHECKING:
     from bitranox_template_py_cli.composition import AppServices
 
-# Module-level service factory container (list to avoid global statement).
+# Thread-safe service factory container.
 # Set by main() before CLI runs, accessed by get_services_factory().
-_services_factory_holder: list[Callable[[], AppServices]] = []
+_factory_lock = threading.Lock()
+_services_factory: Callable[[], AppServices] | None = None
 
 
 def _run_cli(argv: Sequence[str] | None) -> int:
@@ -58,7 +64,7 @@ def _run_cli(argv: Sequence[str] | None) -> int:
 
 
 def get_services_factory() -> Callable[[], AppServices]:
-    """Return the current services factory.
+    """Return the current services factory. Thread-safe.
 
     Returns:
         The services factory set by main().
@@ -66,13 +72,14 @@ def get_services_factory() -> Callable[[], AppServices]:
     Raises:
         RuntimeError: If no factory has been set (should not happen in normal use).
     """
-    if not _services_factory_holder:
-        raise RuntimeError("Services factory not initialized. Call main() first.")
-    return _services_factory_holder[0]
+    with _factory_lock:
+        if _services_factory is None:
+            raise RuntimeError("Services factory not initialized. Call main() first.")
+        return _services_factory
 
 
 def set_services_factory_for_testing(factory: Callable[[], AppServices] | None) -> None:
-    """Set or clear the services factory for testing.
+    """Set or clear the services factory for testing. Thread-safe.
 
     This function allows tests to inject a services factory without going
     through main(). Pass None to clear the factory.
@@ -83,9 +90,39 @@ def set_services_factory_for_testing(factory: Callable[[], AppServices] | None) 
     Note:
         This is intended for test use only. Production code should use main().
     """
-    _services_factory_holder.clear()
-    if factory is not None:
-        _services_factory_holder.append(factory)
+    global _services_factory
+    with _factory_lock:
+        _services_factory = factory
+
+
+@contextmanager
+def services_factory_context(factory: Callable[[], AppServices]) -> Iterator[None]:
+    """Context manager for temporarily setting the services factory.
+
+    Thread-safe. Restores previous factory on exit.
+
+    Args:
+        factory: Services factory to set temporarily.
+
+    Yields:
+        None
+
+    Example:
+        >>> from bitranox_template_py_cli.composition import build_production
+        >>> with services_factory_context(build_production):  # doctest: +SKIP
+        ...     # factory is active here
+        ...     pass
+        >>> # previous factory restored
+    """
+    global _services_factory
+    with _factory_lock:
+        previous = _services_factory
+        _services_factory = factory
+    try:
+        yield
+    finally:
+        with _factory_lock:
+            _services_factory = previous
 
 
 def main(
@@ -120,8 +157,9 @@ def main(
     if services_factory is None:
         raise ValueError("services_factory is required. Pass build_production from composition layer.")
 
-    _services_factory_holder.clear()
-    _services_factory_holder.append(services_factory)
+    global _services_factory
+    with _factory_lock:
+        _services_factory = services_factory
 
     previous_state = snapshot_traceback_state()
     try:
@@ -133,4 +171,4 @@ def main(
             lib_log_rich.runtime.shutdown()
 
 
-__all__ = ["get_services_factory", "main", "set_services_factory_for_testing"]
+__all__ = ["get_services_factory", "main", "services_factory_context", "set_services_factory_for_testing"]

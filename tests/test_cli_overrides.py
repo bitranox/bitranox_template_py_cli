@@ -16,10 +16,10 @@ from bitranox_template_py_cli.adapters import cli as cli_mod
 def test_when_set_override_is_passed_config_reflects_change(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify --set override is visible in config command output."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "lib_log_rich": {
@@ -32,6 +32,7 @@ def test_when_set_override_is_passed_config_reflects_change(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["--set", "lib_log_rich.console_level=DEBUG", "config", "--section", "lib_log_rich"],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -42,10 +43,10 @@ def test_when_set_override_is_passed_config_reflects_change(
 def test_when_multiple_set_overrides_are_passed_all_apply(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify multiple --set options all apply."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "lib_log_rich": {
@@ -67,6 +68,7 @@ def test_when_multiple_set_overrides_are_passed_all_apply(
             "--section",
             "lib_log_rich",
         ],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -77,10 +79,10 @@ def test_when_multiple_set_overrides_are_passed_all_apply(
 def test_when_set_override_has_nested_key_it_works(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify nested key override (e.g., SECTION.SUB.KEY=VALUE) works."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "lib_log_rich": {
@@ -95,6 +97,7 @@ def test_when_set_override_has_nested_key_it_works(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["--set", "lib_log_rich.payload_limits.message_max_chars=8192", "config", "--format", "json"],
+        obj=factory,
     )
 
     assert result.exit_code == 0
@@ -104,11 +107,13 @@ def test_when_set_override_has_nested_key_it_works(
 @pytest.mark.os_agnostic
 def test_when_set_override_is_invalid_it_shows_usage_error(
     cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify invalid --set format shows usage error."""
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["--set", "invalid_no_equals", "config"],
+        obj=production_factory,
     )
 
     assert result.exit_code != 0
@@ -118,11 +123,13 @@ def test_when_set_override_is_invalid_it_shows_usage_error(
 @pytest.mark.os_agnostic
 def test_when_set_override_has_no_dot_it_shows_usage_error(
     cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify --set without dot in key shows usage error."""
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["--set", "nodot=value", "config"],
+        obj=production_factory,
     )
 
     assert result.exit_code != 0
@@ -131,11 +138,13 @@ def test_when_set_override_has_no_dot_it_shows_usage_error(
 @pytest.mark.os_agnostic
 def test_when_set_override_is_empty_string_it_shows_error(
     cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
 ) -> None:
     """Verify --set with empty string shows error."""
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["--set", "", "config"],
+        obj=production_factory,
     )
 
     assert result.exit_code != 0
@@ -145,10 +154,10 @@ def test_when_set_override_is_empty_string_it_shows_error(
 def test_when_no_set_overrides_config_is_unchanged(
     cli_runner: CliRunner,
     config_factory: Callable[[dict[str, Any]], Config],
-    inject_config: Callable[[Config], None],
+    inject_config: Callable[[Config], Callable[[], Any]],
 ) -> None:
     """Verify no --set leaves config unchanged."""
-    inject_config(
+    factory = inject_config(
         config_factory(
             {
                 "lib_log_rich": {
@@ -161,6 +170,7 @@ def test_when_no_set_overrides_config_is_unchanged(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["config", "--section", "lib_log_rich"],
+        obj=factory,
     )
 
     assert result.exit_code == 0

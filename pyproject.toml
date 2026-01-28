@@ -139,6 +139,8 @@ convention = "google"
 "tests/*.py" = ["T20", "S101", "S105", "S106", "FBT003"]
 # __init__conf__.py uses print() in print_info()
 "src/bitranox_template_py_cli/__init__conf__.py" = ["T20"]
+# main.py: global statement required for thread-safe service factory container
+"src/bitranox_template_py_cli/adapters/cli/main.py" = ["PLW0603"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
