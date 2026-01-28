@@ -13,12 +13,11 @@ import rich_click as click
 from lib_layered_config import Config
 
 from bitranox_template_py_cli import __init__conf__
-from bitranox_template_py_cli.adapters.config import loader as config_module
 from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
-from bitranox_template_py_cli.adapters.logging.setup import init_logging
 
 from .constants import CLICK_CONTEXT_SETTINGS
 from .context import apply_traceback_preferences, store_cli_context
+from .main import get_services_factory
 
 
 def _apply_cli_overrides(config: Config, set_overrides: tuple[str, ...]) -> Config:
@@ -89,10 +88,18 @@ def cli(ctx: click.Context, traceback: bool, profile: str | None, set_overrides:
         >>> "Hello World" in result.output
         True
     """
-    config = config_module.get_config(profile=profile)
+    services = get_services_factory()()
+    config = services.get_config(profile=profile)
     config = _apply_cli_overrides(config, set_overrides)
-    init_logging(config)
-    store_cli_context(ctx, traceback=traceback, config=config, profile=profile, set_overrides=set_overrides)
+    services.init_logging(config)
+    store_cli_context(
+        ctx,
+        traceback=traceback,
+        config=config,
+        services=services,
+        profile=profile,
+        set_overrides=set_overrides,
+    )
     apply_traceback_preferences(traceback)
 
     if ctx.invoked_subcommand is None:

@@ -198,7 +198,7 @@ def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
 
 @pytest.mark.os_agnostic
 def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
-    """Verify run_cli dynamically imports the package CLI module."""
+    """Verify run_cli dynamically imports the package entry module."""
     seen: list[str] = []
 
     def _run_cli_main(_args: Sequence[str] | None = None) -> int:
@@ -208,7 +208,7 @@ def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
         seen.append(name)
         if name.endswith(".__main__"):
             return SimpleNamespace()
-        if name.endswith(".cli"):
+        if name.endswith(".entry"):
             return SimpleNamespace(main=_run_cli_main)
         raise AssertionError(f"unexpected import {name}")
 
@@ -217,10 +217,10 @@ def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
     result = runner.invoke(cli.main, ["run"])
     assert result.exit_code == 0
     package = run_cli.PROJECT.import_package
-    # CLI is now in adapters layer
-    assert f"{package}.adapters.cli" in seen
+    # CLI entry point is now in entry module (composition layer wiring)
+    assert f"{package}.entry" in seen
     if len(seen) == 2:
-        assert seen == [f"{package}.__main__", f"{package}.adapters.cli"]
+        assert seen == [f"{package}.__main__", f"{package}.entry"]
 
 
 @pytest.mark.os_agnostic

@@ -61,8 +61,8 @@ dev = [
 ]
 
 [project.scripts]
-bitranox_template_py_cli = "bitranox_template_py_cli.adapters.cli:main"
-bitranox-template-py-cli = "bitranox_template_py_cli.adapters.cli:main"
+bitranox_template_py_cli = "bitranox_template_py_cli.entry:main"
+bitranox-template-py-cli = "bitranox_template_py_cli.entry:main"
 
 [build-system]
 requires = ["hatchling>=1.28.0"]

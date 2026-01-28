@@ -21,42 +21,14 @@ from lib_layered_config import Config
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
-from bitranox_template_py_cli.application.ports import LoadEmailConfigFromDict, SendEmail, SendNotification
+from bitranox_template_py_cli.application.ports import LoadEmailConfigFromDict
 from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
 
 from ..constants import CLICK_CONTEXT_SETTINGS
-from ..context import CLIContext, get_cli_context
+from ..context import get_cli_context
 from ..exit_codes import ExitCode
 
 logger = logging.getLogger(__name__)
-
-
-def _get_email_services(
-    cli_ctx: CLIContext,
-) -> tuple[SendEmail, SendNotification, LoadEmailConfigFromDict]:
-    """Return email services from context or production defaults.
-
-    Args:
-        cli_ctx: CLI context potentially containing service overrides.
-
-    Returns:
-        Tuple of (send_email, send_notification, load_email_config_from_dict).
-    """
-    from bitranox_template_py_cli.adapters.email.sender import (
-        load_email_config_from_dict as prod_load,
-    )
-    from bitranox_template_py_cli.adapters.email.sender import (
-        send_email as prod_send_email,
-    )
-    from bitranox_template_py_cli.adapters.email.sender import (
-        send_notification as prod_send_notification,
-    )
-
-    return (
-        cli_ctx.send_email or prod_send_email,
-        cli_ctx.send_notification or prod_send_notification,
-        cli_ctx.load_email_config_from_dict or prod_load,
-    )
 
 
 def filter_sentinels(**kwargs: Any) -> dict[str, Any]:
@@ -162,12 +134,11 @@ def cli_send_email(
         >>> # Real invocation tested in test_cli.py
     """
     cli_ctx = get_cli_context(ctx)
-    send_email_svc, _, load_config_svc = _get_email_services(cli_ctx)
     resolved_recipients = list(recipients) if recipients else None
     extra = {"command": "send-email", "recipients": resolved_recipients, "subject": subject}
 
     with lib_log_rich.runtime.bind(job_id="cli-send-email", extra=extra):
-        email_config = _load_and_validate_email_config(cli_ctx.config, load_config_svc)
+        email_config = _load_and_validate_email_config(cli_ctx.config, cli_ctx.services.load_email_config_from_dict)
         overrides = filter_sentinels(
             smtp_hosts=smtp_hosts,
             smtp_username=smtp_username,
@@ -184,7 +155,7 @@ def cli_send_email(
         _log_send_email_start(resolved_recipients, subject, body_html, attachments)
         _execute_with_email_error_handling(
             operation=functools.partial(
-                send_email_svc,
+                cli_ctx.services.send_email,
                 config=email_config,
                 recipients=resolved_recipients,
                 subject=subject,
@@ -323,12 +294,11 @@ def cli_send_notification(
         >>> # Real invocation tested in test_cli.py
     """
     cli_ctx = get_cli_context(ctx)
-    _, send_notification_svc, load_config_svc = _get_email_services(cli_ctx)
     resolved_recipients = list(recipients) if recipients else None
     extra = {"command": "send-notification", "recipients": resolved_recipients, "subject": subject}
 
     with lib_log_rich.runtime.bind(job_id="cli-send-notification", extra=extra):
-        email_config = _load_and_validate_email_config(cli_ctx.config, load_config_svc)
+        email_config = _load_and_validate_email_config(cli_ctx.config, cli_ctx.services.load_email_config_from_dict)
         overrides = filter_sentinels(
             smtp_hosts=smtp_hosts,
             smtp_username=smtp_username,
@@ -343,7 +313,7 @@ def cli_send_notification(
         logger.info("Sending notification", extra={"recipients": resolved_recipients, "subject": subject})
         _execute_with_email_error_handling(
             operation=functools.partial(
-                send_notification_svc,
+                cli_ctx.services.send_notification,
                 config=email_config,
                 recipients=resolved_recipients,
                 subject=subject,

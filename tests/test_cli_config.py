@@ -195,7 +195,7 @@ def test_when_config_deploy_is_invoked_without_target_it_fails(cli_runner: CliRu
 def test_when_config_deploy_is_invoked_it_deploys_configuration(
     cli_runner: CliRunner,
     tmp_path: Any,
-    monkeypatch: pytest.MonkeyPatch,
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
 ) -> None:
     """Verify config-deploy creates configuration files."""
     deployed_path = tmp_path / "config.toml"
@@ -204,7 +204,7 @@ def test_when_config_deploy_is_invoked_it_deploys_configuration(
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
         return [deployed_path]
 
-    monkeypatch.setattr(config_deploy_mod, "deploy_configuration", mock_deploy)
+    inject_deploy_configuration(mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
 
@@ -255,7 +255,7 @@ def test_when_config_deploy_encounters_permission_error_it_handles_gracefully(
 def test_when_config_deploy_supports_multiple_targets(
     cli_runner: CliRunner,
     tmp_path: Any,
-    monkeypatch: pytest.MonkeyPatch,
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
 ) -> None:
     """Verify config-deploy accepts multiple --target options."""
     from bitranox_template_py_cli.domain.enums import DeployTarget
@@ -272,7 +272,7 @@ def test_when_config_deploy_supports_multiple_targets(
         assert "host" in target_values
         return [path1, path2]
 
-    monkeypatch.setattr(config_deploy_mod, "deploy_configuration", mock_deploy)
+    inject_deploy_configuration(mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", "--target", "host"])
 
@@ -285,18 +285,14 @@ def test_when_config_deploy_supports_multiple_targets(
 def test_when_config_deploy_is_invoked_with_profile_it_passes_profile(
     cli_runner: CliRunner,
     tmp_path: Any,
-    monkeypatch: pytest.MonkeyPatch,
+    inject_deploy_with_profile_capture: Callable[[Path, list[str | None]], None],
 ) -> None:
     """Verify config-deploy passes profile to deploy_configuration."""
     deployed_path = tmp_path / "config.toml"
     deployed_path.touch()
     captured_profile: list[str | None] = []
 
-    def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
-        captured_profile.append(profile)
-        return [deployed_path]
-
-    monkeypatch.setattr(config_deploy_mod, "deploy_configuration", mock_deploy)
+    inject_deploy_with_profile_capture(deployed_path, captured_profile)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", "--profile", "production"])
 
@@ -308,19 +304,14 @@ def test_when_config_deploy_is_invoked_with_profile_it_passes_profile(
 @pytest.mark.os_agnostic
 def test_when_config_is_invoked_with_profile_it_passes_profile_to_get_config(
     cli_runner: CliRunner,
-    monkeypatch: pytest.MonkeyPatch,
     config_factory: Callable[[dict[str, Any]], Config],
-    clear_config_cache: None,
+    inject_config_with_profile_capture: Callable[[Config, list[str | None]], None],
 ) -> None:
     """Verify config command passes --profile to get_config."""
     captured_profiles: list[str | None] = []
     config = config_factory({"test_section": {"key": "value"}})
 
-    def capturing(*, profile: str | None = None, **_kwargs: Any) -> Config:
-        captured_profiles.append(profile)
-        return config
-
-    monkeypatch.setattr(config_mod, "get_config", capturing)
+    inject_config_with_profile_capture(config, captured_profiles)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config", "--profile", "staging"])
 
@@ -331,19 +322,14 @@ def test_when_config_is_invoked_with_profile_it_passes_profile_to_get_config(
 @pytest.mark.os_agnostic
 def test_when_config_is_invoked_without_profile_it_passes_none(
     cli_runner: CliRunner,
-    monkeypatch: pytest.MonkeyPatch,
     config_factory: Callable[[dict[str, Any]], Config],
-    clear_config_cache: None,
+    inject_config_with_profile_capture: Callable[[Config, list[str | None]], None],
 ) -> None:
     """Verify config command passes None when no --profile specified."""
     captured_profiles: list[str | None] = []
     config = config_factory({"test_section": {"key": "value"}})
 
-    def capturing(*, profile: str | None = None, **_kwargs: Any) -> Config:
-        captured_profiles.append(profile)
-        return config
-
-    monkeypatch.setattr(config_mod, "get_config", capturing)
+    inject_config_with_profile_capture(config, captured_profiles)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config"])
 
@@ -355,18 +341,14 @@ def test_when_config_is_invoked_without_profile_it_passes_none(
 def test_when_config_deploy_is_invoked_without_profile_it_passes_none(
     cli_runner: CliRunner,
     tmp_path: Any,
-    monkeypatch: pytest.MonkeyPatch,
+    inject_deploy_with_profile_capture: Callable[[Path, list[str | None]], None],
 ) -> None:
     """Verify config-deploy passes None when no --profile specified."""
     deployed_path = tmp_path / "config.toml"
     deployed_path.touch()
     captured_profiles: list[str | None] = []
 
-    def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
-        captured_profiles.append(profile)
-        return [deployed_path]
-
-    monkeypatch.setattr(config_deploy_mod, "deploy_configuration", mock_deploy)
+    inject_deploy_with_profile_capture(deployed_path, captured_profiles)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
 

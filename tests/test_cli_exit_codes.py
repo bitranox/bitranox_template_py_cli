@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -10,7 +11,6 @@ from click.testing import CliRunner, Result
 from lib_layered_config import Config
 
 from bitranox_template_py_cli.adapters import cli as cli_mod
-from bitranox_template_py_cli.adapters.config import deploy as config_deploy_mod
 
 if TYPE_CHECKING:
     from bitranox_template_py_cli.adapters.memory.email import EmailSpy
@@ -28,14 +28,14 @@ def test_when_config_section_is_invalid_it_exits_with_code_22(cli_runner: CliRun
 @pytest.mark.os_agnostic
 def test_when_config_deploy_has_permission_error_it_exits_with_code_13(
     cli_runner: CliRunner,
-    monkeypatch: pytest.MonkeyPatch,
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
 ) -> None:
     """Config-deploy PermissionError must exit with PERMISSION_DENIED (13)."""
 
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Any]:
         raise PermissionError("Permission denied")
 
-    monkeypatch.setattr(config_deploy_mod, "deploy_configuration", mock_deploy)
+    inject_deploy_configuration(mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "app"])
 
@@ -46,14 +46,14 @@ def test_when_config_deploy_has_permission_error_it_exits_with_code_13(
 @pytest.mark.os_agnostic
 def test_when_config_deploy_has_generic_error_it_exits_with_code_1(
     cli_runner: CliRunner,
-    monkeypatch: pytest.MonkeyPatch,
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
 ) -> None:
     """Config-deploy generic Exception must exit with GENERAL_ERROR (1)."""
 
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Any]:
         raise OSError("Disk full")
 
-    monkeypatch.setattr(config_deploy_mod, "deploy_configuration", mock_deploy)
+    inject_deploy_configuration(mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
 

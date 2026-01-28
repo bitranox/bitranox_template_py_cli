@@ -9,7 +9,8 @@ Contents:
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
 
 import lib_cli_exit_tools
 import lib_log_rich.runtime
@@ -22,6 +23,13 @@ from .context import (
     restore_traceback_state,
     snapshot_traceback_state,
 )
+
+if TYPE_CHECKING:
+    from bitranox_template_py_cli.composition import AppServices
+
+# Module-level service factory container (list to avoid global statement).
+# Set by main() before CLI runs, accessed by get_services_factory().
+_services_factory_holder: list[Callable[[], AppServices]] = []
 
 
 def _run_cli(argv: Sequence[str] | None) -> int:
@@ -49,7 +57,43 @@ def _run_cli(argv: Sequence[str] | None) -> int:
         return lib_cli_exit_tools.get_system_exit_code(exc)
 
 
-def main(argv: Sequence[str] | None = None, *, restore_traceback: bool = True) -> int:
+def get_services_factory() -> Callable[[], AppServices]:
+    """Return the current services factory.
+
+    Returns:
+        The services factory set by main().
+
+    Raises:
+        RuntimeError: If no factory has been set (should not happen in normal use).
+    """
+    if not _services_factory_holder:
+        raise RuntimeError("Services factory not initialized. Call main() first.")
+    return _services_factory_holder[0]
+
+
+def set_services_factory_for_testing(factory: Callable[[], AppServices] | None) -> None:
+    """Set or clear the services factory for testing.
+
+    This function allows tests to inject a services factory without going
+    through main(). Pass None to clear the factory.
+
+    Args:
+        factory: Services factory to set, or None to clear.
+
+    Note:
+        This is intended for test use only. Production code should use main().
+    """
+    _services_factory_holder.clear()
+    if factory is not None:
+        _services_factory_holder.append(factory)
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    restore_traceback: bool = True,
+    services_factory: Callable[[], AppServices] | None = None,
+) -> int:
     """Execute the CLI with error handling and return the exit code.
 
     Provides the single entry point used by console scripts and
@@ -58,15 +102,27 @@ def main(argv: Sequence[str] | None = None, *, restore_traceback: bool = True) -
     Args:
         argv: Optional sequence of CLI arguments. None uses sys.argv.
         restore_traceback: Whether to restore prior traceback configuration after execution.
+        services_factory: Factory function returning AppServices. Required.
+            Callers outside the adapters layer should pass ``build_production``.
 
     Returns:
         Exit code reported by the CLI run.
 
+    Raises:
+        ValueError: If services_factory is not provided.
+
     Example:
-        >>> exit_code = main(["--help"])  # doctest: +SKIP
+        >>> from bitranox_template_py_cli.composition import build_production
+        >>> exit_code = main(["--help"], services_factory=build_production)  # doctest: +SKIP
         >>> exit_code == 0  # doctest: +SKIP
         True
     """
+    if services_factory is None:
+        raise ValueError("services_factory is required. Pass build_production from composition layer.")
+
+    _services_factory_holder.clear()
+    _services_factory_holder.append(services_factory)
+
     previous_state = snapshot_traceback_state()
     try:
         return _run_cli(argv)
@@ -77,4 +133,4 @@ def main(argv: Sequence[str] | None = None, *, restore_traceback: bool = True) -
             lib_log_rich.runtime.shutdown()
 
 
-__all__ = ["main"]
+__all__ = ["get_services_factory", "main", "set_services_factory_for_testing"]

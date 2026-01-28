@@ -1,98 +1,64 @@
-"""Package metadata via importlib.metadata - all values derived from pyproject.toml.
+"""Static package metadata surfaced to CLI commands and documentation.
 
-When copying this template project, update only pyproject.toml. All values here
-are derived automatically from the installed package metadata.
+Purpose
+-------
+Expose the current project metadata as simple constants. These values are kept
+in sync with ``pyproject.toml`` by development automation (tests, push
+pipelines), so runtime code does not query packaging metadata.
 
-Contents:
-    * Metadata properties sourced from installed package metadata.
-    * LAYEREDCONF_* constants derived for lib_layered_config path resolution.
-    * :func:`print_info` rendering metadata for the CLI ``info`` command.
+Contents
+--------
+* Module-level constants describing the published package.
+* :func:`print_info` rendering the constants for the CLI ``info`` command.
+
+System Role
+-----------
+Lives in the adapters/platform layer; CLI transports import these constants to
+present authoritative project information without invoking packaging APIs.
 """
 
 from __future__ import annotations
 
-from functools import lru_cache
-from importlib.metadata import metadata
+#: Distribution name declared in ``pyproject.toml``.
+name = "bitranox_template_py_cli"
+#: Human-readable summary shown in CLI help output.
+title = "Template CLI application with configuration management and structured logging"
+#: Current release version pulled from ``pyproject.toml`` by automation.
+version = "1.1.2"
+#: Repository homepage presented to users.
+homepage = "https://github.com/bitranox/bitranox_template_py_cli"
+#: Author attribution surfaced in CLI output.
+author = "bitranox"
+#: Contact email surfaced in CLI output.
+author_email = "bitranox@gmail.com"
+#: Console-script name published by the package.
+shell_command = "bitranox-template-py-cli"
 
-
-@lru_cache(maxsize=1)
-def _get_package_name() -> str:
-    """Get the package name from the module path."""
-    return __name__.rsplit(".", 1)[0]
-
-
-@lru_cache(maxsize=1)
-def _get_metadata() -> dict[str, str]:
-    """Load package metadata once and cache it."""
-    package_name = _get_package_name()
-    meta = metadata(package_name)
-
-    # Extract author name and email from "Author-email: Name <email>" format
-    author_email_raw = meta.get("Author-email", "")
-    author_name = ""
-    author_email_addr = ""
-    if "<" in author_email_raw and ">" in author_email_raw:
-        author_name = author_email_raw.split("<")[0].strip()
-        author_email_addr = author_email_raw.split("<")[1].rstrip(">").strip()
-
-    # Get homepage from Project-URL (format: "Homepage, https://...")
-    homepage_url = ""
-    for url_line in meta.get_all("Project-URL") or []:
-        if url_line.startswith("Homepage,"):
-            homepage_url = url_line.split(",", 1)[1].strip()
-            break
-
-    # Get package name and derive slug/shell_command
-    pkg_name = meta.get("Name", package_name)
-
-    return {
-        "name": pkg_name,
-        "version": meta.get("Version", "0.0.0"),
-        "summary": meta.get("Summary", ""),
-        "homepage": homepage_url,
-        "author": author_name,
-        "author_email": author_email_addr,
-    }
-
-
-def _to_kebab_case(value: str) -> str:
-    """Convert package name to kebab-case slug."""
-    return value.replace("_", "-").lower()
-
-
-def _to_title_case(value: str) -> str:
-    """Convert package name to Title Case display name."""
-    return " ".join(word.capitalize() for word in value.replace("_", " ").replace("-", " ").split())
-
-
-# Module-level variables computed directly from metadata (no global statements)
-_meta = _get_metadata()
-
-name: str = _meta["name"]
-title: str = _meta["summary"]
-version: str = _meta["version"]
-homepage: str = _meta["homepage"]
-author: str = _meta["author"]
-author_email: str = _meta["author_email"]
-shell_command: str = _to_kebab_case(name)
-
-# lib_layered_config path resolution constants
-LAYEREDCONF_VENDOR: str = author or name.split("_")[0]  # First word if no author
-LAYEREDCONF_APP: str = _to_title_case(name)
-LAYEREDCONF_SLUG: str = shell_command
+#: Vendor identifier for lib_layered_config paths (macOS/Windows)
+LAYEREDCONF_VENDOR: str = "bitranox"
+#: Application display name for lib_layered_config paths (macOS/Windows)
+LAYEREDCONF_APP: str = "Bitranox Template Py Cli"
+#: Configuration slug for lib_layered_config Linux paths and environment variables
+LAYEREDCONF_SLUG: str = "bitranox-template-py-cli"
 
 
 def print_info() -> None:
     """Print the summarised metadata block used by the CLI ``info`` command.
 
-    Side Effects:
+    Why
+        Provides a single, auditable rendering function so documentation and
+        CLI output always match the system design reference.
+
+    Side Effects
         Writes to ``stdout``.
 
-    Examples:
-        >>> print_info()  # doctest: +ELLIPSIS
-        Info for ...:
-        ...
+    Examples
+    --------
+    >>> print_info()  # doctest: +ELLIPSIS
+    Info for bitranox_template_py_cli:
+    ...
     """
+
     fields = [
         ("name", name),
         ("title", title),

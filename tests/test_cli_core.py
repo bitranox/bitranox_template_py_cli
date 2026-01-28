@@ -12,6 +12,7 @@ from click.testing import CliRunner, Result
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod
+from bitranox_template_py_cli.composition import build_production
 
 
 @dataclass(slots=True)
@@ -103,7 +104,7 @@ def test_traceback_flag_is_active_during_info_command(
 
     monkeypatch.setattr(__init__conf__, "print_info", record)
 
-    exit_code = cli_mod.main(["--traceback", "info"])
+    exit_code = cli_mod.main(["--traceback", "info"], services_factory=build_production)
 
     assert exit_code == 0
     assert notes == [(True, True)]
@@ -117,7 +118,7 @@ def test_traceback_flags_restored_after_info_command(
     """--traceback flags are restored to disabled after command completes."""
     monkeypatch.setattr(__init__conf__, "print_info", lambda: None)
 
-    cli_mod.main(["--traceback", "info"])
+    cli_mod.main(["--traceback", "info"], services_factory=build_production)
 
     assert lib_cli_exit_tools.config.traceback is False
     assert lib_cli_exit_tools.config.traceback_force_color is False
@@ -129,7 +130,7 @@ def test_when_main_is_called_it_delegates_to_run_cli(monkeypatch: pytest.MonkeyP
     ledger: list[CapturedRun] = []
     monkeypatch.setattr(lib_cli_exit_tools, "run_cli", capture_run_cli(ledger))
 
-    result = cli_mod.main(["info"])
+    result = cli_mod.main(["info"], services_factory=build_production)
 
     assert result == 42
     assert ledger == [
@@ -180,7 +181,7 @@ def test_when_main_receives_no_arguments_help_is_shown(
 
     monkeypatch.setattr(lib_cli_exit_tools, "run_cli", fake_run_cli)
 
-    exit_code = cli_mod.main([])
+    exit_code = cli_mod.main([], services_factory=build_production)
 
     assert exit_code == 0
     assert outputs and "Usage:" in outputs[0]
@@ -204,7 +205,7 @@ def test_traceback_flag_displays_full_exception_traceback(
     strip_ansi: Callable[[str], str],
 ) -> None:
     """--traceback prints the complete traceback on failure."""
-    exit_code = cli_mod.main(["--traceback", "fail"])
+    exit_code = cli_mod.main(["--traceback", "fail"], services_factory=build_production)
 
     plain_err = strip_ansi(capsys.readouterr().err)
 
@@ -260,7 +261,7 @@ def test_restore_traceback_false_keeps_flags_enabled(
     """restore_traceback=False leaves traceback flags enabled after command."""
     cli_mod.apply_traceback_preferences(False)
 
-    cli_mod.main(["--traceback", "hello"], restore_traceback=False)
+    cli_mod.main(["--traceback", "hello"], restore_traceback=False, services_factory=build_production)
 
     assert lib_cli_exit_tools.config.traceback is True
     assert lib_cli_exit_tools.config.traceback_force_color is True

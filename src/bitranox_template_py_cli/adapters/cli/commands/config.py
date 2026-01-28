@@ -18,14 +18,11 @@ import rich_click as click
 from lib_layered_config import Config, generate_examples
 
 from bitranox_template_py_cli import __init__conf__
-from bitranox_template_py_cli.adapters.config import deploy as config_deploy_module
-from bitranox_template_py_cli.adapters.config import loader as config_module
-from bitranox_template_py_cli.adapters.config.display import display_config
 from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
 from bitranox_template_py_cli.domain.enums import DeployTarget, OutputFormat
 
 from ..constants import CLICK_CONTEXT_SETTINGS
-from ..context import get_cli_context
+from ..context import CLIContext, get_cli_context
 from ..exit_codes import ExitCode
 
 logger = logging.getLogger(__name__)
@@ -65,7 +62,8 @@ def cli_config(ctx: click.Context, format: str, section: str | None, profile: st
         >>> runner = CliRunner()
         >>> # Real invocation tested in test_cli.py
     """
-    effective_config, effective_profile = _resolve_config(ctx, profile)
+    cli_ctx = get_cli_context(ctx)
+    effective_config, effective_profile = _resolve_config(cli_ctx, profile)
     output_format = OutputFormat(format.lower())
 
     extra = {"command": "config", "format": output_format.value, "profile": effective_profile}
@@ -77,18 +75,18 @@ def cli_config(ctx: click.Context, format: str, section: str | None, profile: st
         lib_log_rich.runtime.flush()
         click.echo()
         try:
-            display_config(effective_config, format=output_format, section=section)
+            cli_ctx.services.display_config(effective_config, format=output_format, section=section)
         except ValueError as exc:
             click.echo(f"\nError: {exc}", err=True)
             raise SystemExit(ExitCode.INVALID_ARGUMENT) from exc
 
 
-def _get_effective_profile(ctx: click.Context, profile_override: str | None) -> str | None:
+def _get_effective_profile(cli_ctx: CLIContext, profile_override: str | None) -> str | None:
     """Get effective profile: override takes precedence over context."""
-    return profile_override if profile_override else get_cli_context(ctx).profile
+    return profile_override if profile_override else cli_ctx.profile
 
 
-def _resolve_config(ctx: click.Context, profile: str | None) -> tuple[Config, str | None]:
+def _resolve_config(cli_ctx: CLIContext, profile: str | None) -> tuple[Config, str | None]:
     """Resolve configuration from context or reload with profile override.
 
     When a subcommand-level profile override is specified, reloads config
@@ -96,16 +94,15 @@ def _resolve_config(ctx: click.Context, profile: str | None) -> tuple[Config, st
     stored in the CLI context.
 
     Args:
-        ctx: Click context containing stored config.
+        cli_ctx: CLI context containing stored config and services.
         profile: Optional profile override.
 
     Returns:
         Tuple of (config, effective_profile).
     """
-    effective_profile = _get_effective_profile(ctx, profile)
-    cli_ctx = get_cli_context(ctx)
+    effective_profile = _get_effective_profile(cli_ctx, profile)
     if profile:
-        config = config_module.get_config(profile=profile)
+        config = cli_ctx.services.get_config(profile=profile)
         return apply_overrides(config, cli_ctx.set_overrides), effective_profile
     return cli_ctx.config, effective_profile
 
@@ -149,7 +146,8 @@ def cli_config_deploy(ctx: click.Context, targets: tuple[str, ...], force: bool,
         >>> runner = CliRunner()
         >>> # Real invocation tested in test_cli.py
     """
-    effective_profile = _get_effective_profile(ctx, profile)
+    cli_ctx = get_cli_context(ctx)
+    effective_profile = _get_effective_profile(cli_ctx, profile)
     deploy_targets = tuple(DeployTarget(t.lower()) for t in targets)
     target_values = tuple(t.value for t in deploy_targets)
 
@@ -159,13 +157,14 @@ def cli_config_deploy(ctx: click.Context, targets: tuple[str, ...], force: bool,
             "Deploying configuration",
             extra={"targets": target_values, "force": force, "profile": effective_profile},
         )
-        _execute_deploy(deploy_targets, force, effective_profile)
+        _execute_deploy(cli_ctx, deploy_targets, force, effective_profile)
 
 
-def _execute_deploy(targets: tuple[DeployTarget, ...], force: bool, profile: str | None) -> None:
+def _execute_deploy(cli_ctx: CLIContext, targets: tuple[DeployTarget, ...], force: bool, profile: str | None) -> None:
     """Execute configuration deployment with error handling.
 
     Args:
+        cli_ctx: CLI context containing services.
         targets: Deployment target layers.
         force: Whether to overwrite existing files.
         profile: Optional profile name.
@@ -174,7 +173,7 @@ def _execute_deploy(targets: tuple[DeployTarget, ...], force: bool, profile: str
         SystemExit: On permission or other errors.
     """
     try:
-        deployed_paths = config_deploy_module.deploy_configuration(targets=targets, force=force, profile=profile)
+        deployed_paths = cli_ctx.services.deploy_configuration(targets=targets, force=force, profile=profile)
         _report_deployment_result(deployed_paths, profile)
     except PermissionError as exc:
         logger.error("Permission denied when deploying configuration", extra={"error": str(exc)})

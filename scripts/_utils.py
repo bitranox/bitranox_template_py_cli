@@ -45,6 +45,7 @@ from ._metadata import (
     ProjectMetadata,
     get_project_metadata,
     read_version_from_pyproject,
+    sync_metadata_module,
 )
 
 # --- pip / dev bootstrap ------------------------------------------------------
@@ -62,6 +63,7 @@ __all__ = [
     "ProjectMetadata",
     "get_project_metadata",
     "read_version_from_pyproject",
+    "sync_metadata_module",
     # _git
     "ensure_clean_git_tree",
     "git_branch",

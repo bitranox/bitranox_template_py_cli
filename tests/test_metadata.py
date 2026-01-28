@@ -53,8 +53,8 @@ def test_when_print_info_runs_it_outputs_metadata(capsys: pytest.CaptureFixture[
 
 
 @pytest.mark.os_agnostic
-def test_metadata_loads_from_importlib() -> None:
-    """Verify metadata is sourced from importlib.metadata, not hardcoded."""
+def test_metadata_constants_are_set() -> None:
+    """Verify static metadata constants are properly set."""
     from bitranox_template_py_cli import __init__conf__
 
     # These should be non-empty when package is installed

@@ -22,11 +22,7 @@ import rich_click as click
 from lib_layered_config import Config
 
 if TYPE_CHECKING:
-    from bitranox_template_py_cli.application.ports import (
-        LoadEmailConfigFromDict,
-        SendEmail,
-        SendNotification,
-    )
+    from bitranox_template_py_cli.composition import AppServices
 
 TracebackState = tuple[bool, bool]
 """Captured traceback configuration: (traceback_enabled, force_color)."""
@@ -41,21 +37,16 @@ class CLIContext:
     Attributes:
         traceback: Whether verbose tracebacks were requested.
         config: Loaded layered configuration object.
+        services: All application services from composition layer.
         profile: Optional configuration profile name.
         set_overrides: Raw ``--set`` override strings from CLI for reapplication.
-        send_email: Optional email service override (None = use production).
-        send_notification: Optional notification service override (None = use production).
-        load_email_config_from_dict: Optional config loader override (None = use production).
     """
 
     traceback: bool
     config: Config
+    services: AppServices
     profile: str | None = None
     set_overrides: tuple[str, ...] = ()
-    # Service overrides for testing (None = use production defaults)
-    send_email: SendEmail | None = None
-    send_notification: SendNotification | None = None
-    load_email_config_from_dict: LoadEmailConfigFromDict | None = None
 
 
 def store_cli_context(
@@ -63,11 +54,9 @@ def store_cli_context(
     *,
     traceback: bool,
     config: Config,
+    services: AppServices,
     profile: str | None = None,
     set_overrides: tuple[str, ...] = (),
-    send_email: SendEmail | None = None,
-    send_notification: SendNotification | None = None,
-    load_email_config_from_dict: LoadEmailConfigFromDict | None = None,
 ) -> None:
     """Store CLI state in the Click context for subcommand access.
 
@@ -75,31 +64,29 @@ def store_cli_context(
         ctx: Click context associated with the current invocation.
         traceback: Whether verbose tracebacks were requested.
         config: Loaded layered configuration object for all subcommands.
+        services: All application services from composition layer.
         profile: Optional configuration profile name.
         set_overrides: Raw ``--set`` override strings for reapplication when
             subcommands reload config with a different profile.
-        send_email: Optional email service override for testing.
-        send_notification: Optional notification service override for testing.
-        load_email_config_from_dict: Optional config loader override for testing.
 
     Example:
         >>> from click.testing import CliRunner
         >>> from unittest.mock import MagicMock
+        >>> from bitranox_template_py_cli.composition import build_production
         >>> ctx = MagicMock()
         >>> ctx.obj = None
         >>> mock_config = MagicMock()
-        >>> store_cli_context(ctx, traceback=True, config=mock_config, profile="test")
+        >>> services = build_production()
+        >>> store_cli_context(ctx, traceback=True, config=mock_config, services=services, profile="test")
         >>> ctx.obj.traceback
         True
     """
     ctx.obj = CLIContext(
         traceback=traceback,
         config=config,
+        services=services,
         profile=profile,
         set_overrides=set_overrides,
-        send_email=send_email,
-        send_notification=send_notification,
-        load_email_config_from_dict=load_email_config_from_dict,
     )
 
 
@@ -119,7 +106,8 @@ def get_cli_context(ctx: click.Context) -> CLIContext:
         >>> from unittest.mock import MagicMock
         >>> ctx = MagicMock()
         >>> mock_config = MagicMock()
-        >>> ctx.obj = CLIContext(traceback=False, config=mock_config)
+        >>> mock_services = MagicMock()
+        >>> ctx.obj = CLIContext(traceback=False, config=mock_config, services=mock_services)
         >>> cli_ctx = get_cli_context(ctx)
         >>> cli_ctx.traceback
         False
