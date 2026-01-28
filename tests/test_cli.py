@@ -376,7 +376,8 @@ def test_when_config_is_invoked_with_section_showing_complex_values(
     assert result.exit_code == 0
     assert "[email]" in result.output
     assert "smtp_hosts" in result.output
-    assert '["smtp1.test.com:587", "smtp2.test.com:587"]' in result.output or "smtp1.test.com:587" in result.output
+    assert "smtp1.test.com:587" in result.output
+    assert "smtp2.test.com:587" in result.output
     assert "metadata" in result.output
     assert '"test@example.com"' in result.output
     assert "60.0" in result.output
@@ -729,6 +730,19 @@ def test_when_set_override_has_no_dot_it_shows_usage_error(
     result: Result = cli_runner.invoke(
         cli_mod.cli,
         ["--set", "nodot=value", "config"],
+    )
+
+    assert result.exit_code != 0
+
+
+@pytest.mark.os_agnostic
+def test_when_set_override_is_empty_string_it_shows_error(
+    cli_runner: CliRunner,
+) -> None:
+    """Verify --set with empty string shows error."""
+    result: Result = cli_runner.invoke(
+        cli_mod.cli,
+        ["--set", "", "config"],
     )
 
     assert result.exit_code != 0
@@ -1301,13 +1315,7 @@ def test_when_send_email_receives_timeout_override_it_uses_it(
         assert result.exit_code == 0
         smtp_calls = mock_smtp.call_args_list
         # smtplib.SMTP accepts timeout as keyword or second positional arg
-        assert any(
-            c.kwargs.get("timeout") == 60.0
-            for c in smtp_calls
-        ) or any(
-            len(c.args) > 1 and c.args[1] == 60.0
-            for c in smtp_calls
-        )
+        assert any(c.kwargs.get("timeout") == 60.0 for c in smtp_calls) or any(len(c.args) > 1 and c.args[1] == 60.0 for c in smtp_calls)
 
 
 @pytest.mark.os_agnostic
@@ -1666,7 +1674,7 @@ def test_when_config_generate_examples_is_invoked_it_creates_files(
     def mock_generate_examples(destination: str | Path, *, slug: str, vendor: str, app: str, force: bool = False, platform: str | None = None) -> list[Path]:
         return [created_file]
 
-    monkeypatch.setattr("lib_layered_config.generate_examples", mock_generate_examples)
+    monkeypatch.setattr("bitranox_template_py_cli.adapters.cli.commands.config.generate_examples", mock_generate_examples)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,
@@ -1690,7 +1698,7 @@ def test_when_config_generate_examples_has_no_files_it_informs_user(
     def mock_generate_examples(destination: str | Path, *, slug: str, vendor: str, app: str, force: bool = False, platform: str | None = None) -> list[Path]:
         return []
 
-    monkeypatch.setattr("lib_layered_config.generate_examples", mock_generate_examples)
+    monkeypatch.setattr("bitranox_template_py_cli.adapters.cli.commands.config.generate_examples", mock_generate_examples)
 
     result: Result = cli_runner.invoke(
         cli_mod.cli,

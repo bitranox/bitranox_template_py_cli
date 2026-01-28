@@ -14,8 +14,9 @@ from pathlib import Path
 
 import rich_click as click
 import lib_log_rich.runtime
-from lib_layered_config import Config
+from lib_layered_config import Config, generate_examples
 
+from .... import __init__conf__
 from ....adapters.config import loader as config_module
 from ....adapters.config import deploy as config_deploy_module
 from ....adapters.config.display import display_config
@@ -201,10 +202,6 @@ def _report_deployment_result(deployed_paths: list[Path], profile: str | None) -
 @click.pass_context
 def cli_config_generate_examples(ctx: click.Context, destination: str, force: bool) -> None:
     """Generate example configuration files in a target directory."""
-    from lib_layered_config import generate_examples
-
-    from .... import __init__conf__
-
     extra = {"command": "config-generate-examples", "destination": destination, "force": force}
     with lib_log_rich.runtime.bind(job_id="cli-config-generate-examples", extra=extra):
         logger.info("Generating example configuration files", extra={"destination": destination, "force": force})

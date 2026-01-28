@@ -48,7 +48,6 @@ def _format_raw_value(value: Any) -> str:
     return f"{value}"
 
 
-
 def _styled_entry(key: str, value: Any, *, indent: str = "  ") -> Text:
     """Build a Rich Text object for a styled config key-value line.
 
@@ -89,7 +88,6 @@ def _format_source_line(info: SourceInfo, indent: str = "  ") -> str:
     if path is not None:
         return f"{indent}# source: {layer} ({path})"
     return f"{indent}# source: {layer}"
-
 
 
 def _print_section(

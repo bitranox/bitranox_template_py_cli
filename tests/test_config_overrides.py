@@ -92,6 +92,20 @@ def test_parse_override_rejects_trailing_dot_in_key() -> None:
         parse_override("section.key.=value")
 
 
+@pytest.mark.os_agnostic
+def test_parse_override_rejects_equals_only() -> None:
+    """Bare '=value' with no dot in key part raises ValueError."""
+    with pytest.raises(ValueError, match="must contain at least one dot"):
+        parse_override("=value")
+
+
+@pytest.mark.os_agnostic
+def test_parse_override_rejects_bare_equals() -> None:
+    """Bare '=' with empty everything raises ValueError."""
+    with pytest.raises(ValueError, match="must contain at least one dot"):
+        parse_override("=")
+
+
 # ======================== coerce_value tests ========================
 
 

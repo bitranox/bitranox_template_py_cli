@@ -24,7 +24,7 @@ name = "bitranox_template_py_cli"
 #: Human-readable summary shown in CLI help output.
 title = "Template CLI application with configuration management and structured logging"
 #: Current release version pulled from ``pyproject.toml`` by automation.
-version = "1.1.0"
+version = "1.1.1"
 #: Repository homepage presented to users.
 homepage = "https://github.com/bitranox/bitranox_template_py_cli"
 #: Author attribution surfaced in CLI output.
@@ -40,21 +40,6 @@ LAYEREDCONF_VENDOR: str = "bitranox"
 LAYEREDCONF_APP: str = "Bitranox Template Py Cli"
 #: Configuration slug for lib_layered_config Linux paths and environment variables
 LAYEREDCONF_SLUG: str = "bitranox-template-py-cli"
-
-
-__all__ = [
-    "LAYEREDCONF_APP",
-    "LAYEREDCONF_SLUG",
-    "LAYEREDCONF_VENDOR",
-    "author",
-    "author_email",
-    "homepage",
-    "name",
-    "print_info",
-    "shell_command",
-    "title",
-    "version",
-]
 
 
 def print_info() -> None:

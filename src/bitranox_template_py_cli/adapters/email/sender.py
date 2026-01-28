@@ -127,7 +127,7 @@ class EmailConfig(BaseModel):
             ['smtp.example.com']
         """
         return ConfMail(
-            smtphosts=self.smtp_hosts,  # type: ignore[reportUnknownVariableType]
+            smtphosts=self.smtp_hosts,
             smtp_username=self.smtp_username,
             smtp_password=self.smtp_password,
             smtp_use_starttls=self.use_starttls,

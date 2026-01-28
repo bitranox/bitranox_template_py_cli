@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
-## [Unreleased]
+## [1.1.1] - 2026-01-28
 
 ### Fixed
 - CLAUDE.md: replaced stale package name `bitranox_template_cli_app_config_log_mail` with `bitranox_template_py_cli` throughout
 - Brittle SMTP mock assertions in `test_cli.py` now use structured `call_args` attributes instead of `str()` coercion
+- Stale docstring in `__init__conf__.py` claiming "adapters/platform layer" — corrected to "Package-level metadata module"
+- Weak OR assertion in `test_cli.py` for SMTP host display — replaced with two independent assertions
+- Removed stale `# type: ignore[reportUnknownVariableType]` from `sender.py` (`btx_lib_mail.ConfMail` now has proper type annotations)
+- Late function-body imports in `adapters/cli/commands/config.py` moved to module-level for consistency
 
 ### Removed
 - Dead code: unused `_format_value()` and `_format_source()` wrappers in `adapters/config/display.py`
@@ -18,6 +22,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - `tests/test_enums.py` with parametrized tests for `OutputFormat` and `DeployTarget`
 - Expanded `tests/test_behaviors.py` with return type, constant value, and constant-usage checks
 - Python 3.14 classifier in `pyproject.toml`
+- Codecov upload step in CI workflow (gated to `ubuntu-latest` + `3.13`)
+- Edge-case tests for `parse_override`: bare `=value`, bare `=`, and CLI `--set ""` empty string
+- Duplication-tracking comments for CI metadata extraction scripts
 
 ### Changed
 - `tests/test_display.py` rewritten to test `_format_raw_value` and `_format_source_line` directly (replacing dead wrapper tests)
