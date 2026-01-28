@@ -11,7 +11,6 @@ from click.testing import CliRunner, Result
 from lib_layered_config import Config
 
 from bitranox_template_py_cli.adapters import cli as cli_mod
-from bitranox_template_py_cli.adapters.config import deploy as config_deploy_mod
 from bitranox_template_py_cli.adapters.config import loader as config_mod
 
 
@@ -216,14 +215,14 @@ def test_when_config_deploy_is_invoked_it_deploys_configuration(
 @pytest.mark.os_agnostic
 def test_when_config_deploy_finds_no_files_to_create_it_informs_user(
     cli_runner: CliRunner,
-    monkeypatch: pytest.MonkeyPatch,
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
 ) -> None:
     """Verify config-deploy reports when no files are created."""
 
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
         return []
 
-    monkeypatch.setattr(config_deploy_mod, "deploy_configuration", mock_deploy)
+    inject_deploy_configuration(mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
 
@@ -235,14 +234,14 @@ def test_when_config_deploy_finds_no_files_to_create_it_informs_user(
 @pytest.mark.os_agnostic
 def test_when_config_deploy_encounters_permission_error_it_handles_gracefully(
     cli_runner: CliRunner,
-    monkeypatch: pytest.MonkeyPatch,
+    inject_deploy_configuration: Callable[[Callable[..., list[Path]]], None],
 ) -> None:
     """Verify config-deploy handles PermissionError gracefully."""
 
     def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Any]:
         raise PermissionError("Permission denied")
 
-    monkeypatch.setattr(config_deploy_mod, "deploy_configuration", mock_deploy)
+    inject_deploy_configuration(mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "app"])
 
