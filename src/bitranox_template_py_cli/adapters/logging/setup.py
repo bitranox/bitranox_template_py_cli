@@ -16,6 +16,7 @@ System Role:
 
 from __future__ import annotations
 
+import threading
 from typing import cast
 
 import lib_log_rich.config
@@ -24,6 +25,10 @@ from lib_layered_config import Config
 from pydantic import BaseModel, ConfigDict
 
 from bitranox_template_py_cli import __init__conf__
+
+# Lock for thread-safe logging initialization.
+# Prevents concurrent init/shutdown races from multiple threads.
+_logging_lock = threading.Lock()
 
 
 class LoggingConfigModel(BaseModel):
@@ -95,6 +100,8 @@ def init_logging(config: Config) -> None:
     Config object. Bridges standard Python logging to lib_log_rich for domain
     code compatibility.
 
+    Thread-safe: uses a lock to prevent concurrent initialization races.
+
     Args:
         config: Already-loaded layered configuration object containing logging
             settings in the [lib_log_rich] section.
@@ -118,7 +125,9 @@ def init_logging(config: Config) -> None:
         >>> config = Config({"lib_log_rich": {"environment": "test"}}, {})
         >>> init_logging(config)  # doctest: +SKIP
     """
-    if not lib_log_rich.runtime.is_initialised():
+    with _logging_lock:
+        if lib_log_rich.runtime.is_initialised():
+            return
         lib_log_rich.config.enable_dotenv()
         runtime_config = _build_runtime_config(config)
         lib_log_rich.runtime.init(runtime_config)

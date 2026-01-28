@@ -14,6 +14,7 @@ Contents:
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -26,6 +27,10 @@ if TYPE_CHECKING:
 
 TracebackState = tuple[bool, bool]
 """Captured traceback configuration: (traceback_enabled, force_color)."""
+
+# Lock for thread-safe access to lib_cli_exit_tools global configuration.
+# Traceback settings are global; concurrent CLI calls can race on these flags.
+_traceback_lock = threading.Lock()
 
 
 @dataclass(slots=True)
@@ -120,6 +125,8 @@ def get_cli_context(ctx: click.Context) -> CLIContext:
 def apply_traceback_preferences(enabled: bool) -> None:
     """Synchronise shared traceback flags with the requested preference.
 
+    Thread-safe: uses a lock to prevent concurrent CLI calls from racing.
+
     Args:
         enabled: ``True`` enables full tracebacks with colour.
 
@@ -128,8 +135,9 @@ def apply_traceback_preferences(enabled: bool) -> None:
         >>> bool(lib_cli_exit_tools.config.traceback)
         True
     """
-    lib_cli_exit_tools.config.traceback = bool(enabled)
-    lib_cli_exit_tools.config.traceback_force_color = bool(enabled)
+    with _traceback_lock:
+        lib_cli_exit_tools.config.traceback = bool(enabled)
+        lib_cli_exit_tools.config.traceback_force_color = bool(enabled)
 
 
 def snapshot_traceback_state() -> TracebackState:
@@ -152,6 +160,8 @@ def snapshot_traceback_state() -> TracebackState:
 def restore_traceback_state(state: TracebackState) -> None:
     """Reapply a previously captured traceback configuration.
 
+    Thread-safe: uses a lock to prevent concurrent CLI calls from racing.
+
     Args:
         state: Tuple from :func:`snapshot_traceback_state`.
 
@@ -162,8 +172,9 @@ def restore_traceback_state(state: TracebackState) -> None:
         >>> lib_cli_exit_tools.config.traceback == original[0]
         True
     """
-    lib_cli_exit_tools.config.traceback = state[0]
-    lib_cli_exit_tools.config.traceback_force_color = state[1]
+    with _traceback_lock:
+        lib_cli_exit_tools.config.traceback = state[0]
+        lib_cli_exit_tools.config.traceback_force_color = state[1]
 
 
 __all__ = [

@@ -20,14 +20,28 @@ System Role:
 from __future__ import annotations
 
 import re
+import threading
 from functools import lru_cache
 from pathlib import Path
+from typing import Protocol, cast
 
 from lib_layered_config import Config, read_config
 
 from bitranox_template_py_cli import __init__conf__
 
+
+class ConfigLoaderProtocol(Protocol):
+    """Protocol for config loader with cache_clear method."""
+
+    def __call__(self, *, profile: str | None = None, start_dir: str | None = None) -> Config: ...
+    def cache_clear(self) -> None: ...
+
+
 _PROFILE_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+# Lock for thread-safe config loading.
+# @lru_cache is thread-safe for reads but concurrent cache misses can cause redundant computation.
+_config_lock = threading.Lock()
 
 
 def validate_profile(profile: str) -> None:
@@ -84,13 +98,31 @@ def get_default_config_path() -> Path:
 # Configuration is loaded once per (profile, start_dir) tuple and cached
 # for the process lifetime. Intentional for a short-lived CLI process.
 @lru_cache(maxsize=4)
-def get_config(*, profile: str | None = None, start_dir: str | None = None) -> Config:
+def _get_config_impl(*, profile: str | None = None, start_dir: str | None = None) -> Config:
+    """Internal cached implementation of config loading.
+
+    Profile validation must be done by caller before invoking this function.
+    """
+    return read_config(
+        vendor=__init__conf__.LAYEREDCONF_VENDOR,
+        app=__init__conf__.LAYEREDCONF_APP,
+        slug=__init__conf__.LAYEREDCONF_SLUG,
+        profile=profile,
+        default_file=get_default_config_path(),
+        start_dir=start_dir,
+    )
+
+
+def _get_config(*, profile: str | None = None, start_dir: str | None = None) -> Config:
     """Load layered configuration with application defaults.
 
     Centralizes configuration loading so all entry points use the same
     precedence rules and default values without duplicating the discovery
     logic. Uses lru_cache to avoid redundant file reads when called from
     multiple modules.
+
+    Thread-safe: uses a lock to prevent concurrent cache misses from causing
+    redundant computation.
 
     Loads configuration from multiple sources in precedence order:
     defaults → app → host → user → dotenv → env
@@ -134,14 +166,22 @@ def get_config(*, profile: str | None = None, start_dir: str | None = None) -> C
     """
     if profile is not None:
         validate_profile(profile)
-    return read_config(
-        vendor=__init__conf__.LAYEREDCONF_VENDOR,
-        app=__init__conf__.LAYEREDCONF_APP,
-        slug=__init__conf__.LAYEREDCONF_SLUG,
-        profile=profile,
-        default_file=get_default_config_path(),
-        start_dir=start_dir,
-    )
+    with _config_lock:
+        return _get_config_impl(profile=profile, start_dir=start_dir)
+
+
+def _cache_clear() -> None:
+    """Clear the internal configuration cache.
+
+    Thread-safe wrapper around the cached implementation's cache_clear.
+    """
+    with _config_lock:
+        _get_config_impl.cache_clear()
+
+
+# Attach cache_clear and export as properly typed ConfigLoaderProtocol
+_get_config.cache_clear = _cache_clear  # type: ignore[attr-defined]
+get_config: ConfigLoaderProtocol = cast(ConfigLoaderProtocol, _get_config)
 
 
 __all__ = [

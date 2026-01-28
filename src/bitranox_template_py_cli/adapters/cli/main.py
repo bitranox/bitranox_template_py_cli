@@ -9,6 +9,7 @@ Contents:
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
@@ -107,7 +108,9 @@ def main(
     finally:
         if restore_traceback:
             restore_traceback_state(previous_state)
-        if lib_log_rich.runtime.is_initialised():
+        # Only shutdown logging from main thread to avoid killing logging for other threads.
+        is_main_thread = threading.current_thread() is threading.main_thread()
+        if is_main_thread and lib_log_rich.runtime.is_initialised():
             lib_log_rich.runtime.shutdown()
 
 

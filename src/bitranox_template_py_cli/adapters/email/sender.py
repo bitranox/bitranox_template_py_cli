@@ -18,6 +18,7 @@ System Role:
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError, InvalidRecipientError
 
 logger = logging.getLogger(__name__)
+
+# Lock for thread-safe access to btx_lib_mail global configuration.
+# btx_mail.conf is shared state modified per-email; concurrent sends can race.
+_email_lock = threading.Lock()
 
 
 class EmailConfig(BaseModel):
@@ -298,25 +303,27 @@ def send_email(
         },
     )
 
-    # Apply config flags to btx_lib_mail global conf
-    btx_mail.conf.raise_on_missing_attachments = config.raise_on_missing_attachments
-    btx_mail.conf.raise_on_invalid_recipient = config.raise_on_invalid_recipient
+    # Apply config flags to btx_lib_mail global conf and send atomically.
+    # Lock ensures concurrent emails don't race on shared global state.
+    with _email_lock:
+        btx_mail.conf.raise_on_missing_attachments = config.raise_on_missing_attachments
+        btx_mail.conf.raise_on_invalid_recipient = config.raise_on_invalid_recipient
 
-    try:
-        result = btx_send(
-            mail_from=sender,
-            mail_recipients=recipient_list,
-            mail_subject=subject,
-            mail_body=body,
-            mail_body_html=body_html,
-            smtphosts=config.smtp_hosts,
-            attachment_file_paths=attachments,
-            credentials=_build_credentials(config),
-            use_starttls=config.use_starttls,
-            timeout=config.timeout,
-        )
-    except RuntimeError as exc:
-        raise DeliveryError(str(exc)) from exc
+        try:
+            result = btx_send(
+                mail_from=sender,
+                mail_recipients=recipient_list,
+                mail_subject=subject,
+                mail_body=body,
+                mail_body_html=body_html,
+                smtphosts=config.smtp_hosts,
+                attachment_file_paths=attachments,
+                credentials=_build_credentials(config),
+                use_starttls=config.use_starttls,
+                timeout=config.timeout,
+            )
+        except RuntimeError as exc:
+            raise DeliveryError(str(exc)) from exc
 
     if result:
         logger.info(
