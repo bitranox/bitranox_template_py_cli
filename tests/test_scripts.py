@@ -197,30 +197,38 @@ def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
 
 
 @pytest.mark.os_agnostic
-def test_run_cli_imports_dynamic_package(monkeypatch: MonkeyPatch) -> None:
-    """Verify run_cli dynamically imports the package entry module."""
-    seen: list[str] = []
+def test_run_cli_invokes_uvx_with_no_cache(monkeypatch: MonkeyPatch) -> None:
+    """Verify run_cli invokes uvx with --no-cache and local dependencies."""
+    recorded: list[RecordedRun] = []
 
-    def _run_cli_main(_args: Sequence[str] | None = None) -> int:
-        return 0
+    def fake_run(
+        command: RunCommand,
+        *,
+        check: bool = True,
+        capture: bool = True,
+        cwd: str | None = None,
+        env: Mapping[str, str] | None = None,
+        dry_run: bool = False,
+    ) -> RunResult:
+        recorded.append(
+            RecordedRun(
+                command=command,
+                options={"check": check, "capture": capture, "cwd": cwd, "env": env, "dry_run": dry_run},
+            )
+        )
+        return RunResult(code=0, out="", err="")
 
-    def fake_import(name: str) -> ModuleLike:
-        seen.append(name)
-        if name.endswith(".__main__"):
-            return SimpleNamespace()
-        if name.endswith(".entry"):
-            return SimpleNamespace(main=_run_cli_main)
-        raise AssertionError(f"unexpected import {name}")
+    monkeypatch.setattr(run_cli, "run", fake_run)
+    exit_code = run_cli.run_cli(["--help"])
 
-    monkeypatch.setattr(run_cli, "import_module", fake_import)
-    runner = CliRunner()
-    result = runner.invoke(cli.main, ["run"])
-    assert result.exit_code == 0
-    package = run_cli.PROJECT.import_package
-    # CLI entry point is now in entry module (composition layer wiring)
-    assert f"{package}.entry" in seen
-    if len(seen) == 2:
-        assert seen == [f"{package}.__main__", f"{package}.entry"]
+    assert exit_code == 0
+    assert len(recorded) == 1
+    cmd = recorded[0].command
+    assert isinstance(cmd, list)
+    assert cmd[0] == "uvx"
+    assert "--from" in cmd
+    assert "--no-cache" in cmd
+    assert run_cli.PROJECT.name in cmd
 
 
 @pytest.mark.os_agnostic

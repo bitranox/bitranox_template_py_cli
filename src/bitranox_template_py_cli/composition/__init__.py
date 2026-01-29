@@ -1,17 +1,4 @@
-"""Composition root - wires adapters to application ports.
-
-This module serves as the dependency injection container, assembling the
-concrete adapter implementations and making them available for use by the
-application layer and entry points.
-
-Contents:
-    * Configuration services from :mod:`..adapters.config`
-    * Email services from :mod:`..adapters.email`
-    * Logging services from :mod:`..adapters.logging`
-    * :class:`AppServices` - Frozen dataclass holding all port implementations
-    * :func:`build_production` - Factory for production wiring
-    * :func:`build_testing` - Factory for in-memory wiring
-"""
+"""Composition root wiring adapters to application ports."""
 
 from __future__ import annotations
 
@@ -61,18 +48,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class AppServices:
-    """Frozen container holding all application port implementations.
-
-    Attributes:
-        get_config: Configuration loader.
-        get_default_config_path: Default config path resolver.
-        deploy_configuration: Configuration deployment.
-        display_config: Configuration display.
-        send_email: Email sending.
-        send_notification: Notification sending.
-        load_email_config_from_dict: Email config parser.
-        init_logging: Logging initializer.
-    """
+    """Frozen container holding all application port implementations."""
 
     get_config: GetConfig
     get_default_config_path: GetDefaultConfigPath

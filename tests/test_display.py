@@ -1,8 +1,8 @@
-"""Integration tests for config display via public API.
+"""Integration tests for config display wrapper.
 
-Tests cover display_config behavior - private helper functions are tested
-implicitly through the public API. CLI tests in test_cli_config.py provide
-additional integration coverage.
+Tests the thin wrapper that delegates to lib_layered_config's display_config.
+The wrapper adds log flushing before display. Core display behavior is tested
+in lib_layered_config's test suite.
 """
 
 from __future__ import annotations
@@ -40,49 +40,46 @@ def test_display_config_raises_for_nonexistent_section_json(
         display_config(config, output_format=OutputFormat.JSON, section="nonexistent")
 
 
-# ======================== display_config — scalar rendering ========================
+# ======================== display_config — wrapper integration ========================
 
 
 @pytest.mark.os_agnostic
-def test_display_human_renders_scalars_as_key_value(capsys: pytest.CaptureFixture[str]) -> None:
-    """Top-level scalars must render as 'key = value', not as [key] section headers."""
+def test_display_human_renders_output(capsys: pytest.CaptureFixture[str]) -> None:
+    """Wrapper must produce human-readable output via lib_layered_config."""
     config = Config({"app_name": "myapp", "section": {"key": "val"}}, {})
     display_config(config, output_format=OutputFormat.HUMAN)
     output = capsys.readouterr().out
 
-    assert "[app_name]" not in output
     assert 'app_name = "myapp"' in output
     assert "[section]" in output
 
 
 @pytest.mark.os_agnostic
-def test_display_human_renders_scalar_provenance(
-    capsys: pytest.CaptureFixture[str],
-    source_info_factory: Callable[..., SourceInfo],
-) -> None:
-    """Top-level scalars must show source provenance comment when metadata exists."""
-    metadata: dict[str, SourceInfo] = {
-        "codecov_token": source_info_factory("codecov_token", "dotenv", "/app/.env"),
-    }
-    config = Config({"codecov_token": "***REDACTED***"}, metadata)
-    display_config(config, output_format=OutputFormat.HUMAN)
+def test_display_json_renders_output(capsys: pytest.CaptureFixture[str]) -> None:
+    """Wrapper must produce JSON output via lib_layered_config."""
+    config = Config({"section": {"key": "value"}}, {})
+    display_config(config, output_format=OutputFormat.JSON)
     output = capsys.readouterr().out
 
-    assert "# source: dotenv (/app/.env)" in output
-    assert 'codecov_token = "***REDACTED***"' in output
-    assert "[codecov_token]" not in output
+    assert '"section"' in output
+    assert '"key": "value"' in output
 
 
 @pytest.mark.os_agnostic
-def test_display_human_deeply_nested_section(capsys: pytest.CaptureFixture[str]) -> None:
-    """Deeply nested dicts render as dotted TOML sub-sections."""
-    config = Config({"top": {"mid": {"deep": "value"}}}, {})
+def test_display_human_renders_profile_in_provenance(
+    capsys: pytest.CaptureFixture[str],
+    source_info_factory: Callable[..., SourceInfo],
+) -> None:
+    """Profile name must pass through to lib_layered_config."""
+    metadata: dict[str, SourceInfo] = {
+        "section.key": source_info_factory("section.key", "user", "/home/user/.config/app/config.toml"),
+    }
+    config = Config({"section": {"key": "value"}}, metadata)
 
-    display_config(config, output_format=OutputFormat.HUMAN)
+    display_config(config, output_format=OutputFormat.HUMAN, profile="production")
 
     output = capsys.readouterr().out
-    assert "[top.mid]" in output
-    assert "deep" in output
+    assert "# layer:user profile:production" in output
 
 
 # ======================== Falsey value handling ========================
@@ -107,7 +104,8 @@ def test_display_config_displays_section_with_false_value(capsys: pytest.Capture
     display_config(config, output_format=OutputFormat.HUMAN, section="section")
 
     output = capsys.readouterr().out
-    assert "enabled = False" in output
+    # TOML uses lowercase 'false', not Python's 'False'
+    assert "enabled = false" in output
 
 
 @pytest.mark.os_agnostic

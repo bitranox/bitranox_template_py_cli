@@ -1,17 +1,4 @@
-"""Configuration deployment functionality for CLI config-deploy command.
-
-Provides the business logic for deploying default configuration to application,
-host, or user configuration locations. Uses lib_layered_config's deploy_config
-function to copy the bundled defaultconfig.toml to requested target layers.
-
-Contents:
-    * :func:`deploy_configuration` – deploys configuration to specified targets
-
-System Role:
-    Lives in the adapters layer. The CLI command delegates to this module for
-    all configuration deployment logic, keeping the CLI layer focused on argument
-    parsing and user interaction.
-"""
+"""Deploy default configuration to app/host/user target directories."""
 
 from __future__ import annotations
 
@@ -82,19 +69,6 @@ def deploy_configuration(
         - Linux (user): ~/.config/{slug}/profile/production/config.toml
         - Linux (host): /etc/xdg/{slug}/profile/production/hosts/{hostname}.toml
         - etc.
-
-    Example:
-        >>> paths = deploy_configuration(targets=[DeployTarget.USER])  # doctest: +SKIP
-        >>> len(paths) > 0  # doctest: +SKIP
-        True
-        >>> paths[0].exists()  # doctest: +SKIP
-        True
-
-        >>> # Deploy to production profile
-        >>> paths = deploy_configuration(  # doctest: +SKIP
-        ...     targets=[DeployTarget.USER],
-        ...     profile="production"
-        ... )
     """
     if profile is not None:
         validate_profile(profile)

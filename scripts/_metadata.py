@@ -41,6 +41,7 @@ __all__ = [
     "read_version_from_pyproject",
     "load_pyproject",
     "as_str_mapping",
+    "get_dependencies",
 ]
 
 _RE_NON_ALNUM = re.compile(r"[^A-Za-z0-9]+")
@@ -600,3 +601,30 @@ def read_version_from_pyproject(pyproject: Path = Path("pyproject.toml")) -> str
     text = pyproject.read_text(encoding="utf-8")
     match = _RE_PYPROJECT_VERSION.search(text)
     return match.group(1) if match else ""
+
+
+_RE_DEPENDENCY_NAME = re.compile(r"^([a-zA-Z0-9][-a-zA-Z0-9._]*)")
+
+
+def get_dependencies(pyproject: Path = Path("pyproject.toml")) -> list[str]:
+    """Extract dependency package names from pyproject.toml.
+
+    Returns a list of normalized package names (without version specifiers).
+    Names are normalized by replacing hyphens with underscores for filesystem matching.
+    """
+    data = load_pyproject(pyproject)
+    project_table = as_str_mapping(data.get("project"))
+    dependencies_value = project_table.get("dependencies")
+
+    if not isinstance(dependencies_value, list):
+        return []
+
+    names: list[str] = []
+    for dep in cast(list[object], dependencies_value):
+        if isinstance(dep, str):
+            match = _RE_DEPENDENCY_NAME.match(dep.strip())
+            if match:
+                # Normalize: replace hyphens with underscores for filesystem matching
+                name = match.group(1).replace("-", "_")
+                names.append(name)
+    return names

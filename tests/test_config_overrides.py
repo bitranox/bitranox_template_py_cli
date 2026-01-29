@@ -13,7 +13,6 @@ from lib_layered_config import Config
 
 from bitranox_template_py_cli.adapters.config.overrides import (
     ConfigOverride,
-    _nest_override,  # pyright: ignore[reportPrivateUsage]
     apply_overrides,
     coerce_value,
     parse_override,
@@ -222,40 +221,6 @@ def test_parse_override_value_with_newline_json() -> None:
     result = parse_override('s.key="line1\\nline2"')
 
     assert result.value == "line1\nline2"
-
-
-# ======================== _nest_override tests ========================
-
-
-@pytest.mark.os_agnostic
-def test_nest_override_simple_key() -> None:
-    """Setting a simple key in a section creates the expected structure."""
-    target: dict[str, dict[str, object]] = {}
-    _nest_override(target, ConfigOverride(section="s", key_path=("a",), value=99))
-
-    assert target["s"]["a"] == 99
-
-
-@pytest.mark.os_agnostic
-def test_nest_override_nested_key() -> None:
-    """Setting a nested key creates intermediate dicts."""
-    target: dict[str, dict[str, object]] = {}
-    _nest_override(target, ConfigOverride(section="s", key_path=("x", "y"), value=3))
-
-    inner = target["s"]["x"]
-    assert isinstance(inner, dict)
-    assert inner["y"] == 3
-
-
-@pytest.mark.os_agnostic
-def test_nest_override_multiple_keys_in_same_section() -> None:
-    """Multiple overrides in the same section accumulate correctly."""
-    target: dict[str, dict[str, object]] = {}
-    _nest_override(target, ConfigOverride(section="s", key_path=("a",), value=1))
-    _nest_override(target, ConfigOverride(section="s", key_path=("b",), value=2))
-
-    assert target["s"]["a"] == 1
-    assert target["s"]["b"] == 2
 
 
 # ======================== apply_overrides tests ========================

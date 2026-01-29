@@ -1,26 +1,8 @@
-"""Configuration management using lib_layered_config.
-
-Provides a centralized configuration loader that merges defaults, application
-configs, host configs, user configs, .env files, and environment variables
-following a deterministic precedence order.
-
-Contents:
-    * :func:`get_config` – loads configuration with lib_layered_config
-    * :func:`get_default_config_path` – returns path to bundled default config
-
-    Configuration identifiers (vendor, app, slug) are imported from
-    :mod:`bitranox_template_py_cli.__init__conf__` as LAYEREDCONF_* constants.
-
-System Role:
-    Acts as the configuration adapter layer, bridging lib_layered_config with the
-    application's runtime needs while keeping domain logic decoupled from
-    configuration mechanics.
-"""
+"""Configuration loader with caching and profile/override support."""
 
 from __future__ import annotations
 
 import re
-import threading
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol, cast
@@ -38,10 +20,6 @@ class ConfigLoaderProtocol(Protocol):
 
 
 _PROFILE_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
-
-# Lock for thread-safe config loading.
-# @lru_cache is thread-safe for reads but concurrent cache misses can cause redundant computation.
-_config_lock = threading.Lock()
 
 
 def validate_profile(profile: str) -> None:
@@ -121,9 +99,6 @@ def _get_config(*, profile: str | None = None, start_dir: str | None = None) -> 
     logic. Uses lru_cache to avoid redundant file reads when called from
     multiple modules.
 
-    Thread-safe: uses a lock to prevent concurrent cache misses from causing
-    redundant computation.
-
     Loads configuration from multiple sources in precedence order:
     defaults → app → host → user → dotenv → env
 
@@ -166,17 +141,12 @@ def _get_config(*, profile: str | None = None, start_dir: str | None = None) -> 
     """
     if profile is not None:
         validate_profile(profile)
-    with _config_lock:
-        return _get_config_impl(profile=profile, start_dir=start_dir)
+    return _get_config_impl(profile=profile, start_dir=start_dir)
 
 
 def _cache_clear() -> None:
-    """Clear the internal configuration cache.
-
-    Thread-safe wrapper around the cached implementation's cache_clear.
-    """
-    with _config_lock:
-        _get_config_impl.cache_clear()
+    """Clear the internal configuration cache."""
+    _get_config_impl.cache_clear()
 
 
 # Attach cache_clear and export as properly typed ConfigLoaderProtocol

@@ -1,24 +1,8 @@
-"""Email sending adapter using btx_lib_mail.
-
-Provides a clean wrapper around btx_lib_mail that integrates with the
-application's configuration system and logging infrastructure. Isolates
-email functionality behind a domain-appropriate interface.
-
-Contents:
-    * :class:`EmailConfig` – Pydantic configuration model for email settings
-    * :func:`send_email` – Primary email sending interface
-    * :func:`send_notification` – Convenience wrapper for simple notifications
-
-System Role:
-    Acts as the email adapter layer, bridging btx_lib_mail with the application's
-    configuration and logging systems while keeping domain logic decoupled from
-    email mechanics.
-"""
+"""Email sending adapter wrapping btx_lib_mail with typed configuration."""
 
 from __future__ import annotations
 
 import logging
-import threading
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -33,29 +17,9 @@ from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryE
 
 logger = logging.getLogger(__name__)
 
-# Lock for thread-safe access to btx_lib_mail global configuration.
-# btx_mail.conf is shared state modified per-email; concurrent sends can race.
-_email_lock = threading.Lock()
-
 
 class EmailConfig(BaseModel):
-    """Email configuration container.
-
-    Pydantic model providing validated, immutable email configuration. Serves as
-    both the boundary validation model (parsing config dicts) and the internal
-    typed configuration object, eliminating conversion chains.
-
-    Attributes:
-        smtp_hosts: List of SMTP servers in 'host[:port]' format. Tried in order until
-            one succeeds.
-        from_address: Default sender address for outgoing emails, or None if not configured.
-        recipients: Default recipient addresses, or empty list if not configured.
-        smtp_username: Optional SMTP authentication username.
-        smtp_password: Optional SMTP authentication password.
-        use_starttls: Enable STARTTLS negotiation.
-        timeout: Socket timeout in seconds for SMTP operations.
-        raise_on_missing_attachments: When True, missing attachment files raise FileNotFoundError.
-        raise_on_invalid_recipient: When True, invalid email addresses raise ValueError.
+    """Validated, immutable email configuration.
 
     Example:
         >>> config = EmailConfig(
@@ -271,22 +235,6 @@ def send_email(
     Side Effects:
         Sends email via SMTP. Logs send attempts at INFO level and failures
         at ERROR level.
-
-    Example:
-        >>> from unittest.mock import patch, MagicMock
-        >>> config = EmailConfig(
-        ...     smtp_hosts=["smtp.example.com"],
-        ...     from_address="sender@example.com"
-        ... )
-        >>> with patch("smtplib.SMTP") as mock_smtp:
-        ...     result = send_email(
-        ...         config=config,
-        ...         recipients="recipient@example.com",
-        ...         subject="Test",
-        ...         body="Hello"
-        ...     )
-        >>> result
-        True
     """
     sender = _resolve_sender(config, from_address)
     _validate_smtp_hosts(config)
@@ -303,27 +251,24 @@ def send_email(
         },
     )
 
-    # Apply config flags to btx_lib_mail global conf and send atomically.
-    # Lock ensures concurrent emails don't race on shared global state.
-    with _email_lock:
-        btx_mail.conf.raise_on_missing_attachments = config.raise_on_missing_attachments
-        btx_mail.conf.raise_on_invalid_recipient = config.raise_on_invalid_recipient
+    btx_mail.conf.raise_on_missing_attachments = config.raise_on_missing_attachments
+    btx_mail.conf.raise_on_invalid_recipient = config.raise_on_invalid_recipient
 
-        try:
-            result = btx_send(
-                mail_from=sender,
-                mail_recipients=recipient_list,
-                mail_subject=subject,
-                mail_body=body,
-                mail_body_html=body_html,
-                smtphosts=config.smtp_hosts,
-                attachment_file_paths=attachments,
-                credentials=_build_credentials(config),
-                use_starttls=config.use_starttls,
-                timeout=config.timeout,
-            )
-        except RuntimeError as exc:
-            raise DeliveryError(str(exc)) from exc
+    try:
+        result = btx_send(
+            mail_from=sender,
+            mail_recipients=recipient_list,
+            mail_subject=subject,
+            mail_body=body,
+            mail_body_html=body_html,
+            smtphosts=config.smtp_hosts,
+            attachment_file_paths=attachments,
+            credentials=_build_credentials(config),
+            use_starttls=config.use_starttls,
+            timeout=config.timeout,
+        )
+    except RuntimeError as exc:
+        raise DeliveryError(str(exc)) from exc
 
     if result:
         logger.info(
@@ -371,22 +316,6 @@ def send_notification(
 
     Side Effects:
         Sends email via SMTP. Logs send attempts.
-
-    Example:
-        >>> from unittest.mock import patch
-        >>> config = EmailConfig(
-        ...     smtp_hosts=["smtp.example.com"],
-        ...     from_address="alerts@example.com"
-        ... )
-        >>> with patch("smtplib.SMTP"):
-        ...     result = send_notification(
-        ...         config=config,
-        ...         recipients="admin@example.com",
-        ...         subject="System Alert",
-        ...         message="Deployment completed successfully"
-        ...     )
-        >>> result
-        True
     """
     return send_email(
         config=config,

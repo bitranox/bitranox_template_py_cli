@@ -1,13 +1,4 @@
-"""Domain-level behaviors — pure functions with no I/O or framework dependencies.
-
-Contents:
-    * :func:`build_greeting` – returns the canonical scaffold greeting string.
-
-System Role:
-    Acts as the temporary domain surface for this template. Other modules import
-    from here instead of duplicating literals so the public API stays coherent as
-    features evolve.
-"""
+"""Pure domain functions with no I/O or framework dependencies."""
 
 from __future__ import annotations
 

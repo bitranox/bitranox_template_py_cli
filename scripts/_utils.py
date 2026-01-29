@@ -43,6 +43,7 @@ from ._git import (
 # --- project metadata --------------------------------------------------------
 from ._metadata import (
     ProjectMetadata,
+    get_dependencies,
     get_project_metadata,
     read_version_from_pyproject,
     sync_metadata_module,
@@ -61,6 +62,7 @@ __all__ = [
     "cmd_exists",
     # _metadata
     "ProjectMetadata",
+    "get_dependencies",
     "get_project_metadata",
     "read_version_from_pyproject",
     "sync_metadata_module",

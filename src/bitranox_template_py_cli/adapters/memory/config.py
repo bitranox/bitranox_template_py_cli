@@ -45,6 +45,7 @@ def display_config_in_memory(
     *,
     output_format: OutputFormat = OutputFormat.HUMAN,
     section: str | None = None,
+    profile: str | None = None,
 ) -> None:
     """No-op display -- satisfies the DisplayConfig protocol."""
 

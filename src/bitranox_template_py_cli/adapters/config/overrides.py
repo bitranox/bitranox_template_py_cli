@@ -1,16 +1,4 @@
-"""CLI configuration overrides via ``--set SECTION.KEY=VALUE``.
-
-Provides parsing, coercion, and deep-merge of ad-hoc configuration
-overrides passed on the command line. Overrides are applied after all
-file-based and environment-based configuration layers, giving them
-the highest precedence short of per-command flags.
-
-Contents:
-    * :class:`ConfigOverride` - Parsed override with section, key path, and value.
-    * :func:`parse_override` - Split ``SECTION.KEY=VALUE`` into a ConfigOverride.
-    * :func:`coerce_value` - JSON-parse with string fallback.
-    * :func:`apply_overrides` - Deep-merge overrides into a Config instance.
-"""
+"""Parse and apply ``--set SECTION.KEY=VALUE`` CLI overrides to Config."""
 
 from __future__ import annotations
 
@@ -26,14 +14,7 @@ CoercedValue = str | int | float | bool | None | list[object] | dict[str, object
 
 @dataclass(frozen=True, slots=True)
 class ConfigOverride:
-    """A single parsed configuration override.
-
-    Attributes:
-        section: Top-level TOML section (e.g., ``lib_log_rich``).
-        key_path: Dot-separated sub-key path within the section (e.g., ``console_level``
-            or ``payload_limits.message_max_chars``).
-        value: Coerced Python value to set.
-    """
+    """A single parsed configuration override."""
 
     section: str
     key_path: tuple[str, ...]

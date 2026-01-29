@@ -73,10 +73,11 @@ def cli_config(ctx: click.Context, output_format: str, section: str | None, prof
             "Displaying configuration",
             extra={"format": fmt.value, "section": section, "profile": effective_profile},
         )
-        lib_log_rich.runtime.flush()
         click.echo()
         try:
-            cli_ctx.services.display_config(effective_config, output_format=fmt, section=section)
+            cli_ctx.services.display_config(
+                effective_config, output_format=fmt, section=section, profile=effective_profile
+            )
         except ValueError as exc:
             click.echo(f"\nError: {exc}", err=True)
             raise SystemExit(ExitCode.INVALID_ARGUMENT) from exc

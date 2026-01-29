@@ -1,14 +1,4 @@
-"""Domain error types for typed exception handling.
-
-Provides domain-specific exceptions that replace generic stdlib exceptions
-at architectural boundaries, enabling precise ``except`` clauses in CLI
-error-handling code.
-
-Contents:
-    * :class:`ConfigurationError` - Missing, invalid, or incomplete configuration.
-    * :class:`DeliveryError` - Email/notification delivery failed at SMTP level.
-    * :class:`InvalidRecipientError` - Email address validation failure.
-"""
+"""Domain-specific exceptions for typed error handling at boundaries."""
 
 from __future__ import annotations
 

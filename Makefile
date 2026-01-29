@@ -11,6 +11,12 @@ ifeq (push,$(firstword $(MAKECMDGOALS)))
   $(eval $(PUSH_ARGS):;@:)
 endif
 
+# Capture trailing words after "run" so `make run config` works unquoted.
+ifeq (run,$(firstword $(MAKECMDGOALS)))
+  RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(RUN_ARGS):;@:)
+endif
+
 help:
 	$(SCRIPTS) help
 
@@ -24,7 +30,7 @@ test:
 	$(SCRIPTS) test
 
 run:
-	$(SCRIPTS) run
+	$(SCRIPTS) run $(RUN_ARGS)
 
 version-current:
 	$(SCRIPTS) version-current

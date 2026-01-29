@@ -1,16 +1,4 @@
-"""Domain enums for configuration and output formatting.
-
-Provides type-safe enumeration values for output formats, deployment targets,
-and other fixed string values used throughout the application.
-
-Contents:
-    * :class:`OutputFormat` - Output format options for config display
-    * :class:`DeployTarget` - Configuration deployment target layers
-
-System Role:
-    Acts as the single source of truth for fixed string values, eliminating
-    magic strings and enabling type-safe comparisons throughout the codebase.
-"""
+"""Type-safe domain enums for output formats and deployment targets."""
 
 from __future__ import annotations
 
