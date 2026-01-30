@@ -488,6 +488,9 @@ def test_send_email_includes_attachments(tmp_path: Path) -> None:
     config = EmailConfig(
         smtp_hosts=["smtp.test.com:587"],
         from_address="sender@test.com",
+        # Disable directory blocking for tests using tmp_path
+        # (macOS tmp_path is under /var which is blocked by default)
+        attachment_blocked_directories=frozenset(),
     )
 
     with patch("smtplib.SMTP"):
@@ -712,6 +715,9 @@ def test_send_email_raises_when_attachment_missing(tmp_path: Path) -> None:
         smtp_hosts=["smtp.test.com:587"],
         from_address="sender@test.com",
         raise_on_missing_attachments=True,
+        # Disable directory blocking for tests using tmp_path
+        # (macOS tmp_path is under /var which is blocked by default)
+        attachment_blocked_directories=frozenset(),
     )
 
     with patch("smtplib.SMTP"), pytest.raises(FileNotFoundError):
