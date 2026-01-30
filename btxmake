@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Thin wrapper - delegates to make.py
+set -euo pipefail
+exec python3 "$(dirname "$0")/btxmake.py" "$@"

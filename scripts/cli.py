@@ -121,7 +121,12 @@ def clean_command(patterns: tuple[str, ...]) -> None:
     clean_module.clean(target_patterns)
 
 
-@main.command(name="run", help="Run the project CLI and forward extra arguments")
+@main.command(
+    name="run",
+    help="Run the project CLI and forward extra arguments",
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+    add_help_option=False,
+)
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
 def run_command(args: Sequence[str]) -> None:
     raise SystemExit(run_cli_module.run_cli(args))
