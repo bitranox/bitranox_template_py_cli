@@ -67,13 +67,18 @@ class EmailConfig(BaseModel):
     )
     @classmethod
     def _coerce_extension_lists(cls, v: Any) -> frozenset[str] | None:
-        """Convert lists to frozensets, empty collections to None (use library defaults)."""
+        """Convert lists to frozensets, empty lists to None (use library defaults).
+
+        Frozensets are preserved as-is (including empty ones) to allow explicit
+        override from Python code. Empty lists from TOML config become None.
+        """
         if v is None:
             return None
         if isinstance(v, frozenset):
-            ext_frozenset = cast(frozenset[str], v)
-            return ext_frozenset if ext_frozenset else None
+            # Preserve frozensets as-is (allows explicit empty frozenset to disable)
+            return cast(frozenset[str], v)
         if isinstance(v, list):
+            # Empty list from config = use library defaults
             ext_list = cast(list[str], v)
             return frozenset(ext_list) if ext_list else None
         return None  # Unsupported type, let Pydantic handle validation error
@@ -85,13 +90,18 @@ class EmailConfig(BaseModel):
     )
     @classmethod
     def _coerce_directory_lists(cls, v: Any) -> frozenset[Path] | None:
-        """Convert lists of strings/paths to frozenset[Path], empty to None."""
+        """Convert lists of strings/paths to frozenset[Path], empty lists to None.
+
+        Frozensets are preserved as-is (including empty ones) to allow explicit
+        override from Python code. Empty lists from TOML config become None.
+        """
         if v is None:
             return None
         if isinstance(v, frozenset):
-            dir_frozenset = cast(frozenset[Path], v)
-            return dir_frozenset if dir_frozenset else None
+            # Preserve frozensets as-is (allows explicit empty frozenset to disable)
+            return cast(frozenset[Path], v)
         if isinstance(v, list):
+            # Empty list from config = use library defaults
             dir_list = cast(list[str | Path], v)
             if not dir_list:
                 return None
