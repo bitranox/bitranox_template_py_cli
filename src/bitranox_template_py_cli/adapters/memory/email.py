@@ -15,47 +15,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from btx_lib_mail import validate_email_address
-
-from bitranox_template_py_cli.domain.errors import InvalidRecipientError
-
 from ..email.sender import EmailConfig
+from ..email.validation import validate_recipients
 
 
 def _empty_email_list() -> list[dict[str, Any]]:
     """Create an empty typed list for email records."""
     return []
-
-
-def _validate_single_recipient(recipient: str) -> None:
-    """Validate a single runtime recipient email address.
-
-    Args:
-        recipient: Email address to validate.
-
-    Raises:
-        InvalidRecipientError: When the email address is invalid.
-    """
-    try:
-        validate_email_address(recipient)
-    except ValueError as e:
-        raise InvalidRecipientError(f"Invalid recipient: {recipient}") from e
-
-
-def _validate_runtime_recipients(recipients: str | Sequence[str] | None) -> None:
-    """Validate runtime recipients using btx_lib_mail.
-
-    Args:
-        recipients: Single address, sequence of addresses, or None (skip validation).
-
-    Raises:
-        InvalidRecipientError: When a recipient has invalid email format.
-    """
-    if recipients is None:
-        return
-    recipient_list = [recipients] if isinstance(recipients, str) else list(recipients)
-    for recipient in recipient_list:
-        _validate_single_recipient(recipient)
 
 
 @dataclass
@@ -120,7 +86,7 @@ class EmailSpy:
             InvalidRecipientError: When recipients have invalid email format.
             Exception: If raise_exception is set, raises that exception.
         """
-        _validate_runtime_recipients(recipients)
+        validate_recipients(recipients)
         self.sent_emails.append(
             {
                 "config": config,
@@ -161,7 +127,7 @@ class EmailSpy:
             InvalidRecipientError: When recipients have invalid email format.
             Exception: If raise_exception is set, raises that exception.
         """
-        _validate_runtime_recipients(recipients)
+        validate_recipients(recipients)
         self.sent_notifications.append(
             {
                 "config": config,

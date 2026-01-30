@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [1.2.0] - 2026-01-30
+
+### Added
+- **Attachment security settings** for email configuration (`[email.attachments]` section in `50-mail.toml`)
+  - `allowed_extensions` / `blocked_extensions` — whitelist/blacklist file extensions
+  - `allowed_directories` / `blocked_directories` — whitelist/blacklist attachment source directories
+  - `max_size_bytes` — maximum attachment file size (default 25 MiB, 0 to disable)
+  - `allow_symlinks` — whether symbolic links are permitted (default false)
+  - `raise_on_security_violation` — raise or skip on violations (default true)
+- New `EmailConfig` fields for attachment security with Pydantic validators
+- `load_email_config_from_dict()` now flattens nested `[email.attachments]` section
+
+### Changed
+- Bumped `btx_lib_mail` dependency from `>=1.2.1` to `>=1.3.0` for attachment security features
+
 ## [1.1.2] - 2026-01-28
 
 ### Fixed

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import btx_lib_mail.lib_mail as btx_mail
 from btx_lib_mail import validate_email_address, validate_smtp_host
@@ -13,7 +13,9 @@ from btx_lib_mail.lib_mail import ConfMail
 from btx_lib_mail.lib_mail import send as btx_send
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError, InvalidRecipientError
+from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
+
+from .validation import validate_recipient
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +44,65 @@ class EmailConfig(BaseModel):
     raise_on_missing_attachments: bool = True
     raise_on_invalid_recipient: bool = True
 
+    # Attachment security settings (None = use btx_lib_mail defaults)
+    attachment_allowed_extensions: frozenset[str] | None = None
+    attachment_blocked_extensions: frozenset[str] | None = None
+    attachment_allowed_directories: frozenset[Path] | None = None
+    attachment_blocked_directories: frozenset[Path] | None = None
+    attachment_max_size_bytes: int | None = 26_214_400  # 25 MiB
+    attachment_allow_symlinks: bool = False
+    attachment_raise_on_security_violation: bool = True
+
     @field_validator("from_address", mode="before")
     @classmethod
     def _coerce_empty_from_address(cls, v: str | None) -> str | None:
         if isinstance(v, str) and not v.strip():
+            return None
+        return v
+
+    @field_validator(
+        "attachment_allowed_extensions",
+        "attachment_blocked_extensions",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_extension_lists(cls, v: Any) -> frozenset[str] | None:
+        """Convert lists to frozensets, empty collections to None (use library defaults)."""
+        if v is None:
+            return None
+        if isinstance(v, frozenset):
+            ext_frozenset = cast(frozenset[str], v)
+            return ext_frozenset if ext_frozenset else None
+        if isinstance(v, list):
+            ext_list = cast(list[str], v)
+            return frozenset(ext_list) if ext_list else None
+        return None  # Unsupported type, let Pydantic handle validation error
+
+    @field_validator(
+        "attachment_allowed_directories",
+        "attachment_blocked_directories",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_directory_lists(cls, v: Any) -> frozenset[Path] | None:
+        """Convert lists of strings/paths to frozenset[Path], empty to None."""
+        if v is None:
+            return None
+        if isinstance(v, frozenset):
+            dir_frozenset = cast(frozenset[Path], v)
+            return dir_frozenset if dir_frozenset else None
+        if isinstance(v, list):
+            dir_list = cast(list[str | Path], v)
+            if not dir_list:
+                return None
+            return frozenset(Path(p) if isinstance(p, str) else p for p in dir_list)
+        return None  # Unsupported type, let Pydantic handle validation error
+
+    @field_validator("attachment_max_size_bytes", mode="before")
+    @classmethod
+    def _coerce_max_size_zero_to_none(cls, v: Any) -> int | None:
+        """Convert 0 to None (disable size checking)."""
+        if v == 0:
             return None
         return v
 
@@ -99,15 +156,33 @@ class EmailConfig(BaseModel):
             >>> conf.smtphosts
             ['smtp.example.com']
         """
-        return ConfMail(
-            smtphosts=self.smtp_hosts,
-            smtp_username=self.smtp_username,
-            smtp_password=self.smtp_password,
-            smtp_use_starttls=self.use_starttls,
-            smtp_timeout=self.timeout,
-            raise_on_missing_attachments=self.raise_on_missing_attachments,
-            raise_on_invalid_recipient=self.raise_on_invalid_recipient,
-        )
+        # Build kwargs, omitting None values to use library defaults
+        kwargs: dict[str, Any] = {
+            "smtphosts": self.smtp_hosts,
+            "smtp_username": self.smtp_username,
+            "smtp_password": self.smtp_password,
+            "smtp_use_starttls": self.use_starttls,
+            "smtp_timeout": self.timeout,
+            "raise_on_missing_attachments": self.raise_on_missing_attachments,
+            "raise_on_invalid_recipient": self.raise_on_invalid_recipient,
+            "attachment_allow_symlinks": self.attachment_allow_symlinks,
+            "attachment_raise_on_security_violation": self.attachment_raise_on_security_violation,
+        }
+
+        # Only pass attachment security settings when explicitly configured
+        # (None = use btx_lib_mail's OS-specific defaults)
+        if self.attachment_allowed_extensions is not None:
+            kwargs["attachment_allowed_extensions"] = self.attachment_allowed_extensions
+        if self.attachment_blocked_extensions is not None:
+            kwargs["attachment_blocked_extensions"] = self.attachment_blocked_extensions
+        if self.attachment_allowed_directories is not None:
+            kwargs["attachment_allowed_directories"] = self.attachment_allowed_directories
+        if self.attachment_blocked_directories is not None:
+            kwargs["attachment_blocked_directories"] = self.attachment_blocked_directories
+        if self.attachment_max_size_bytes is not None:
+            kwargs["attachment_max_size_bytes"] = self.attachment_max_size_bytes
+
+        return ConfMail(**kwargs)
 
 
 def _build_credentials(config: EmailConfig) -> tuple[str, str] | None:
@@ -136,21 +211,6 @@ def _resolve_sender(config: EmailConfig, from_address: str | None) -> str:
     return sender
 
 
-def _validate_runtime_recipient(recipient: str) -> None:
-    """Validate a single runtime recipient email address.
-
-    Args:
-        recipient: Email address to validate.
-
-    Raises:
-        InvalidRecipientError: When the email address is invalid.
-    """
-    try:
-        validate_email_address(recipient)
-    except ValueError as e:
-        raise InvalidRecipientError(f"Invalid recipient: {recipient}") from e
-
-
 def _resolve_recipients(
     config: EmailConfig,
     recipients: str | Sequence[str] | None,
@@ -172,7 +232,7 @@ def _resolve_recipients(
         recipient_list = [recipients] if isinstance(recipients, str) else list(recipients)
         # Validate runtime recipients (config recipients validated by Pydantic)
         for recipient in recipient_list:
-            _validate_runtime_recipient(recipient)
+            validate_recipient(recipient)
     else:
         recipient_list = list(config.recipients)
 
@@ -243,7 +303,7 @@ def send_email(
     logger.info(
         "Sending email",
         extra={
-            "from": sender,
+            "sender": sender,
             "recipients": recipient_list,
             "subject": subject,
             "has_html": bool(body_html),
@@ -266,6 +326,13 @@ def send_email(
             credentials=_build_credentials(config),
             use_starttls=config.use_starttls,
             timeout=config.timeout,
+            attachment_allowed_extensions=config.attachment_allowed_extensions,
+            attachment_blocked_extensions=config.attachment_blocked_extensions,
+            attachment_allowed_directories=config.attachment_allowed_directories,
+            attachment_blocked_directories=config.attachment_blocked_directories,
+            attachment_max_size_bytes=config.attachment_max_size_bytes,
+            attachment_allow_symlinks=config.attachment_allow_symlinks,
+            attachment_raise_on_security_violation=config.attachment_raise_on_security_violation,
         )
     except RuntimeError as exc:
         raise DeliveryError(str(exc)) from exc
@@ -273,12 +340,12 @@ def send_email(
     if result:
         logger.info(
             "Email sent successfully",
-            extra={"from": sender, "recipients": recipient_list},
+            extra={"sender": sender, "recipients": recipient_list},
         )
     else:
         logger.warning(
             "Email send returned failure",
-            extra={"from": sender, "recipients": recipient_list},
+            extra={"sender": sender, "recipients": recipient_list},
         )
 
     return result
@@ -333,6 +400,9 @@ def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
     EmailConfig Pydantic model. Single-parse validation at the boundary
     with no intermediate conversions.
 
+    Handles the nested `[email.attachments]` TOML section by flattening
+    it with an `attachment_` prefix to match EmailConfig field names.
+
     Args:
         config_dict: Configuration dictionary typically from lib_layered_config.
             Expected to have an 'email' section with email settings.
@@ -352,8 +422,35 @@ def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
         'test@example.com'
         >>> email_config.use_starttls
         True
+
+        >>> config_dict_with_attachments = {
+        ...     "email": {
+        ...         "smtp_hosts": ["smtp.example.com:587"],
+        ...         "attachments": {
+        ...             "max_size_bytes": 10485760,
+        ...             "allow_symlinks": True,
+        ...         }
+        ...     }
+        ... }
+        >>> config = load_email_config_from_dict(config_dict_with_attachments)
+        >>> config.attachment_max_size_bytes
+        10485760
+        >>> config.attachment_allow_symlinks
+        True
     """
-    email_raw = config_dict.get("email", {})
+    email_section: Any = config_dict.get("email", {})
+
+    # Handle non-dict email section (e.g. "email": "invalid")
+    if not isinstance(email_section, Mapping):
+        return EmailConfig.model_validate(email_section)
+
+    email_raw: dict[str, Any] = dict(cast(Mapping[str, Any], email_section))
+
+    # Flatten nested [email.attachments] section with prefix
+    attachments_raw: dict[str, Any] = email_raw.pop("attachments", {})
+    for key, value in attachments_raw.items():
+        email_raw[f"attachment_{key}"] = value
+
     return EmailConfig.model_validate(email_raw if email_raw else {})
 
 

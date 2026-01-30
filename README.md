@@ -20,6 +20,19 @@
 - Exit-code and messaging helpers powered by lib_cli_exit_tools.
 - Metadata helpers ready for packaging, testing, and release automation.
 
+
+### Python 3.10+ Baseline
+
+- The project targets **Python 3.10 and newer**.
+- Runtime dependencies require current stable releases (`rich-click>=1.9.6`
+  and `lib_cli_exit_tools>=2.2.4`). Dev dependencies (pytest, ruff, pyright,
+  bandit, etc.) specify minimum version constraints to ensure compatibility.
+- CI workflows exercise GitHub's rolling runner images (`ubuntu-latest`,
+  `macos-latest`, `windows-latest`) and cover CPython 3.10 through 3.14
+  alongside the latest available 3.x release provided by Actions.
+
+---
+
 ## Install - recommended via uv
 
 [uv](https://docs.astral.sh/uv/) is an ultrafast Python package manager written in Rust (10-20x faster than pip/poetry).
@@ -59,16 +72,13 @@ For alternative install paths (pip, pipx, source builds, etc.), see
 [INSTALL.md](INSTALL.md). All supported methods register both the
 `bitranox_template_py_cli` and `bitranox-template-py-cli` commands on your PATH.
 
-### Python 3.10+ Baseline
+---
 
-- The project targets **Python 3.10 and newer**.
-- Runtime dependencies require current stable releases (`rich-click>=1.9.6`
-  and `lib_cli_exit_tools>=2.2.4`). Dev dependencies (pytest, ruff, pyright,
-  bandit, etc.) specify minimum version constraints to ensure compatibility.
-- CI workflows exercise GitHub's rolling runner images (`ubuntu-latest`,
-  `macos-latest`, `windows-latest`) and cover CPython 3.10 through 3.13
-  alongside the latest available 3.x release provided by Actions.
+## Configuration
 
+See [CONFIG.md](CONFIG.md) for detailed documentation on the layered configuration system, including precedence rules, profile support, and customization best practices.
+
+---
 
 ## Quick Start
 
@@ -157,82 +167,6 @@ uvx bitranox_template_py_cli info
 
 ---
 
-### Configuration Files
-
-
-#### Precedence Order (lowest → highest)
-
-**Path placeholders for this project:**
-- `{slug}` = `bitranox-template-py-cli` (Linux)
-- `{vendor}` = `bitranox` (Windows)
-- `{app}` = `Bitranox Template Py Cli` (Windows)  
-
-
-#### Paths without Profile
-
-| Layer       | Linux Path                              | Windows Path                                                 | Purpose                               |
-|-------------|-----------------------------------------|--------------------------------------------------------------|---------------------------------------|
-| 1. defaults | (bundled with package)                  | (bundled with package)                                       | Fallback values shipped with app      |
-| 2. app      | `/etc/xdg/{slug}/config.toml`           | `C:\ProgramData\{vendor}\{app}\config.toml`                  | System-wide defaults for ALL machines |
-| 3. host     | `/etc/xdg/{slug}/hosts/{hostname}.toml` | `C:\ProgramData\{vendor}\{app}\hosts\{hostname}.toml`        | Overrides for THIS specific machine   |
-| 4. user     | `~/.config/{slug}/config.toml`          | `C:\Users\{user}\AppData\Roaming\{vendor}\{app}\config.toml` | User's personal settings              |
-| 5. .env     | (project directory)                     | (project directory)                                          | Project-level overrides               |
-| 6. env vars | `BITRANOX_TEMPLATE_PY_CLI___...`        | `BITRANOX_TEMPLATE_PY_CLI___...`                             | Runtime overrides                     |
-| 7. CLI      | `--set section.key=value`               | `--set section.key=value`                                    | Command-line overrides (highest)      |
- The defaultconfig.d/ templates become the fallback defaults - the baseline that exists when no external configs are deployed.
-
-#### Paths with Profile "test"
-
-| Layer       | Linux Path                                            | Windows Path                                                               | Purpose                               |
-|-------------|-------------------------------------------------------|----------------------------------------------------------------------------|---------------------------------------|
-| 1. defaults | (bundled with package)                                | (bundled with package)                                                     | Fallback values shipped with app      |
-| 2. app      | `/etc/xdg/{slug}/profile/test/config.toml`            | `C:\ProgramData\{vendor}\{app}\profile\test\config.toml`                   | System-wide defaults for ALL machines |
-| 3. host     | `/etc/xdg/{slug}/profile/test/hosts/{hostname}.toml`  | `C:\ProgramData\{vendor}\{app}\profile\test\hosts\{hostname}.toml`         | Overrides for THIS specific machine   |
-| 4. user     | `~/.config/{slug}/profile/test/config.toml`           | `C:\Users\{user}\AppData\Roaming\{vendor}\{app}\profile\test\config.toml`  | User's personal settings              |
-| 5. .env     | (project directory)                                   | (project directory)                                                        | Project-level overrides               |
-| 6. env vars | `BITRANOX_TEMPLATE_PY_CLI___...`                      | `BITRANOX_TEMPLATE_PY_CLI___...`                                           | Runtime overrides                     |
-| 7. CLI      | `--set section.key=value`                             | `--set section.key=value`                                                  | Command-line overrides (highest)      |
-
-The defaultconfig.d/ templates become the fallback defaults - the baseline that exists when no external configs are deployed.
-
-#### layers effected by profile : 
-
-The default_file parameter is always provided, independent of the profile parameter.
-
-Profile only affects layers 2-4 (app, host, user) by inserting a `profile/<name>/` subdirectory. The other layers are unchanged:
-
-| Layer       | Affected by profile?                |
-|-------------|-------------------------------------|
-| 1. defaults | No - always loaded                  |
-| 2. app      | Yes - uses `profile/<name>/` subdir |
-| 3. host     | Yes - uses `profile/<name>/` subdir |
-| 4. user     | Yes - uses `profile/<name>/` subdir |
-| 5. .env     | No - project directory              |
-| 6. env vars | No - environment                    |
-| 7. CLI      | No - command line                   |       
-
-
-####  Deploy layers with profile
-
-```bash
-      # Deploy app layer with profile
-      config-deploy --target app --profile profile1  # Creates: /etc/xdg/{slug}/profile/profile1/config.toml
-
-      # Deploy user layer without profile
-      config-deploy --target user                    # Creates: ~/.config/{slug}/config.toml
-```
-
-#### Reading behavior with profiles
-
-| Read Command                | Sees app layer?            | Sees user layer?          |
-|-----------------------------|----------------------------|---------------------------|
-| `config` (no profile)       | No (app only has profile1) | Yes                       |
-| `config --profile profile1` | Yes                        | No (user has no profile1) |
-
-Profile directories are separate namespaces. Config deployed with a profile is only visible when reading with that same profile.        
-
----
-
 ### Email Sending
 
 The application includes email sending capabilities via [btx-lib-mail](https://pypi.org/project/btx-lib-mail/), supporting both simple notifications and rich HTML emails with attachments.
@@ -256,7 +190,7 @@ export BITRANOX_TEMPLATE_PY_CLI___EMAIL__USE_STARTTLS="true"
 export BITRANOX_TEMPLATE_PY_CLI___EMAIL__TIMEOUT="60.0"
 ```
 
-**Configuration File** (`~/.config/bitranox-template-py-cli/config.toml`):
+**Configuration File**:
 ```toml
 [email]
 smtp_hosts = ["smtp.gmail.com:587", "smtp.backup.com:587"]  # Fallback to backup if primary fails
@@ -392,141 +326,6 @@ send_notification(
 - Check recipient's spam folder
 - Verify `from_address` is valid and not blacklisted
 - Review SMTP server logs for delivery status
-
-### Configuration Management
-
-The application uses [lib_layered_config](https://github.com/bitranox/lib_layered_config) for hierarchical configuration with the following precedence (lowest to highest):
-
-**defaults → app → host → user → .env → environment variables**
-
-#### Configuration Locations
-
-Platform-specific paths:
-- **Linux (user)**: `~/.config/bitranox-template-py-cli/config.toml`
-- **Linux (app)**: `/etc/xdg/bitranox-template-py-cli/config.toml`
-- **Linux (host)**: `/etc/xdg/bitranox-template-py-cli/hosts/{hostname}.toml`
-- **macOS (user)**: `~/Library/Application Support/bitranox/Bitranox Template Py Cli/config.toml`
-- **Windows (user)**: `%APPDATA%\bitranox\Bitranox Template Py Cli\config.toml`
-
-#### Profile-Specific Configuration
-
-Profiles allow environment-specific configuration (e.g., production, staging, test). When a profile is specified, configuration is loaded from profile-specific subdirectories:
-
-- **Linux (user, profile=production)**: `~/.config/bitranox-template-py-cli/profile/production/config.toml`
-- **Linux (app, profile=staging)**: `/etc/xdg/bitranox-template-py-cli/profile/staging/config.toml`
-
-Use profiles to maintain separate configurations for different environments while keeping a common base configuration.
-
-#### View Configuration
-
-```bash
-# Show merged configuration from all sources
-bitranox-template-py-cli config
-
-# Show as JSON for scripting
-bitranox-template-py-cli config --format json
-
-# Show specific section only
-bitranox-template-py-cli config --section lib_log_rich
-
-# Show configuration for a specific profile
-bitranox-template-py-cli config --profile production
-
-# Combine options
-bitranox-template-py-cli config --profile staging --format json --section email
-```
-
-#### Deploy Configuration Files
-
-```bash
-# Create user configuration file
-bitranox-template-py-cli config-deploy --target user
-
-# Deploy to system-wide location (requires privileges)
-sudo bitranox-template-py-cli config-deploy --target app
-
-# Deploy to multiple locations at once
-bitranox-template-py-cli config-deploy --target user --target host
-
-# Overwrite existing configuration
-bitranox-template-py-cli config-deploy --target user --force
-
-# Deploy to a specific profile directory
-bitranox-template-py-cli config-deploy --target user --profile production
-
-# Deploy production profile and overwrite if exists
-bitranox-template-py-cli config-deploy --target user --profile production --force
-```
-
-#### Generate Example Configuration Files
-
-Create example TOML configuration files showing all available options with their default values and documentation comments. Useful for:
-- Learning the configuration structure
-- Creating initial configuration files
-- Documenting available settings
-
-```bash
-# Generate examples in a specific directory
-bitranox-template-py-cli config-generate-examples --destination ./examples
-
-# Overwrite existing example files
-bitranox-template-py-cli config-generate-examples --destination ./examples --force
-
-# Generate examples in current directory
-bitranox-template-py-cli config-generate-examples --destination .
-```
-
-The generated files include:
-- `config.toml` - Main configuration file with all sections
-- `config.d/*.toml` - Additional modular configuration files (email, logging, etc.)
-
-Each file contains commented documentation explaining available options and their default values.
-
-#### Environment Variable Overrides
-
-Configuration can be overridden via environment variables using two methods:
-
-**Method 1: Native lib_log_rich variables (highest precedence)**
-```bash
-LOG_CONSOLE_LEVEL=DEBUG bitranox-template-py-cli hello
-LOG_ENABLE_GRAYLOG=true LOG_GRAYLOG_ENDPOINT="logs.example.com:12201" bitranox-template-py-cli hello
-```
-
-**Method 2: Application-prefixed variables**
-
-Format: `<PREFIX>___<SECTION>__<KEY>=value`
-
-```bash
-BITRANOX_TEMPLATE_PY_CLI___LIB_LOG_RICH__CONSOLE_LEVEL=DEBUG bitranox-template-py-cli hello
-```
-
-#### .env File Support
-
-Create a `.env` file in your project directory for local development:
-
-```bash
-# .env
-LOG_CONSOLE_LEVEL=DEBUG
-LOG_CONSOLE_FORMAT_PRESET=short
-LOG_ENABLE_GRAYLOG=false
-```
-
-The application automatically discovers and loads `.env` files from the current directory or parent directories.
-
-### Library Use
-
-You can import the documented helpers directly:
-
-```python
-import bitranox_template_py_cli as btcacl
-
-print(btcacl.build_greeting())
-btcacl.print_info()
-
-config = btcacl.get_config()
-print(config.as_dict())
-```
-
 
 ## Further Documentation
 
