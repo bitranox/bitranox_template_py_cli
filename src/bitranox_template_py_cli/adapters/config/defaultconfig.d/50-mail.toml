@@ -165,7 +165,7 @@ blocked_extensions = []
 #
 # Whitelist Mode Examples (recommended for maximum security):
 #   Linux/macOS:    ["/home/user/exports", "/tmp/reports", "/var/data/attachments"]
-#   Windows:        ["C:\\Users\\user\\Documents\\exports", "D:\\shared\\attachments"]
+#   Windows:        ["C:/Users/user/Documents/exports", "D:/shared/attachments"]
 #
 allowed_directories = []
 
@@ -190,10 +190,10 @@ allowed_directories = []
 #     User Library:    ~/Library/Keychains, ~/Library/Application Support
 #
 #   Windows:
-#     System:          C:\Windows, C:\Windows\System32, C:\Program Files, C:\Program Files (x86)
-#     User Secrets:    %USERPROFILE%\.ssh, %APPDATA%, %LOCALAPPDATA%
-#     Boot:            C:\Boot, C:\Recovery
-#     Drivers:         C:\Windows\System32\drivers
+#     System:          C:/Windows, C:/Windows/System32, C:/Program Files, C:/Program Files (x86)
+#     User Secrets:    %USERPROFILE%/.ssh, %APPDATA%, %LOCALAPPDATA%
+#     Boot:            C:/Boot, C:/Recovery
+#     Drivers:         C:/Windows/System32/drivers
 #
 blocked_directories = []
 
