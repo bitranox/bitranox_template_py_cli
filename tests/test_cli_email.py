@@ -562,10 +562,10 @@ def test_when_send_email_attachment_missing_with_raise_flag_it_fails(
             "email": {
                 "smtp_hosts": ["smtp.test.com:587"],
                 "from_address": "sender@test.com",
-                # Disable directory blocking for tests using tmp_path
+                # Whitelist tmp_path for attachment security
                 # (macOS tmp_path is under /var which is blocked by default)
                 "attachments": {
-                    "blocked_directories": [],
+                    "allowed_directories": [str(tmp_path)],
                 },
             }
         }
@@ -613,10 +613,10 @@ def test_when_send_email_attachment_path_accepted_by_click(
             "email": {
                 "smtp_hosts": ["smtp.test.com:587"],
                 "from_address": "sender@test.com",
-                # Disable directory blocking for tests using tmp_path
+                # Whitelist tmp_path for attachment security
                 # (macOS tmp_path is under /var which is blocked by default)
                 "attachments": {
-                    "blocked_directories": [],
+                    "allowed_directories": [str(tmp_path)],
                 },
             }
         }
