@@ -1,0 +1,28 @@
+# ==============================================================================
+# lib_layered_config Settings
+# ==============================================================================
+#
+# This section documents lib_layered_config integration settings.
+# These are fixed values from the library, not configurable settings.
+#
+[lib_layered_config]
+
+# Profile Name Validation
+# -----------------------
+# Profile names (--profile option) are validated using lib_layered_config's
+# validate_profile_name() function with the following rules:
+#
+# Maximum length: 64 characters (DEFAULT_MAX_PROFILE_LENGTH)
+#
+# Character rules:
+#   - Must contain only ASCII alphanumeric characters, hyphens, underscores
+#   - Must start with an alphanumeric character
+#   - Must not be empty
+#
+# Security checks:
+#   - Rejects Windows reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+#   - Rejects path separators and traversal sequences (/, \, ..)
+#   - Rejects control characters
+#
+# These validation rules are enforced by lib_layered_config and cannot be
+# overridden via configuration.

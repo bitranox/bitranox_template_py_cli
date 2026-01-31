@@ -52,6 +52,7 @@ Complete (v1.1.2+)
 
 ### Configuration Defaults
 - `src/bitranox_template_py_cli/adapters/config/defaultconfig.toml` — Base defaults
+- `src/bitranox_template_py_cli/adapters/config/defaultconfig.d/40-layered-config.toml` — lib_layered_config integration docs
 - `src/bitranox_template_py_cli/adapters/config/defaultconfig.d/50-mail.toml` — Email defaults
 - `src/bitranox_template_py_cli/adapters/config/defaultconfig.d/90-logging.toml` — Logging defaults
 
@@ -228,6 +229,42 @@ Run logging demonstration.
 | `--theme NAME` | Logging theme (default: classic) |
 
 **Exit codes:** 0
+
+---
+
+## Profile Validation
+
+Profile names (`--profile` option) are validated using `lib_layered_config.validate_profile_name()`.
+
+### validate_profile()
+
+**Location:** `adapters/config/loader.py`
+
+```python
+def validate_profile(profile: str, max_length: int | None = None) -> None:
+    """Validate profile name using lib_layered_config."""
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `profile` | `str` | required | Profile name to validate |
+| `max_length` | `int \| None` | 64 | Maximum length (DEFAULT_MAX_PROFILE_LENGTH) |
+
+### Validation Rules
+
+| Rule | Description |
+|------|-------------|
+| Maximum length | 64 characters (configurable via `max_length`) |
+| Character set | ASCII alphanumeric, hyphens (`-`), underscores (`_`) |
+| Start character | Must start with alphanumeric character |
+| Empty string | Rejected |
+| Windows reserved | CON, PRN, AUX, NUL, COM1-9, LPT1-9 rejected |
+| Path traversal | `/`, `\`, `..` rejected |
+| Control chars | Rejected |
+
+### Error Handling
+
+Raises `ValueError` with descriptive message on invalid input.
 
 ---
 

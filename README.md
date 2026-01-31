@@ -129,6 +129,9 @@ bitranox-template-py-cli config-deploy --target app --profile production   # →
 bitranox-template-py-cli config-deploy --target host --profile production  # → /etc/xdg/{slug}/profile/production/hosts/{hostname}.toml
 bitranox-template-py-cli config-deploy --target user --profile production  # → ~/.config/{slug}/profile/production/config.toml
 
+# Profile names: alphanumeric, hyphens, underscores; max 64 chars; must start with letter/digit
+# See CONFIG.md for full validation rules
+
 # Deploy configuration examples
 bitranox-template-py-cli config-generate-examples --destination ./examples
 

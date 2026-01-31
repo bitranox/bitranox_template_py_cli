@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [1.2.1] - 2026-02-01
+
+### Changed
+- **Profile validation** now delegates to `lib_layered_config.validate_profile_name()` with comprehensive security checks:
+  - Maximum length enforcement (64 characters)
+  - Empty string rejection
+  - Windows reserved name rejection (CON, PRN, AUX, NUL, COM1-9, LPT1-9)
+  - Leading character validation (must start with alphanumeric)
+  - Path traversal prevention (/, \, ..)
+- `validate_profile()` now accepts optional `max_length` parameter for customization
+
+### Added
+- `40-layered-config.toml` in `defaultconfig.d/` documenting lib_layered_config integration settings
+- Profile validation tests for length limits, empty strings, Windows reserved names, and leading character rules
+- Profile name requirements documentation in CONFIG.md and README.md
+
+### Removed
+- Custom `_PROFILE_PATTERN` regex — replaced by lib_layered_config's built-in validation
+
 ## [1.2.0] - 2026-01-30
 
 ### Added

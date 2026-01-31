@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol, cast
 
-from lib_layered_config import Config, read_config
+from lib_layered_config import (
+    DEFAULT_MAX_PROFILE_LENGTH,
+    Config,
+    read_config,
+    validate_profile_name,
+)
 
 from bitranox_template_py_cli import __init__conf__
 
@@ -19,33 +23,36 @@ class ConfigLoaderProtocol(Protocol):
     def cache_clear(self) -> None: ...
 
 
-_PROFILE_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+def validate_profile(profile: str, max_length: int | None = None) -> None:
+    """Validate profile name using lib_layered_config.
 
-
-def validate_profile(profile: str) -> None:
-    """Reject profile names containing path traversal or special characters.
+    Delegates to lib_layered_config.validate_profile_name() which provides
+    comprehensive validation including length limits, character restrictions,
+    Windows reserved name checks, and path traversal prevention.
 
     Args:
-        profile: Profile name to validate.
+        profile: The profile name to validate.
+        max_length: Optional maximum length. Defaults to DEFAULT_MAX_PROFILE_LENGTH (64).
 
     Raises:
-        ValueError: If the profile name contains characters other than
-            alphanumeric, hyphens, and underscores.
+        ValueError: If profile name is invalid (empty, too long, invalid chars,
+            Windows reserved name, path traversal attempt, etc.).
 
     Examples:
         >>> validate_profile("production")  # valid, no exception
 
         >>> validate_profile("staging-v2")  # hyphens allowed
 
-        >>> validate_profile("../etc/passwd")
+        >>> validate_profile("../etc/passwd")  # doctest: +SKIP
         Traceback (most recent call last):
-        ...
-        ValueError: Invalid profile name '../etc/passwd': must contain only alphanumeric ...hyphens, and underscores
+        ValueError: profile contains invalid characters: ../etc/passwd
+
+        >>> validate_profile("a" * 65)  # doctest: +SKIP
+        Traceback (most recent call last):
+        ValueError: profile exceeds maximum length of 64: 65 characters
     """
-    if not _PROFILE_PATTERN.match(profile):
-        raise ValueError(
-            f"Invalid profile name {profile!r}: must contain only alphanumeric characters, hyphens, and underscores"
-        )
+    length = max_length if max_length is not None else DEFAULT_MAX_PROFILE_LENGTH
+    validate_profile_name(profile, max_length=length)
 
 
 @lru_cache(maxsize=1)

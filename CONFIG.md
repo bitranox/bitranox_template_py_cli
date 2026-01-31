@@ -147,6 +147,22 @@ bitranox-template-py-cli --set email.smtp_hosts='["smtp.example.com:587"]' confi
 
 Profiles provide isolated configuration namespaces for different environments (e.g., `production`, `staging`, `test`).
 
+### Profile Name Requirements
+
+Profile names are validated for security and cross-platform compatibility:
+
+| Rule | Description |
+|------|-------------|
+| **Maximum length** | 64 characters |
+| **Allowed characters** | ASCII letters (`a-z`, `A-Z`), digits (`0-9`), hyphens (`-`), underscores (`_`) |
+| **Start character** | Must start with a letter or digit (not `-` or `_`) |
+| **Reserved names** | Windows reserved names rejected: `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9` |
+| **Path safety** | No path separators (`/`, `\`) or traversal sequences (`..`) |
+
+**Valid examples:** `production`, `staging-v2`, `test_env`, `dev01`
+
+**Invalid examples:** `../etc` (path traversal), `-invalid` (starts with hyphen), `CON` (Windows reserved)
+
 ### Which Layers Are Affected?
 
 | Layer    | Affected by Profile? | Notes                               |
