@@ -20,6 +20,9 @@ def deploy_configuration(
     targets: Sequence[DeployTarget],
     force: bool = False,
     profile: str | None = None,
+    set_permissions: bool = True,
+    dir_mode: int | None = None,
+    file_mode: int | None = None,
 ) -> list[Path]:
     r"""Deploy default configuration to specified target layers.
 
@@ -38,6 +41,13 @@ def deploy_configuration(
         profile: Optional profile name for environment isolation. When specified,
             configuration is deployed to profile-specific subdirectories
             (e.g., ~/.config/slug/profile/<name>/config.toml).
+        set_permissions: If True (default), set Unix file permissions on created
+            files and directories. Uses 755/644 for app/host layers (world-readable)
+            and 700/600 for user layer (private). If False, use system umask.
+        dir_mode: Override directory permission mode (octal integer, e.g., 0o750).
+            When specified, overrides default directory permissions for all targets.
+        file_mode: Override file permission mode (octal integer, e.g., 0o640).
+            When specified, overrides default file permissions for all targets.
 
     Returns:
         List of paths where configuration files were created or would be created.
@@ -85,6 +95,9 @@ def deploy_configuration(
         profile=profile,
         targets=target_strings,
         force=force,
+        set_permissions=set_permissions,
+        dir_mode=dir_mode,
+        file_mode=file_mode,
     )
 
     # Extract paths where files were actually created or overwritten

@@ -19,6 +19,7 @@ from lib_layered_config import Config, generate_examples
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
+from bitranox_template_py_cli.adapters.config.permissions import get_permission_defaults
 from bitranox_template_py_cli.domain.enums import DeployTarget, OutputFormat
 
 from ..constants import CLICK_CONTEXT_SETTINGS
@@ -109,6 +110,29 @@ def _resolve_config(cli_ctx: CLIContext, profile: str | None) -> tuple[Config, s
     return cli_ctx.config, effective_profile
 
 
+def _parse_octal_mode(ctx: click.Context, param: click.Parameter, value: str | None) -> int | None:
+    """Parse octal mode string (e.g., '750' or '0o750') to int.
+
+    Args:
+        ctx: Click context (unused but required by callback signature).
+        param: Click parameter (unused but required by callback signature).
+        value: Octal mode string from CLI, or None.
+
+    Returns:
+        Integer permission mode, or None if value was None.
+
+    Raises:
+        click.BadParameter: If value cannot be parsed as octal.
+    """
+    if value is None:
+        return None
+    try:
+        # Handle both '750' and '0o750' formats
+        return int(value, 8) if not value.startswith("0o") else int(value, 0)
+    except ValueError as exc:
+        raise click.BadParameter(f"Invalid octal mode: {value}") from exc
+
+
 @click.command("config-deploy", context_settings=CLICK_CONTEXT_SETTINGS)
 @click.option(
     "--target",
@@ -130,8 +154,36 @@ def _resolve_config(cli_ctx: CLIContext, profile: str | None) -> tuple[Config, s
     default=None,
     help="Override profile from root command (e.g., 'production', 'test')",
 )
+@click.option(
+    "--permissions/--no-permissions",
+    "set_permissions",
+    default=None,
+    help="Set Unix permissions (755/644 for app/host, 700/600 for user). Default: enabled.",
+)
+@click.option(
+    "--dir-mode",
+    type=str,
+    default=None,
+    callback=_parse_octal_mode,
+    help="Override directory mode (octal, e.g., 750 or 0o750)",
+)
+@click.option(
+    "--file-mode",
+    type=str,
+    default=None,
+    callback=_parse_octal_mode,
+    help="Override file mode (octal, e.g., 640 or 0o640)",
+)
 @click.pass_context
-def cli_config_deploy(ctx: click.Context, targets: tuple[str, ...], force: bool, profile: str | None) -> None:
+def cli_config_deploy(
+    ctx: click.Context,
+    targets: tuple[str, ...],
+    force: bool,
+    profile: str | None,
+    set_permissions: bool | None,
+    dir_mode: int | None,
+    file_mode: int | None,
+) -> None:
     r"""Deploy default configuration to system or user directories.
 
     Creates configuration files in platform-specific locations:
@@ -142,6 +194,12 @@ def cli_config_deploy(ctx: click.Context, targets: tuple[str, ...], force: bool,
     - user: User-specific config (~/.config on Linux)
 
     By default, existing files are not overwritten. Use --force to overwrite.
+
+    \b
+    Permission options (POSIX only, no-op on Windows):
+    - --permissions/--no-permissions: Enable/disable permission setting
+    - --dir-mode: Override directory mode (octal, e.g., 750)
+    - --file-mode: Override file mode (octal, e.g., 640)
 
     Example:
         >>> from click.testing import CliRunner
@@ -159,10 +217,18 @@ def cli_config_deploy(ctx: click.Context, targets: tuple[str, ...], force: bool,
             "Deploying configuration",
             extra={"targets": target_values, "force": force, "profile": effective_profile},
         )
-        _execute_deploy(cli_ctx, deploy_targets, force, effective_profile)
+        _execute_deploy(cli_ctx, deploy_targets, force, effective_profile, set_permissions, dir_mode, file_mode)
 
 
-def _execute_deploy(cli_ctx: CLIContext, targets: tuple[DeployTarget, ...], force: bool, profile: str | None) -> None:
+def _execute_deploy(
+    cli_ctx: CLIContext,
+    targets: tuple[DeployTarget, ...],
+    force: bool,
+    profile: str | None,
+    set_permissions: bool | None,
+    dir_mode: int | None,
+    file_mode: int | None,
+) -> None:
     """Execute configuration deployment with error handling.
 
     Args:
@@ -170,13 +236,29 @@ def _execute_deploy(cli_ctx: CLIContext, targets: tuple[DeployTarget, ...], forc
         targets: Deployment target layers.
         force: Whether to overwrite existing files.
         profile: Optional profile name.
+        set_permissions: Whether to set Unix permissions. None uses config default.
+        dir_mode: Override directory permission mode.
+        file_mode: Override file permission mode.
 
     Raises:
         SystemExit: On permission or other errors.
     """
+    # Get permission defaults from config
+    perm_defaults = get_permission_defaults(cli_ctx.config)
+
+    # CLI --permissions/--no-permissions overrides config enabled setting
+    effective_set_permissions = set_permissions if set_permissions is not None else bool(perm_defaults["enabled"])
+
     try:
-        deployed_paths = cli_ctx.services.deploy_configuration(targets=targets, force=force, profile=profile)
-        _report_deployment_result(deployed_paths, profile)
+        deployed_paths = cli_ctx.services.deploy_configuration(
+            targets=targets,
+            force=force,
+            profile=profile,
+            set_permissions=effective_set_permissions,
+            dir_mode=dir_mode,
+            file_mode=file_mode,
+        )
+        _report_deployment_result(deployed_paths, profile, effective_set_permissions)
     except PermissionError as exc:
         logger.error("Permission denied when deploying configuration", extra={"error": str(exc)})
         click.echo(f"\nError: Permission denied. {exc}", err=True)
@@ -188,16 +270,18 @@ def _execute_deploy(cli_ctx: CLIContext, targets: tuple[DeployTarget, ...], forc
         raise SystemExit(ExitCode.GENERAL_ERROR) from exc
 
 
-def _report_deployment_result(deployed_paths: list[Path], profile: str | None) -> None:
+def _report_deployment_result(deployed_paths: list[Path], profile: str | None, set_permissions: bool) -> None:
     """Report deployment results to the user.
 
     Args:
         deployed_paths: List of paths where configs were deployed.
         profile: Optional profile name for display.
+        set_permissions: Whether permissions were set.
     """
     if deployed_paths:
         profile_msg = f" (profile: {profile})" if profile else ""
-        click.echo(f"\nConfiguration deployed successfully{profile_msg}:")
+        perm_msg = "" if set_permissions else " (permissions not set)"
+        click.echo(f"\nConfiguration deployed successfully{profile_msg}{perm_msg}:")
         for path in deployed_paths:
             click.echo(f"  ✓ {path}")
     else:

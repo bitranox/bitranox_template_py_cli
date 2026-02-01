@@ -301,7 +301,15 @@ def inject_deploy_with_profile_capture(
     from bitranox_template_py_cli.composition import AppServices, build_production
 
     def _inject(deployed_path: Path, captured_profiles: list[str | None]) -> Callable[[], Any]:
-        def _capturing_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
+        def _capturing_deploy(
+            *,
+            targets: Any,
+            force: bool = False,
+            profile: str | None = None,
+            set_permissions: bool = True,
+            dir_mode: int | None = None,
+            file_mode: int | None = None,
+        ) -> list[Path]:
             captured_profiles.append(profile)
             return [deployed_path]
 

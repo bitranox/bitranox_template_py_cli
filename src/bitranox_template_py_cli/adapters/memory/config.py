@@ -35,6 +35,9 @@ def deploy_configuration_in_memory(
     targets: Sequence[DeployTarget],
     force: bool = False,
     profile: str | None = None,
+    set_permissions: bool = True,
+    dir_mode: int | None = None,
+    file_mode: int | None = None,
 ) -> list[Path]:
     """Simulate deployment -- no filesystem changes, returns empty list."""
     return []

@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [1.3.0] - 2026-02-01
+
+### Added
+- **File permission options for `config-deploy`**: `--permissions/--no-permissions`, `--dir-mode`, `--file-mode`
+- **Configurable permission defaults** in `[lib_layered_config.default_permissions]` (app/host: 755/644, user: 700/600)
+- **Octal string support** in config files (`"0o755"`, `"755"`, or decimal `493`)
+
+### Changed
+- `deploy_configuration()` accepts `set_permissions`, `dir_mode`, `file_mode` parameters
+- CONFIG.md: comprehensive CLI options reference, `sudo -u` deployment examples
+
 ## [1.2.1] - 2026-02-01
 
 ### Changed

@@ -1,6 +1,6 @@
 [project]
 name = "bitranox_template_py_cli"
-version = "1.2.1"
+version = "1.3.0"
 description = "Template CLI application with configuration management and structured logging"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -126,8 +126,9 @@ convention = "google"
 "src/bitranox_template_py_cli/adapters/cli/**/*.py" = ["FBT001", "FBT002", "PLR0913"]
 # Protocols/adapters: many-param signatures by design
 "src/bitranox_template_py_cli/application/*.py" = ["PLR0913"]
+"src/bitranox_template_py_cli/adapters/config/*.py" = ["PLR0913"]
 "src/bitranox_template_py_cli/adapters/email/*.py" = ["PLR0913"]
-"src/bitranox_template_py_cli/adapters/memory/email.py" = ["PLR0913"]
+"src/bitranox_template_py_cli/adapters/memory/*.py" = ["PLR0913"]
 
 [tool.pyright]
 typeCheckingMode = "strict"

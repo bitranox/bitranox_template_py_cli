@@ -67,7 +67,47 @@ Configuration is loaded and merged in the following order (lowest to highest pre
 
 ## CLI Commands
 
+### Global Options
+
+These options apply to all commands and must be specified **before** the command name:
+
+| Option | Description |
+|--------|-------------|
+| `--version` | Show version and exit. |
+| `--profile NAME` | Load configuration from a named profile (e.g., `production`, `test`). |
+| `--set SECTION.KEY=VALUE` | Override a configuration setting. Can be repeated for multiple overrides. |
+| `--traceback` | Show full Python traceback on errors (useful for debugging). |
+| `--no-traceback` | Hide traceback, show only error message (default). |
+
+**Example usage:**
+
+```bash
+# Use a specific profile
+bitranox-template-py-cli --profile production config
+
+# Override settings at runtime (repeatable)
+bitranox-template-py-cli --set lib_log_rich.console_level=DEBUG config
+bitranox-template-py-cli --set email.from_address=test@example.com --set email.smtp_hosts='["smtp.example.com:587"]' send-email ...
+
+# Show full traceback for debugging
+bitranox-template-py-cli --traceback config-deploy --target user
+```
+
+---
+
 ### View Configuration
+
+Display the merged configuration from all sources (defaults → app → host → user → .env → env vars).
+
+#### Options Reference
+
+| Option | Required | Description |
+|--------|:--------:|-------------|
+| `--format` | No | Output format: `human` (default) or `json`. |
+| `--section NAME` | No | Show only a specific section (e.g., `lib_log_rich`, `email`). |
+| `--profile NAME` | No | Load configuration for a specific profile. |
+
+#### Examples
 
 ```bash
 # Show merged configuration from all sources
@@ -88,6 +128,22 @@ bitranox-template-py-cli config --profile staging --format json --section email
 
 ### Deploy Configuration Files
 
+Deploy bundled default configuration to platform-specific directories.
+
+#### Options Reference
+
+| Option | Required | Description |
+|--------|:--------:|-------------|
+| `--target` | Yes | Target layer: `app`, `host`, or `user`. Can be specified multiple times. |
+| `--force` | No | Overwrite existing configuration files. Without this, existing files are skipped. |
+| `--profile NAME` | No | Deploy to a profile-specific subdirectory (e.g., `profile/production/`). |
+| `--permissions` | No | Enable Unix permission setting (default). |
+| `--no-permissions` | No | Disable permission setting; use system umask instead. |
+| `--dir-mode MODE` | No | Override directory permissions (octal: `750` or `0o750`). |
+| `--file-mode MODE` | No | Override file permissions (octal: `640` or `0o640`). |
+
+#### Basic Examples
+
 ```bash
 # Create user configuration file
 bitranox-template-py-cli config-deploy --target user
@@ -96,7 +152,7 @@ bitranox-template-py-cli config-deploy --target user
 sudo bitranox-template-py-cli config-deploy --target app
 
 # Deploy host-specific configuration
-bitranox-template-py-cli config-deploy --target host
+sudo bitranox-template-py-cli config-deploy --target host
 
 # Deploy to multiple locations at once
 bitranox-template-py-cli config-deploy --target user --target host
@@ -111,9 +167,103 @@ bitranox-template-py-cli config-deploy --target user --profile production
 bitranox-template-py-cli config-deploy --target user --profile production --force
 ```
 
+#### Deploying for Other Users
+
+To deploy user-level configuration for a different user account, use `sudo -u`:
+
+```bash
+# Deploy user config for 'serviceaccount' user
+sudo -u serviceaccount bitranox-template-py-cli config-deploy --target user
+
+# Deploy with a specific profile
+sudo -u serviceaccount bitranox-template-py-cli config-deploy --target user --profile production
+
+# The config will be created at that user's home directory:
+# /home/serviceaccount/.config/bitranox-template-py-cli/config.toml
+```
+
+**Important notes:**
+
+- Using `sudo` alone (without `-u`) deploys to root's home directory, not the target user's
+- Always use `sudo -u <username>` when deploying for service accounts or other users
+- Files are created with ownership of the target user (correct behavior)
+- File permissions are set according to the `user` layer defaults (`0o700`/`0o600` = private)
+
+**Common deployment scenarios:**
+
+```bash
+# System admin deploying app-wide config (all users)
+sudo bitranox-template-py-cli config-deploy --target app
+
+# System admin deploying for a service account
+sudo -u myservice bitranox-template-py-cli config-deploy --target user
+
+# System admin deploying host-specific config
+sudo bitranox-template-py-cli config-deploy --target host
+
+# Regular user deploying their own config (no sudo needed)
+bitranox-template-py-cli config-deploy --target user
+```
+
+#### File Permissions (POSIX Only)
+
+On Linux and macOS, `config-deploy` sets Unix file permissions based on the target layer. Windows uses ACLs and ignores these settings.
+
+| Target | Directory Mode | File Mode | Description |
+|--------|:--------------:|:---------:|-------------|
+| `app`  | `0o755` (rwxr-xr-x) | `0o644` (rw-r--r--) | World-readable for system-wide config |
+| `host` | `0o755` (rwxr-xr-x) | `0o644` (rw-r--r--) | World-readable for host-specific config |
+| `user` | `0o700` (rwx------) | `0o600` (rw-------)  | Private to user only |
+
+**Permission options:**
+
+```bash
+# Skip permission setting entirely (use system umask)
+bitranox-template-py-cli config-deploy --target user --no-permissions
+
+# Override directory mode (octal)
+bitranox-template-py-cli config-deploy --target user --dir-mode 750
+
+# Override file mode (octal)
+bitranox-template-py-cli config-deploy --target user --file-mode 640
+
+# Both overrides together
+bitranox-template-py-cli config-deploy --target user --dir-mode 750 --file-mode 640
+
+# Octal formats: both "750" and "0o750" are accepted
+bitranox-template-py-cli config-deploy --target user --dir-mode 0o750
+```
+
+**Configurable defaults:**
+
+Permission defaults can be customized in `[lib_layered_config.default_permissions]`:
+
+```toml
+[lib_layered_config.default_permissions]
+# Values: octal strings ("0o755", "755") or decimal integers (493)
+app_directory = "0o755"
+app_file = "0o644"
+host_directory = "0o755"
+host_file = "0o644"
+user_directory = "0o700"
+user_file = "0o600"
+
+# Set to false to disable permission setting by default
+enabled = true
+```
+
 ### Generate Example Configuration Files
 
-Create example TOML files showing all available options with default values and documentation comments:
+Create example TOML files showing all available options with default values and documentation comments. Useful for learning the configuration structure or creating initial configuration files.
+
+#### Options Reference
+
+| Option | Required | Description |
+|--------|:--------:|-------------|
+| `--destination DIR` | Yes | Directory to write example files. |
+| `--force` | No | Overwrite existing files. Without this, existing files are skipped. |
+
+#### Examples
 
 ```bash
 # Generate examples in a specific directory
@@ -126,20 +276,59 @@ bitranox-template-py-cli config-generate-examples --destination ./examples --for
 bitranox-template-py-cli config-generate-examples --destination .
 ```
 
-Generated files include:
-- `config.toml` — Main configuration file with all sections
-- `config.d/*.toml` — Modular configuration files (email, logging, etc.)
+#### Generated Files
+
+| File | Description |
+|------|-------------|
+| `config.toml` | Main configuration file with all sections |
+| `config.d/*.toml` | Modular configuration files (email, logging, etc.) |
 
 Each file contains commented documentation explaining available options and their default values.
 
 ### Runtime Overrides
 
-Use `--set` to override configuration values without modifying files (repeatable):
+Use `--set` to override configuration values without modifying files. This option:
+- Has the **highest precedence** (overrides all other sources including environment variables)
+- Can be **repeated** to set multiple values
+- Must appear **before** the command name
+
+#### Syntax
+
+```
+--set SECTION.KEY=VALUE
+--set SECTION.SUBSECTION.KEY=VALUE
+```
+
+#### Examples
 
 ```bash
+# Override a single value
 bitranox-template-py-cli --set lib_log_rich.console_level=DEBUG config
+
+# Override multiple values
+bitranox-template-py-cli --set lib_log_rich.console_level=DEBUG --set lib_log_rich.console_format_preset=short config
+
+# Override nested values
+bitranox-template-py-cli --set email.attachments.max_size_bytes=10485760 config
+
+# Override with JSON arrays/objects (use single quotes around the value)
 bitranox-template-py-cli --set email.smtp_hosts='["smtp.example.com:587"]' config
+bitranox-template-py-cli --set email.recipients='["admin@example.com", "ops@example.com"]' config
+
+# Combine with profile
+bitranox-template-py-cli --profile production --set lib_log_rich.console_level=DEBUG config
 ```
+
+#### Supported Value Types
+
+| Type | Example |
+|------|---------|
+| String | `--set section.key=value` |
+| Integer | `--set section.timeout=30` |
+| Float | `--set section.ratio=0.5` |
+| Boolean | `--set section.enabled=true` or `--set section.enabled=false` |
+| JSON Array | `--set section.hosts='["a.com", "b.com"]'` |
+| JSON Object | `--set section.metadata='{"key": "value"}'` |
 
 ---
 

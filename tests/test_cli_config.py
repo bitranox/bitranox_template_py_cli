@@ -201,7 +201,15 @@ def test_when_config_deploy_is_invoked_it_deploys_configuration(
     deployed_path = tmp_path / "config.toml"
     deployed_path.touch()
 
-    def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
+    def mock_deploy(
+        *,
+        targets: Any,
+        force: bool = False,
+        profile: str | None = None,
+        set_permissions: bool = True,
+        dir_mode: int | None = None,
+        file_mode: int | None = None,
+    ) -> list[Path]:
         return [deployed_path]
 
     factory = inject_deploy_configuration(mock_deploy)
@@ -220,7 +228,15 @@ def test_when_config_deploy_finds_no_files_to_create_it_informs_user(
 ) -> None:
     """Verify config-deploy reports when no files are created."""
 
-    def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
+    def mock_deploy(
+        *,
+        targets: Any,
+        force: bool = False,
+        profile: str | None = None,
+        set_permissions: bool = True,
+        dir_mode: int | None = None,
+        file_mode: int | None = None,
+    ) -> list[Path]:
         return []
 
     factory = inject_deploy_configuration(mock_deploy)
@@ -239,7 +255,15 @@ def test_when_config_deploy_encounters_permission_error_it_handles_gracefully(
 ) -> None:
     """Verify config-deploy handles PermissionError gracefully."""
 
-    def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Any]:
+    def mock_deploy(
+        *,
+        targets: Any,
+        force: bool = False,
+        profile: str | None = None,
+        set_permissions: bool = True,
+        dir_mode: int | None = None,
+        file_mode: int | None = None,
+    ) -> list[Any]:
         raise PermissionError("Permission denied")
 
     factory = inject_deploy_configuration(mock_deploy)
@@ -265,7 +289,15 @@ def test_when_config_deploy_supports_multiple_targets(
     path1.touch()
     path2.touch()
 
-    def mock_deploy(*, targets: Any, force: bool = False, profile: str | None = None) -> list[Path]:
+    def mock_deploy(
+        *,
+        targets: Any,
+        force: bool = False,
+        profile: str | None = None,
+        set_permissions: bool = True,
+        dir_mode: int | None = None,
+        file_mode: int | None = None,
+    ) -> list[Path]:
         target_values = [t.value if isinstance(t, DeployTarget) else t for t in targets]
         assert len(target_values) == 2
         assert "user" in target_values

@@ -40,7 +40,14 @@ class DeployConfiguration(Protocol):
     """Deploy default configuration to specified target layers."""
 
     def __call__(
-        self, *, targets: Sequence[DeployTarget], force: bool = ..., profile: str | None = ...
+        self,
+        *,
+        targets: Sequence[DeployTarget],
+        force: bool = ...,
+        profile: str | None = ...,
+        set_permissions: bool = ...,
+        dir_mode: int | None = ...,
+        file_mode: int | None = ...,
     ) -> list[Path]: ...
 
 

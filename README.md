@@ -129,6 +129,11 @@ bitranox-template-py-cli config-deploy --target app --profile production   # →
 bitranox-template-py-cli config-deploy --target host --profile production  # → /etc/xdg/{slug}/profile/production/hosts/{hostname}.toml
 bitranox-template-py-cli config-deploy --target user --profile production  # → ~/.config/{slug}/profile/production/config.toml
 
+# With custom permissions (POSIX only):
+bitranox-template-py-cli config-deploy --target user --file-mode 640       # Files with rw-r----- (640)
+bitranox-template-py-cli config-deploy --target user --dir-mode 750        # Directories with rwxr-x--- (750)
+bitranox-template-py-cli config-deploy --target app --no-permissions       # Skip permission setting (use umask)
+
 # Profile names: alphanumeric, hyphens, underscores; max 64 chars; must start with letter/digit
 # See CONFIG.md for full validation rules
 
