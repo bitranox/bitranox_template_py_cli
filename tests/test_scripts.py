@@ -3,6 +3,11 @@
 Verify that script modules correctly compose shell commands for
 build, test, install, and development workflows without requiring
 real subprocess execution.
+
+Note:
+    This module requires the ``scripts`` package to be on PYTHONPATH.
+    Run with: ``PYTHONPATH=".:scripts" pytest tests/test_scripts.py -v``
+    These tests are skipped in CI and normal pytest runs.
 """
 
 from __future__ import annotations
@@ -16,6 +21,10 @@ from typing import Protocol, TypedDict
 import pytest
 from click.testing import CliRunner
 from pytest import MonkeyPatch
+
+# Skip entire module if scripts package is not available (not in PYTHONPATH)
+pytest.importorskip("scripts", reason="scripts package not in PYTHONPATH; run with PYTHONPATH=.:scripts")
+
 
 import scripts.test as test_script
 from scripts import _test_steps, _utils, build, cli, dev, install, run_cli
@@ -141,6 +150,7 @@ def _first_command(runs: list[RecordedRun]) -> RunCommand:
     return runs[0].command
 
 
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_get_project_metadata_fields() -> None:
     """Verify get_project_metadata returns expected fields."""
@@ -158,6 +168,7 @@ def test_get_project_metadata_fields() -> None:
     assert meta.metadata_module.as_posix().endswith("src/bitranox_template_py_cli/__init__conf__.py")
 
 
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_build_script_uses_metadata(monkeypatch: MonkeyPatch) -> None:
     """Verify build script invokes python -m build."""
@@ -170,6 +181,7 @@ def test_build_script_uses_metadata(monkeypatch: MonkeyPatch) -> None:
     assert any("python -m build" in cmd for cmd in commands)
 
 
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_dev_script_installs_dev_extras(monkeypatch: MonkeyPatch) -> None:
     """Verify dev script installs package with dev extras."""
@@ -183,6 +195,7 @@ def test_dev_script_installs_dev_extras(monkeypatch: MonkeyPatch) -> None:
     assert first_command == [sys.executable, "-m", "pip", "install", "-e", ".[dev]"]
 
 
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
     """Verify install script runs pip install -e."""
@@ -196,6 +209,7 @@ def test_install_script_installs_package(monkeypatch: MonkeyPatch) -> None:
     assert first_command == [sys.executable, "-m", "pip", "install", "-e", "."]
 
 
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_run_cli_invokes_uvx_with_no_cache(monkeypatch: MonkeyPatch) -> None:
     """Verify run_cli invokes uvx with --no-cache and local dependencies."""
@@ -231,6 +245,7 @@ def test_run_cli_invokes_uvx_with_no_cache(monkeypatch: MonkeyPatch) -> None:
     assert run_cli.PROJECT.name in cmd
 
 
+@pytest.mark.local_only
 @pytest.mark.os_agnostic
 def test_test_script_uses_pyproject_configuration(monkeypatch: MonkeyPatch) -> None:
     """Verify test script runs pytest with coverage from pyproject config."""

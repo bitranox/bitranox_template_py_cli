@@ -10,7 +10,7 @@ from collections.abc import Callable
 import lib_cli_exit_tools
 import pytest
 
-from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli import __init__conf__, entry
 from bitranox_template_py_cli.adapters import cli as cli_mod
 
 
@@ -128,3 +128,41 @@ def test_module_entry_subprocess_version() -> None:
     )
     assert result.returncode == 0
     assert __init__conf__.version in result.stdout
+
+
+@pytest.mark.os_agnostic
+def test_entry_main_invokes_cli_with_help(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """entry.main() wires production services and invokes CLI.
+
+    This tests the console script entry point used by pip-installed commands
+    (bitranox_template_py_cli, bitranox-template-py-cli).
+    """
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "--help"])
+
+    exit_code = entry.main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Usage:" in captured.out
+    assert __init__conf__.shell_command in captured.out
+
+
+@pytest.mark.os_agnostic
+def test_entry_main_returns_nonzero_on_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    strip_ansi: Callable[[str], str],
+) -> None:
+    """entry.main() returns non-zero exit code on CLI errors."""
+    monkeypatch.setattr(sys, "argv", ["bitranox_template_py_cli", "fail"])
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False)
+    monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False)
+
+    exit_code = entry.main()
+
+    plain_err = strip_ansi(capsys.readouterr().err)
+    assert exit_code != 0
+    assert "RuntimeError" in plain_err or "I should fail" in plain_err
