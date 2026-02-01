@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import runpy
+import subprocess
 import sys
 from collections.abc import Callable
 
@@ -89,3 +90,36 @@ def test_module_entry_cli_exports_all_registered_commands() -> None:
     }
     exported = {name for name in dir(cli_mod) if name.startswith("cli_")}
     assert expected_commands.issubset(exported)
+
+
+@pytest.mark.os_agnostic
+def test_module_entry_subprocess_help() -> None:
+    """Verify `python -m bitranox_template_py_cli --help` works via subprocess.
+
+    This tests the true CLI invocation path that end-users would experience,
+    complementing the runpy-based tests that run in-process.
+    """
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "bitranox_template_py_cli", "--help"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert "Usage:" in result.stdout
+    assert __init__conf__.shell_command in result.stdout
+
+
+@pytest.mark.os_agnostic
+def test_module_entry_subprocess_version() -> None:
+    """Verify `python -m bitranox_template_py_cli --version` outputs version."""
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "bitranox_template_py_cli", "--version"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert __init__conf__.version in result.stdout

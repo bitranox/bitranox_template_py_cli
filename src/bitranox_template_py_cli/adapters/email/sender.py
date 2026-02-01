@@ -7,7 +7,6 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
-import btx_lib_mail.lib_mail as btx_mail
 from btx_lib_mail import validate_email_address, validate_smtp_host
 from btx_lib_mail.lib_mail import ConfMail
 from btx_lib_mail.lib_mail import send as btx_send
@@ -15,9 +14,48 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
 
-from .validation import validate_recipient
+from .validation import validate_recipients
 
 logger = logging.getLogger(__name__)
+
+# Keywords that may indicate sensitive data in exception messages
+_SENSITIVE_KEYWORDS = frozenset(
+    {
+        "password",
+        "credential",
+        "auth",
+        "secret",
+        "token",
+        "key",
+        "login",
+    }
+)
+
+
+def _sanitize_exception_message(exc: Exception) -> str:
+    """Sanitize exception message to prevent credential exposure.
+
+    Returns a generic message when the original exception text contains
+    keywords suggesting sensitive data (passwords, credentials, tokens).
+    The full exception is preserved in the chain for DEBUG-level logging.
+
+    Args:
+        exc: The exception to sanitize.
+
+    Returns:
+        Sanitized message safe for user display.
+
+    Example:
+        >>> class FakeExc(Exception): pass
+        >>> _sanitize_exception_message(FakeExc("Connection failed"))
+        'Connection failed'
+        >>> _sanitize_exception_message(FakeExc("Auth password rejected"))
+        'Email delivery failed. Check SMTP configuration.'
+    """
+    message = str(exc).lower()
+    if any(keyword in message for keyword in _SENSITIVE_KEYWORDS):
+        return "Email delivery failed. Check SMTP configuration."
+    return str(exc)
 
 
 class EmailConfig(BaseModel):
@@ -53,9 +91,39 @@ class EmailConfig(BaseModel):
     attachment_allow_symlinks: bool = False
     attachment_raise_on_security_violation: bool = True
 
-    @field_validator("from_address", mode="before")
+    @field_validator("smtp_hosts", "recipients", mode="before")
     @classmethod
-    def _coerce_empty_from_address(cls, v: str | None) -> str | None:
+    def _coerce_string_to_list(cls, v: Any) -> list[str]:
+        """Coerce single strings to single-element lists.
+
+        Handles environment variables and .env files that provide single strings
+        instead of TOML arrays. Empty strings become empty lists.
+
+        Examples:
+            >>> EmailConfig._coerce_string_to_list("smtp.example.com:587")
+            ['smtp.example.com:587']
+            >>> EmailConfig._coerce_string_to_list(["a@example.com", "b@example.com"])
+            ['a@example.com', 'b@example.com']
+            >>> EmailConfig._coerce_string_to_list("")
+            []
+        """
+        if isinstance(v, str):
+            return [v] if v.strip() else []
+        if isinstance(v, list):
+            return cast(list[str], v)
+        return []
+
+    @field_validator("from_address", "smtp_username", "smtp_password", mode="before")
+    @classmethod
+    def _coerce_empty_string_to_none(cls, v: str | None) -> str | None:
+        """Coerce empty or whitespace-only strings to None.
+
+        Treats empty strings from config files as "not configured" rather than
+        explicit empty values. This prevents accidental auth attempts with
+        empty credentials and ensures consistent "not set" semantics.
+
+        Applies to: from_address, smtp_username, smtp_password.
+        """
         if isinstance(v, str) and not v.strip():
             return None
         return v
@@ -151,6 +219,30 @@ class EmailConfig(BaseModel):
 
         return self
 
+    def __repr__(self) -> str:
+        """Return string representation with smtp_password redacted.
+
+        Prevents accidental credential exposure in logs, error messages,
+        and debugging output. The password is shown as '[REDACTED]' when set.
+
+        Example:
+            >>> config = EmailConfig(
+            ...     smtp_hosts=["smtp.example.com:587"],
+            ...     smtp_password="secret123"
+            ... )
+            >>> "secret123" in repr(config)
+            False
+            >>> "[REDACTED]" in repr(config)
+            True
+        """
+        fields: list[str] = []
+        for name, value in self:
+            if name == "smtp_password" and value is not None:
+                fields.append(f"{name}='[REDACTED]'")
+            else:
+                fields.append(f"{name}={value!r}")
+        return f"EmailConfig({', '.join(fields)})"
+
     def to_conf_mail(self) -> ConfMail:
         """Convert to btx_lib_mail ConfMail object.
 
@@ -241,8 +333,7 @@ def _resolve_recipients(
     if recipients is not None:
         recipient_list = [recipients] if isinstance(recipients, str) else list(recipients)
         # Validate runtime recipients (config recipients validated by Pydantic)
-        for recipient in recipient_list:
-            validate_recipient(recipient)
+        validate_recipients(recipient_list)
     else:
         recipient_list = list(config.recipients)
 
@@ -321,9 +412,6 @@ def send_email(
         },
     )
 
-    btx_mail.conf.raise_on_missing_attachments = config.raise_on_missing_attachments
-    btx_mail.conf.raise_on_invalid_recipient = config.raise_on_invalid_recipient
-
     try:
         result = btx_send(
             mail_from=sender,
@@ -343,9 +431,12 @@ def send_email(
             attachment_max_size_bytes=config.attachment_max_size_bytes,
             attachment_allow_symlinks=config.attachment_allow_symlinks,
             attachment_raise_on_security_violation=config.attachment_raise_on_security_violation,
+            raise_on_missing_attachments=config.raise_on_missing_attachments,
+            raise_on_invalid_recipient=config.raise_on_invalid_recipient,
         )
     except RuntimeError as exc:
-        raise DeliveryError(str(exc)) from exc
+        logger.debug("SMTP delivery failed", exc_info=True)
+        raise DeliveryError(_sanitize_exception_message(exc)) from exc
 
     if result:
         logger.info(

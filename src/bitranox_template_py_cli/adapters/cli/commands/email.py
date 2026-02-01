@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
@@ -240,7 +241,25 @@ def _execute_with_email_error_handling(
             (needed for send-email with attachments).
 
     Raises:
-        SystemExit: On any error.
+        SystemExit: On any error (unless DEVELOPMENT_MODE is set).
+        Exception: Re-raised in development mode for debugging.
+
+    Exception Priority Order:
+        Exceptions are caught in specificity order (most specific first):
+
+        1. ConfigurationError → CONFIG_ERROR (78): Missing/invalid config
+        2. ValueError → INVALID_ARGUMENT (2): Invalid parameters or email format
+        3. FileNotFoundError → FILE_NOT_FOUND (66): Missing attachment (if enabled)
+        4. DeliveryError/RuntimeError → SMTP_FAILURE (69): SMTP transport failures
+        5. Exception (catch-all) → GENERAL_ERROR (1): Unexpected errors with traceback
+
+        This ordering ensures specific exceptions aren't caught by broader handlers.
+        When adding new exception types, insert them before the catch-all Exception handler.
+
+    Development Mode:
+        Set the DEVELOPMENT_MODE environment variable to any truthy value to
+        re-raise unexpected exceptions instead of catching them. This surfaces
+        bugs with full tracebacks during development.
     """
     try:
         result = operation()
@@ -276,6 +295,9 @@ def _execute_with_email_error_handling(
             exit_code=ExitCode.SMTP_FAILURE,
         )
     except Exception as exc:
+        # In development mode, re-raise to surface bugs with full traceback
+        if os.environ.get("DEVELOPMENT_MODE"):
+            raise
         _handle_send_error(
             exc,
             f"Unexpected error sending {message_type.lower()}",

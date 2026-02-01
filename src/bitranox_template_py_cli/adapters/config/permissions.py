@@ -46,7 +46,9 @@ def parse_mode(value: int | str, default: int) -> int:
     # value is str at this point
     try:
         # Handle both "755" and "0o755" formats
-        return int(value, 8) if not value.startswith("0o") else int(value, 0)
+        if value.startswith("0o"):
+            return int(value, 0)  # int() auto-detects 0o prefix
+        return int(value, 8)  # Plain "755" needs explicit base 8
     except ValueError:
         return default
 
@@ -86,6 +88,9 @@ def get_permission_defaults(config: Config) -> dict[str, int | bool]:
         True
     """
     section = config.get("lib_layered_config", {}).get("default_permissions", {})
+    # NOTE: lib_layered_config does not define separate HOST_* constants.
+    # Host layer shares defaults with app layer (both world-readable: 755/644).
+    # This is intentional per CLAUDE.md "Deployment Permissions" documentation.
     return {
         "app_directory": _get_mode(section, "app_directory", DEFAULT_APP_DIR_MODE),
         "app_file": _get_mode(section, "app_file", DEFAULT_APP_FILE_MODE),
@@ -103,7 +108,7 @@ def get_modes_for_target(
     *,
     dir_mode_override: int | None = None,
     file_mode_override: int | None = None,
-) -> tuple[int | None, int | None]:
+) -> tuple[int, int]:
     """Get dir_mode and file_mode for a target, applying overrides.
 
     Retrieves permission modes for a deployment target from configuration,
@@ -120,7 +125,8 @@ def get_modes_for_target(
 
     Returns:
         Tuple of (dir_mode, file_mode) to pass to deploy_config.
-        Values are integers (octal mode values) or None if not set.
+        Values are integers (octal mode values). Always returns valid modes
+        since get_permission_defaults provides fallbacks for all targets.
 
     Example:
         >>> from lib_layered_config import Config
@@ -134,10 +140,12 @@ def get_modes_for_target(
     defaults = get_permission_defaults(config)
     layer = target.value  # "app", "host", or "user"
 
-    dir_mode = dir_mode_override if dir_mode_override is not None else defaults.get(f"{layer}_directory")
-    file_mode = file_mode_override if file_mode_override is not None else defaults.get(f"{layer}_file")
+    # defaults always contains int values for all layer keys (get_permission_defaults
+    # uses lib_layered_config defaults as fallbacks), so cast is safe here.
+    dir_mode: int = dir_mode_override if dir_mode_override is not None else int(defaults[f"{layer}_directory"])
+    file_mode: int = file_mode_override if file_mode_override is not None else int(defaults[f"{layer}_file"])
 
-    return dir_mode, file_mode  # type: ignore[return-value]
+    return dir_mode, file_mode
 
 
 __all__ = [

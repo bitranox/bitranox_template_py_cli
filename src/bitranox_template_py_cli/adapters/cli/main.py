@@ -63,6 +63,9 @@ def _run_cli(argv: Sequence[str] | None, *, services_factory: Callable[[], AppSe
         exc.show()
         return exc.exit_code
     except BaseException as exc:
+        # Catch BaseException (not just Exception) to handle SystemExit, KeyboardInterrupt,
+        # and all errors at the CLI boundary. This ensures consistent error formatting via
+        # lib_cli_exit_tools regardless of exception type. Intentional, not a bug.
         tracebacks_enabled = bool(getattr(lib_cli_exit_tools.config, "traceback", False))
         apply_traceback_preferences(tracebacks_enabled)
         length_limit = TRACEBACK_VERBOSE_LIMIT if tracebacks_enabled else TRACEBACK_SUMMARY_LIMIT

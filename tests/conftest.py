@@ -25,6 +25,7 @@ from lib_layered_config.domain.config import SourceInfo
 
 if TYPE_CHECKING:
     from bitranox_template_py_cli.adapters.memory.email import EmailSpy
+    from bitranox_template_py_cli.composition import AppServices
 
 _COVERAGE_BASENAME = ".coverage.bitranox_template_py_cli"
 
@@ -36,6 +37,11 @@ def _purge_stale_coverage_files(cov_path: Path) -> None:
     files next to the coverage database.  SQLite interprets those as an
     incomplete transaction and may raise ``database is locked`` on the
     next open.
+
+    Note:
+        We use an explicit suffix list rather than glob (``cov_path.parent.glob(f"{cov_path.name}*")``)
+        because glob could match unrelated files sharing the same prefix. The SQLite WAL-mode
+        sidecar suffixes are well-documented and stable across versions.
     """
     for suffix in ("", "-journal", "-wal", "-shm"):
         with contextlib.suppress(FileNotFoundError):
@@ -102,18 +108,32 @@ def cli_runner() -> CliRunner:
     Click 8.x provides separate result.stdout and result.stderr attributes.
     Use result.stdout for clean output (e.g., JSON parsing) to avoid
     async log messages from stderr contaminating the output.
+
+    Returns:
+        CliRunner: A fresh Click test runner instance.
+
+    Example:
+        def test_help(cli_runner: CliRunner) -> None:
+            result = cli_runner.invoke(cli, ["--help"])
+            assert result.exit_code == 0
     """
     return CliRunner()
 
 
 @pytest.fixture
-def production_factory() -> Callable[[], Any]:
+def production_factory() -> Callable[[], AppServices]:
     """Provide the production services factory for tests.
 
     Use this when invoking CLI commands that don't need custom injection.
+    Returns the ``build_production`` factory which wires real adapters.
+
+    Returns:
+        Callable[[], AppServices]: Factory returning production-wired AppServices.
 
     Example:
-        result = cli_runner.invoke(cli, ["config"], obj=production_factory)
+        def test_info(cli_runner: CliRunner, production_factory: Callable[[], AppServices]) -> None:
+            result = cli_runner.invoke(cli, ["info"], obj=production_factory)
+            assert result.exit_code == 0
     """
     from bitranox_template_py_cli.composition import build_production
 
@@ -122,7 +142,20 @@ def production_factory() -> Callable[[], Any]:
 
 @pytest.fixture
 def strip_ansi() -> Callable[[str], str]:
-    """Return a helper that strips ANSI escape sequences from a string."""
+    """Return a helper that strips ANSI escape sequences from a string.
+
+    Useful for comparing CLI output that may contain rich formatting
+    (colors, bold, etc.) against expected plain text.
+
+    Returns:
+        Callable[[str], str]: Function that removes ANSI codes from input.
+
+    Example:
+        def test_output(cli_runner: CliRunner, strip_ansi: Callable[[str], str]) -> None:
+            result = cli_runner.invoke(cli, ["info"])
+            plain = strip_ansi(result.output)
+            assert "version" in plain
+    """
 
     def _strip(value: str) -> str:
         return _remove_ansi_codes(value)
@@ -138,6 +171,14 @@ def managed_traceback_state() -> Iterator[None]:
     (reset to clean state) and ``preserve_traceback_state`` (snapshot/restore)
     into a single fixture.  Use this whenever a test reads or mutates the
     global ``lib_cli_exit_tools.config`` traceback flags.
+
+    Yields:
+        None: Test runs with isolated traceback state.
+
+    Example:
+        def test_traceback_flag(managed_traceback_state: None) -> None:
+            lib_cli_exit_tools.config.traceback = True
+            # State automatically restored after test
     """
     lib_cli_exit_tools.reset_config()
     lib_cli_exit_tools.config.traceback = False
@@ -155,6 +196,14 @@ def clear_config_cache() -> Iterator[None]:
 
     Note: Only clears before, not after, to avoid errors when the function
     has been monkeypatched during the test (losing cache_clear method).
+
+    Yields:
+        None: Test runs with cleared config cache.
+
+    Example:
+        def test_config_reload(clear_config_cache: None) -> None:
+            config1 = get_config()
+            # Cache was cleared, so this is a fresh load
     """
     from bitranox_template_py_cli.adapters.config import loader as config_mod
 
@@ -164,7 +213,19 @@ def clear_config_cache() -> Iterator[None]:
 
 @pytest.fixture
 def config_factory() -> Callable[[dict[str, Any]], Config]:
-    """Create real Config instances from test data dicts."""
+    """Create real Config instances from test data dicts.
+
+    Builds actual ``lib_layered_config.Config`` objects without filesystem I/O.
+    The second argument (empty dict) represents no source provenance info.
+
+    Returns:
+        Callable[[dict[str, Any]], Config]: Factory that creates Config from dict.
+
+    Example:
+        def test_email_section(config_factory: Callable[[dict[str, Any]], Config]) -> None:
+            config = config_factory({"email": {"smtp_hosts": ["smtp.test.com:587"]}})
+            assert config.get("email.smtp_hosts") == ["smtp.test.com:587"]
+    """
 
     def _factory(data: dict[str, Any]) -> Config:
         return Config(data, {})
@@ -179,6 +240,14 @@ def source_info_factory() -> Callable[[str, str, str | None], SourceInfo]:
     Reduces coupling to the SourceInfo TypedDict structure.  If
     ``lib_layered_config`` adds or renames keys, only this factory
     needs updating.
+
+    Returns:
+        Callable[[str, str, str | None], SourceInfo]: Factory creating SourceInfo dicts.
+
+    Example:
+        def test_provenance(source_info_factory: Callable[..., SourceInfo]) -> None:
+            info = source_info_factory("email.smtp_hosts", "user", "/home/user/.config/...")
+            assert info["layer"] == "user"
     """
 
     def _factory(key: str, layer: str, path: str | None = None) -> SourceInfo:
@@ -193,9 +262,15 @@ def email_ready_config(config_factory: Callable[[dict[str, Any]], Config]) -> Co
 
     Provides a reusable email configuration with smtp_hosts, from_address,
     and recipients so email tests do not repeat the same setup boilerplate.
-    Combine with ``inject_config`` to wire into the CLI path:
+    Combine with ``inject_config`` to wire into the CLI path.
 
-        inject_config(email_ready_config)
+    Returns:
+        Config: Pre-configured Config with valid email settings.
+
+    Example:
+        def test_email(inject_config, email_ready_config: Config) -> None:
+            factory = inject_config(email_ready_config)
+            result = cli_runner.invoke(cli, ["send-notification", ...], obj=factory)
     """
     return config_factory(
         {
@@ -212,22 +287,34 @@ def email_ready_config(config_factory: Callable[[dict[str, Any]], Config]) -> Co
 @pytest.fixture
 def inject_config(
     clear_config_cache: None,
-) -> Callable[[Config], Callable[[], Any]]:
+) -> Callable[[Config], Callable[[], AppServices]]:
     """Return a factory that provides test services with injected Config.
 
     Creates a services factory with the injected config loader,
     avoiding filesystem I/O while exercising the real Config API.
+    Only replaces the I/O boundary (``get_config``), not the Config object itself.
+
+    Args:
+        clear_config_cache: Implicit fixture dependency ensuring cache is cleared.
 
     Returns:
-        Function that accepts a Config and returns a services factory callable.
+        Callable[[Config], Callable[[], AppServices]]: Function that accepts a Config
+            and returns a services factory callable suitable for ``cli_runner.invoke(obj=...)``.
 
     Example:
-        factory = inject_config(config_factory({"section": {"key": "value"}}))
-        result = cli_runner.invoke(cli, ["config"], obj=factory)
+        def test_config_display(
+            cli_runner: CliRunner,
+            config_factory: Callable[[dict[str, Any]], Config],
+            inject_config: Callable[[Config], Callable[[], AppServices]],
+        ) -> None:
+            config = config_factory({"section": {"key": "value"}})
+            factory = inject_config(config)
+            result = cli_runner.invoke(cli, ["config"], obj=factory)
+            assert "key" in result.output
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _inject(config: Config) -> Callable[[], Any]:
+    def _inject(config: Config) -> Callable[[], AppServices]:
         def _fake_get_config(**_kwargs: Any) -> Config:
             return config
 
@@ -250,22 +337,35 @@ def inject_config(
 @pytest.fixture
 def inject_config_with_profile_capture(
     clear_config_cache: None,
-) -> Callable[[Config, list[str | None]], Callable[[], Any]]:
+) -> Callable[[Config, list[str | None]], Callable[[], AppServices]]:
     """Return a factory that captures profile arguments during get_config.
 
     Creates a services factory with a get_config that records profile
-    arguments for assertion in tests.
+    arguments for assertion in tests verifying --profile propagation.
 
     Args:
-        config: The Config to return.
-        captured_profiles: A list to append captured profile values to.
+        clear_config_cache: Implicit fixture dependency ensuring cache is cleared.
 
     Returns:
-        Function that accepts (Config, capture_list) and returns a services factory.
+        Callable[[Config, list[str | None]], Callable[[], AppServices]]: Function
+            that accepts (Config, capture_list) and returns a services factory.
+            Profile values passed to get_config are appended to capture_list.
+
+    Example:
+        def test_profile_passed(
+            cli_runner: CliRunner,
+            config_factory: Callable[[dict[str, Any]], Config],
+            inject_config_with_profile_capture: Callable[..., Callable[[], AppServices]],
+        ) -> None:
+            captured: list[str | None] = []
+            config = config_factory({})
+            factory = inject_config_with_profile_capture(config, captured)
+            cli_runner.invoke(cli, ["--profile", "staging", "config"], obj=factory)
+            assert captured == ["staging"]
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _inject(config: Config, captured_profiles: list[str | None]) -> Callable[[], Any]:
+    def _inject(config: Config, captured_profiles: list[str | None]) -> Callable[[], AppServices]:
         def _capturing_get_config(*, profile: str | None = None, **_kwargs: Any) -> Config:
             captured_profiles.append(profile)
             return config
@@ -289,18 +389,35 @@ def inject_config_with_profile_capture(
 @pytest.fixture
 def inject_deploy_with_profile_capture(
     clear_config_cache: None,
-) -> Callable[[Path, list[str | None]], Callable[[], Any]]:
+) -> Callable[[Path, list[str | None]], Callable[[], AppServices]]:
     """Return a factory with deploy_configuration that captures profile arguments.
 
     Creates a services factory with a deploy_configuration that records
-    profile arguments for assertion in tests.
+    profile arguments for assertion in tests verifying --profile propagation
+    to deployment operations.
+
+    Args:
+        clear_config_cache: Implicit fixture dependency ensuring cache is cleared.
 
     Returns:
-        Function that accepts (deployed_path, capture_list) and returns a services factory.
+        Callable[[Path, list[str | None]], Callable[[], AppServices]]: Function
+            that accepts (deployed_path, capture_list) and returns a services factory.
+            The fake deploy always returns [deployed_path] and appends profile to capture_list.
+
+    Example:
+        def test_deploy_profile(
+            cli_runner: CliRunner,
+            tmp_path: Path,
+            inject_deploy_with_profile_capture: Callable[..., Callable[[], AppServices]],
+        ) -> None:
+            captured: list[str | None] = []
+            factory = inject_deploy_with_profile_capture(tmp_path / "config.toml", captured)
+            cli_runner.invoke(cli, ["--profile", "prod", "config-deploy", ...], obj=factory)
+            assert captured == ["prod"]
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _inject(deployed_path: Path, captured_profiles: list[str | None]) -> Callable[[], Any]:
+    def _inject(deployed_path: Path, captured_profiles: list[str | None]) -> Callable[[], AppServices]:
         def _capturing_deploy(
             *,
             targets: Any,
@@ -330,18 +447,33 @@ def inject_deploy_with_profile_capture(
 
 
 @pytest.fixture
-def inject_deploy_configuration() -> Callable[[Callable[..., list[Path]]], Callable[[], Any]]:
+def inject_deploy_configuration() -> Callable[[Callable[..., list[Path]]], Callable[[], AppServices]]:
     """Return a factory with a custom deploy_configuration function.
 
     Creates a services factory with the provided deploy_configuration
-    function while keeping other services as production.
+    function while keeping other services as production. Use this for
+    testing deploy behavior with custom implementations (mocks, spies).
 
     Returns:
-        Function that accepts a deploy function and returns a services factory.
+        Callable[[Callable[..., list[Path]]], Callable[[], AppServices]]: Function
+            that accepts a deploy function and returns a services factory.
+
+    Example:
+        def test_deploy_called(
+            cli_runner: CliRunner,
+            inject_deploy_configuration: Callable[..., Callable[[], AppServices]],
+        ) -> None:
+            calls = []
+            def spy_deploy(**kwargs) -> list[Path]:
+                calls.append(kwargs)
+                return [Path("/fake/path")]
+            factory = inject_deploy_configuration(spy_deploy)
+            cli_runner.invoke(cli, ["config-deploy", "--target", "user"], obj=factory)
+            assert len(calls) == 1
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _inject(deploy_fn: Callable[..., list[Path]]) -> Callable[[], Any]:
+    def _inject(deploy_fn: Callable[..., list[Path]]) -> Callable[[], AppServices]:
         prod = build_production()
         test_services = AppServices(
             get_config=prod.get_config,
@@ -359,22 +491,28 @@ def inject_deploy_configuration() -> Callable[[Callable[..., list[Path]]], Calla
 
 
 @pytest.fixture
-def inject_test_services() -> Callable[[], Callable[[], Any]]:
+def inject_test_services() -> Callable[[], Callable[[], AppServices]]:
     """Return the build_testing factory for full in-memory testing.
 
-    For full service replacement. Use inject_email_services for
-    granular email-only testing.
+    For full service replacement with in-memory adapters. Use
+    ``inject_config`` or ``email_cli_context`` for more granular control.
 
     Returns:
-        Function that returns the build_testing factory.
+        Callable[[], Callable[[], AppServices]]: Function that returns the
+            ``build_testing`` factory (in-memory adapters, no filesystem I/O).
 
     Example:
-        factory = inject_test_services()
-        result = cli_runner.invoke(cli, ["config"], obj=factory)
+        def test_with_memory_services(
+            cli_runner: CliRunner,
+            inject_test_services: Callable[[], Callable[[], AppServices]],
+        ) -> None:
+            factory = inject_test_services()
+            result = cli_runner.invoke(cli, ["config"], obj=factory)
+            # Uses in-memory config, no disk access
     """
     from bitranox_template_py_cli.composition import build_testing
 
-    def _inject() -> Callable[[], Any]:
+    def _inject() -> Callable[[], AppServices]:
         return build_testing
 
     return _inject
@@ -405,20 +543,37 @@ def email_cli_context(
     Combines config creation, injection, and email service replacement
     into a single fixture. Returns a function that takes email config
     dict (the "email" section contents) and returns a context with
-    the wired factory and spy.
+    the wired factory and spy for asserting on sent emails.
+
+    Args:
+        clear_config_cache: Implicit fixture dependency ensuring cache is cleared.
+
+    Returns:
+        Callable[[dict[str, Any]], EmailCliContext]: Function that takes email
+            config dict and returns EmailCliContext with factory and spy.
 
     Example:
-        def test_send_email(cli_runner, email_cli_context):
-            ctx = email_cli_context({"smtp_hosts": ["smtp.test.com:587"], ...})
-            result = cli_runner.invoke(cli, [...], obj=ctx.factory)
-            assert ctx.spy.sent_emails[0]["subject"] == "Test"
+        def test_send_email(
+            cli_runner: CliRunner,
+            email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
+        ) -> None:
+            ctx = email_cli_context({
+                "smtp_hosts": ["smtp.test.com:587"],
+                "from_address": "test@example.com",
+            })
+            result = cli_runner.invoke(
+                cli, ["send-notification", "--subject", "Hi", "--message", "Test", "--to", "a@b.com"],
+                obj=ctx.factory,
+            )
+            assert result.exit_code == 0
+            assert ctx.spy.sent_notifications[0]["subject"] == "Hi"
     """
     from bitranox_template_py_cli.adapters.memory import load_email_config_from_dict_in_memory
-    from bitranox_template_py_cli.adapters.memory.email import EmailSpy
+    from bitranox_template_py_cli.adapters.memory.email import EmailSpy as EmailSpyImpl
     from bitranox_template_py_cli.composition import AppServices, build_production
 
     def _create(email_data: dict[str, Any]) -> EmailCliContext:
-        spy = EmailSpy()
+        spy = EmailSpyImpl()
         config = Config({"email": email_data}, {})
         prod = build_production()
 
@@ -443,20 +598,31 @@ def email_cli_context(
 @pytest.fixture
 def config_cli_context(
     clear_config_cache: None,
-) -> Callable[[dict[str, Any]], Callable[[], Any]]:
+) -> Callable[[dict[str, Any]], Callable[[], AppServices]]:
     """Create CLI test context with injected config.
 
     Combines config creation and injection into a single fixture.
-    Returns a function that takes config dict and returns a services factory.
+    Simpler than ``inject_config`` when you don't need a pre-built Config object.
+
+    Args:
+        clear_config_cache: Implicit fixture dependency ensuring cache is cleared.
+
+    Returns:
+        Callable[[dict[str, Any]], Callable[[], AppServices]]: Function that takes
+            a config dict and returns a services factory for CLI invocation.
 
     Example:
-        def test_config(cli_runner, config_cli_context):
+        def test_config_display(
+            cli_runner: CliRunner,
+            config_cli_context: Callable[[dict[str, Any]], Callable[[], AppServices]],
+        ) -> None:
             factory = config_cli_context({"section": {"key": "value"}})
             result = cli_runner.invoke(cli, ["config"], obj=factory)
+            assert "key" in result.output
     """
     from bitranox_template_py_cli.composition import AppServices, build_production
 
-    def _create(config_data: dict[str, Any]) -> Callable[[], Any]:
+    def _create(config_data: dict[str, Any]) -> Callable[[], AppServices]:
         config = Config(config_data, {})
         prod = build_production()
 

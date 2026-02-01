@@ -235,6 +235,58 @@ def test_email_config_rejects_double_at_sign() -> None:
         EmailConfig(from_address="a@@b.com")
 
 
+# ======================== EmailConfig String-to-List Coercion ========================
+
+
+@pytest.mark.os_agnostic
+def test_email_config_coerces_string_smtp_hosts_to_list() -> None:
+    """Single string smtp_hosts is coerced to single-element list."""
+    config = EmailConfig(smtp_hosts="smtp.example.com:587")  # type: ignore[arg-type]
+    assert config.smtp_hosts == ["smtp.example.com:587"]
+
+
+@pytest.mark.os_agnostic
+def test_email_config_coerces_string_recipients_to_list() -> None:
+    """Single string recipients is coerced to single-element list."""
+    config = EmailConfig(recipients="user@example.com")  # type: ignore[arg-type]
+    assert config.recipients == ["user@example.com"]
+
+
+@pytest.mark.os_agnostic
+def test_email_config_coerces_empty_string_smtp_hosts_to_empty_list() -> None:
+    """Empty string smtp_hosts becomes empty list."""
+    config = EmailConfig(smtp_hosts="")  # type: ignore[arg-type]
+    assert config.smtp_hosts == []
+
+
+@pytest.mark.os_agnostic
+def test_email_config_coerces_whitespace_string_smtp_hosts_to_empty_list() -> None:
+    """Whitespace-only string smtp_hosts becomes empty list."""
+    config = EmailConfig(smtp_hosts="   ")  # type: ignore[arg-type]
+    assert config.smtp_hosts == []
+
+
+@pytest.mark.os_agnostic
+def test_email_config_coerces_empty_string_recipients_to_empty_list() -> None:
+    """Empty string recipients becomes empty list."""
+    config = EmailConfig(recipients="")  # type: ignore[arg-type]
+    assert config.recipients == []
+
+
+@pytest.mark.os_agnostic
+def test_email_config_preserves_list_smtp_hosts() -> None:
+    """List smtp_hosts is preserved unchanged."""
+    config = EmailConfig(smtp_hosts=["smtp1.example.com:587", "smtp2.example.com:25"])
+    assert config.smtp_hosts == ["smtp1.example.com:587", "smtp2.example.com:25"]
+
+
+@pytest.mark.os_agnostic
+def test_email_config_preserves_list_recipients() -> None:
+    """List recipients is preserved unchanged."""
+    config = EmailConfig(recipients=["a@example.com", "b@example.com"])
+    assert config.recipients == ["a@example.com", "b@example.com"]
+
+
 # ======================== EmailConfig Conversion ========================
 
 
@@ -344,12 +396,13 @@ def test_load_config_rejects_malformed_timeout() -> None:
 
 
 @pytest.mark.os_agnostic
-def test_load_config_rejects_non_list_smtp_hosts() -> None:
-    """String smtp_hosts raises ValidationError."""
-    config_dict = {"email": {"smtp_hosts": "should_be_list"}}
+def test_load_config_coerces_string_smtp_hosts_to_list() -> None:
+    """String smtp_hosts is coerced to single-element list."""
+    config_dict = {"email": {"smtp_hosts": "smtp.example.com:587"}}
 
-    with pytest.raises(PydanticValidationError):
-        load_email_config_from_dict(config_dict)
+    email_config = load_email_config_from_dict(config_dict)
+
+    assert email_config.smtp_hosts == ["smtp.example.com:587"]
 
 
 @pytest.mark.os_agnostic
@@ -373,13 +426,33 @@ def test_load_config_coerces_empty_from_address_to_none() -> None:
 
 
 @pytest.mark.os_agnostic
-def test_load_config_preserves_empty_string_username() -> None:
-    """Empty string username is preserved (current behavior)."""
+def test_load_config_coerces_empty_string_username_to_none() -> None:
+    """Empty string username is coerced to None (prevents empty auth attempts)."""
     config_dict = {"email": {"smtp_username": ""}}
 
     email_config = load_email_config_from_dict(config_dict)
 
-    assert email_config.smtp_username == ""
+    assert email_config.smtp_username is None
+
+
+@pytest.mark.os_agnostic
+def test_load_config_coerces_empty_string_password_to_none() -> None:
+    """Empty string password is coerced to None (prevents empty auth attempts)."""
+    config_dict = {"email": {"smtp_password": ""}}
+
+    email_config = load_email_config_from_dict(config_dict)
+
+    assert email_config.smtp_password is None
+
+
+@pytest.mark.os_agnostic
+def test_load_config_coerces_whitespace_username_to_none() -> None:
+    """Whitespace-only username is coerced to None."""
+    config_dict = {"email": {"smtp_username": "   "}}
+
+    email_config = load_email_config_from_dict(config_dict)
+
+    assert email_config.smtp_username is None
 
 
 @pytest.mark.os_agnostic
@@ -1085,3 +1158,68 @@ def test_real_smtp_sends_notification(smtp_config_from_env: EmailConfig) -> None
     )
 
     assert result is True
+
+
+# ======================== validate_recipients function tests ========================
+
+
+@pytest.mark.os_agnostic
+def test_validate_recipients_accepts_none() -> None:
+    """None recipients is a no-op (skips validation)."""
+    from bitranox_template_py_cli.adapters.email.validation import validate_recipients
+
+    validate_recipients(None)  # Should not raise
+
+
+@pytest.mark.os_agnostic
+def test_validate_recipients_accepts_single_valid_string() -> None:
+    """Single valid email address string is accepted."""
+    from bitranox_template_py_cli.adapters.email.validation import validate_recipients
+
+    validate_recipients("valid@example.com")  # Should not raise
+
+
+@pytest.mark.os_agnostic
+def test_validate_recipients_accepts_valid_list() -> None:
+    """List of valid email addresses is accepted."""
+    from bitranox_template_py_cli.adapters.email.validation import validate_recipients
+
+    validate_recipients(["a@example.com", "b@example.com"])  # Should not raise
+
+
+@pytest.mark.os_agnostic
+def test_validate_recipients_accepts_empty_list() -> None:
+    """Empty list is accepted (no recipients to validate)."""
+    from bitranox_template_py_cli.adapters.email.validation import validate_recipients
+
+    validate_recipients([])  # Should not raise
+
+
+@pytest.mark.os_agnostic
+def test_validate_recipients_raises_on_invalid_single_string() -> None:
+    """Invalid single email string raises InvalidRecipientError."""
+    from bitranox_template_py_cli.adapters.email.validation import validate_recipients
+    from bitranox_template_py_cli.domain.errors import InvalidRecipientError
+
+    with pytest.raises(InvalidRecipientError, match="Invalid recipient"):
+        validate_recipients("not-an-email")
+
+
+@pytest.mark.os_agnostic
+def test_validate_recipients_raises_on_invalid_in_list() -> None:
+    """List with one invalid email raises InvalidRecipientError."""
+    from bitranox_template_py_cli.adapters.email.validation import validate_recipients
+    from bitranox_template_py_cli.domain.errors import InvalidRecipientError
+
+    with pytest.raises(InvalidRecipientError, match="Invalid recipient"):
+        validate_recipients(["valid@example.com", "invalid"])
+
+
+@pytest.mark.os_agnostic
+def test_validate_recipients_error_includes_invalid_address() -> None:
+    """Error message includes the specific invalid address."""
+    from bitranox_template_py_cli.adapters.email.validation import validate_recipients
+    from bitranox_template_py_cli.domain.errors import InvalidRecipientError
+
+    with pytest.raises(InvalidRecipientError, match="bad-address"):
+        validate_recipients("bad-address")

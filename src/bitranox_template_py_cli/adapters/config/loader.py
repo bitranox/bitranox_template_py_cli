@@ -43,13 +43,15 @@ def validate_profile(profile: str, max_length: int | None = None) -> None:
 
         >>> validate_profile("staging-v2")  # hyphens allowed
 
-        >>> validate_profile("../etc/passwd")  # doctest: +SKIP
+        >>> validate_profile("../etc/passwd")  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
+        ...
         ValueError: profile contains invalid characters: ../etc/passwd
 
-        >>> validate_profile("a" * 65)  # doctest: +SKIP
+        >>> validate_profile("a" * 65)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
-        ValueError: profile exceeds maximum length of 64: 65 characters
+        ...
+        ValueError: profile exceeds maximum length...
     """
     length = max_length if max_length is not None else DEFAULT_MAX_PROFILE_LENGTH
     validate_profile_name(profile, max_length=length)
@@ -152,11 +154,22 @@ def _get_config(*, profile: str | None = None, start_dir: str | None = None) -> 
 
 
 def _cache_clear() -> None:
-    """Clear the internal configuration cache."""
+    """Clear the internal configuration cache.
+
+    Call this function to invalidate cached configuration and force a fresh
+    read from disk on the next ``get_config()`` call. Useful in tests or when
+    configuration files have been modified during runtime.
+
+    Example:
+        >>> get_config.cache_clear()  # Force re-read on next call
+    """
     _get_config_impl.cache_clear()
 
 
-# Attach cache_clear and export as properly typed ConfigLoaderProtocol
+# Attach cache_clear method to satisfy ConfigLoaderProtocol.
+# Required because lru_cache's cache_clear isn't visible to static type checkers
+# when the decorated function is later cast to a Protocol type. The type: ignore
+# is necessary since we're dynamically adding an attribute to a function object.
 _get_config.cache_clear = _cache_clear  # type: ignore[attr-defined]
 get_config: ConfigLoaderProtocol = cast(ConfigLoaderProtocol, _get_config)
 

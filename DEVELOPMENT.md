@@ -93,6 +93,59 @@ make menu
 - `bump`: updates `pyproject.toml` version and inserts a new section in `CHANGELOG.md`. Use `VERSION=X.Y.Z make bump` or `make bump-minor`/`bump-major`/`bump-patch`.
 - Additional scripts (`pipx-*`, `uv-*`, `which-cmd`, `verify-install`) provide install/run diagnostics.
 
+## Running Integration Tests
+
+Some tests require external resources (SMTP servers, databases) and are excluded from the default test run. These are marked with `@pytest.mark.local_only`.
+
+### Quick Reference
+
+| Command | What it runs |
+|---------|--------------|
+| `make test` | All tests EXCEPT `local_only` (default for CI) |
+| `make test-slow` | ONLY `local_only` integration tests |
+| `pytest tests/` | ALL tests (no marker filter) |
+
+### Email Integration Tests
+
+To run email tests that actually send messages:
+
+1. **Create a `.env` file** in the project root with your SMTP settings:
+
+```bash
+# .env (copy from .env.example)
+EMAIL__SMTP_HOSTS=smtp.example.com:587
+EMAIL__FROM_ADDRESS=sender@example.com
+EMAIL__RECIPIENTS=recipient@example.com
+EMAIL__SMTP_USER=your_username
+EMAIL__SMTP_PASSWORD=your_password
+```
+
+2. **Run the integration tests**:
+
+```bash
+make test-slow
+```
+
+3. **Or run specific email tests**:
+
+```bash
+pytest tests/test_cli_email_smtp.py -v
+```
+
+### Adding New Integration Tests
+
+Mark tests that require external resources:
+
+```python
+@pytest.mark.local_only
+@pytest.mark.os_agnostic
+def test_real_external_service(...):
+    """Integration test requiring external service."""
+    ...
+```
+
+These tests will be skipped in CI but run with `make test-slow`.
+
 ## Development Workflow
 
 ```bash
