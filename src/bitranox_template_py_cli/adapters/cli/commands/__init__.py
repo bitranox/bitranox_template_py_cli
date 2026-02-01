@@ -6,7 +6,7 @@ with the root CLI group.
 Contents:
     * Info commands from :mod:`.info`
     * Config commands from :mod:`.config`
-    * Email commands from :mod:`.email`
+    * Email commands from :mod:`.email` (subpackage)
     * Logging commands from :mod:`.logging`
 """
 

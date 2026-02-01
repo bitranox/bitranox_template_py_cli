@@ -102,9 +102,12 @@ def test_module_entry_subprocess_help() -> None:
     result = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "bitranox_template_py_cli", "--help"],
         capture_output=True,
-        text=True,
         timeout=30,
         check=False,
+        # Use UTF-8 with error replacement for Windows compatibility
+        # (rich-click outputs Unicode that cp1252 can't decode)
+        encoding="utf-8",
+        errors="replace",
     )
     assert result.returncode == 0
     assert "Usage:" in result.stdout
@@ -117,9 +120,11 @@ def test_module_entry_subprocess_version() -> None:
     result = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "bitranox_template_py_cli", "--version"],
         capture_output=True,
-        text=True,
         timeout=30,
         check=False,
+        # Use UTF-8 with error replacement for Windows compatibility
+        encoding="utf-8",
+        errors="replace",
     )
     assert result.returncode == 0
     assert __init__conf__.version in result.stdout

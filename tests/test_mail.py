@@ -1054,7 +1054,7 @@ def test_send_email_logs_success_on_true_result(caplog: pytest.LogCaptureFixture
     )
 
     with (
-        patch("bitranox_template_py_cli.adapters.email.sender.btx_send", return_value=True),
+        patch("bitranox_template_py_cli.adapters.email.transport.btx_send", return_value=True),
         caplog.at_level(logging.INFO),
     ):
         result = send_email(
@@ -1080,7 +1080,7 @@ def test_send_email_logs_warning_on_false_result(caplog: pytest.LogCaptureFixtur
     )
 
     with (
-        patch("bitranox_template_py_cli.adapters.email.sender.btx_send", return_value=False),
+        patch("bitranox_template_py_cli.adapters.email.transport.btx_send", return_value=False),
         caplog.at_level(logging.WARNING),
     ):
         result = send_email(

@@ -156,11 +156,16 @@ markers = [
 [tool.coverage.run]
 branch = true
 parallel = false
-# The primary redirect is the pytest_configure hook in tests/conftest.py
-# which sets COVERAGE_FILE to tempfile.gettempdir() before pytest-cov
-# creates its Coverage() object.  CI also sets COVERAGE_FILE via the
-# workflow env block.  No static data_file fallback is set here to
-# avoid a hard-coded Unix path that would fail on Windows.
+# Use a temp directory for the coverage database to avoid SQLite locking
+# issues on network-mounted filesystems. The {envtmpdir} placeholder is
+# not supported by coverage.py, so we use an environment variable with
+# fallback to a cross-platform temp location via the pytest_configure
+# hook in tests/conftest.py. CI also sets COVERAGE_FILE via workflow env.
+#
+# For local development, the pytest hook automatically redirects to
+# tempfile.gettempdir() before pytest-cov creates its Coverage() object.
+# This static fallback catches edge cases where coverage is run directly.
+data_file = "/tmp/.coverage.bitranox_template_py_cli"
 source = ["src/bitranox_template_py_cli"]
 
 [tool.coverage.report]
