@@ -68,8 +68,6 @@ bitranox-template-py-cli = "bitranox_template_py_cli.entry:main"
 requires = ["hatchling>=1.28.0"]
 build-backend = "hatchling.build"
 
-
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/bitranox_template_py_cli"]
 include = [
@@ -151,6 +149,7 @@ markers = [
   "os_posix: test exercises behavior requiring POSIX semantics",
   "os_linux: test exercises Linux-only behavior",
   "local_only: tests that require the local dev environment (external resources, script composition); skipped in CI",
+  "integration: tests requiring external resources (SMTP, databases, APIs); run via 'bmk ti' or 'mktesti.sh'",
 ]
 
 [tool.coverage.run]
@@ -182,6 +181,7 @@ pretty_print = true
 [tool.clean]
 # Patterns to remove when running `make clean` or `python -m scripts clean`
 patterns = [
+  "**/__pycache__",
   ".hypothesis",
   ".import_linter_cache",
   ".pytest_cache",
