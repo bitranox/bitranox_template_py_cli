@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [Unreleased]
+
+## [1.3.1] - 2026-02-13
+
+### Fixed
+- `tests/test_metadata_sync.py`: replaced `importlib.metadata` lookups with direct `pyproject.toml` reads — tests no longer fail when the package is not installed in the test environment (uvx)
+- Makefile `dev` target now correctly installs dev extras (`uv pip install -e ".[dev]"`)
+
+### Changed
+- CLAUDE.md: updated project structure trees to reflect actual codebase (added `entry.py`, `domain/errors.py`, `adapters/memory/`, `adapters/config/permissions.py`, `adapters/email/validation.py`; removed deleted `traceback.py`)
+- CLAUDE.md: rewrote Make targets table to match new `bmk`-based Makefile (added aliases, new targets; removed obsolete `menu`, `test-slow`)
+- CLAUDE.md: corrected versioning documentation — runtime metadata is served from `__init__conf__.py` constants, not `importlib.metadata`
+- CLAUDE.md: replaced stale `scripts/` instrumentation section with `bmk` delegation note
+- CLAUDE.md: updated `make test-slow` references to `make testintegration`
+
 ## [1.3.0] - 2026-02-01
 
 ### Added
