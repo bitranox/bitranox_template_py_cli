@@ -6,6 +6,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-02-13
+
+### Fixed
+- `reset_git_history.sh`: fixed shellcheck SC1083 warning by quoting `HEAD^{tree}` and normalized indentation to 4 spaces (shfmt)
+
+### Changed
+- Updated Makefile from v2.2.1 to v2.3.3
+- Bumped dependency minimums: `lib_cli_exit_tools` >=2.3.0, `lib_log_rich` >=6.3.3, `lib_layered_config` >=5.4.1
+- Added CVE ignore entries for CVE-2026-26007 and CVE-2026-25990
+- Updated CI/CD workflows and added Bash 4+ requirement for macOS
+
 ## [1.4.0] - 2026-02-13
 
 ### Changed
