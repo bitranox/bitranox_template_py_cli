@@ -7,11 +7,19 @@ actual project metadata.
 
 from __future__ import annotations
 
-from importlib.metadata import metadata
+from pathlib import Path
 
 import pytest
+import rtoml
 
 from bitranox_template_py_cli import __init__conf__
+
+_PYPROJECT_PATH = Path(__file__).parent.parent / "pyproject.toml"
+
+
+def _read_project_name() -> str:
+    """Read the project name from pyproject.toml."""
+    return rtoml.load(_PYPROJECT_PATH)["project"]["name"]
 
 
 @pytest.mark.os_agnostic
@@ -21,8 +29,7 @@ def test_layeredconf_slug_matches_project_name() -> None:
     The slug is used for Linux config paths (e.g., ~/.config/<slug>/).
     If it drifts from the project name, config files won't be found.
     """
-    meta = metadata("bitranox_template_py_cli")
-    project_name = meta["Name"]
+    project_name = _read_project_name()
 
     # Slug should be the hyphenated form of the project name
     expected_slug = project_name.replace("_", "-")
@@ -54,13 +61,7 @@ def test_version_matches_pyproject_toml() -> None:
     Reads pyproject.toml directly since during development the installed package
     may lag behind source changes.
     """
-    from pathlib import Path
-
-    import rtoml
-
-    pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-    pyproject_data = rtoml.load(pyproject_path)
-    pyproject_version = pyproject_data["project"]["version"]
+    pyproject_version = rtoml.load(_PYPROJECT_PATH)["project"]["version"]
 
     assert __init__conf__.version == pyproject_version, (
         f"__init__conf__.version '{__init__conf__.version}' does not match pyproject.toml version '{pyproject_version}'"
@@ -68,13 +69,12 @@ def test_version_matches_pyproject_toml() -> None:
 
 
 @pytest.mark.os_agnostic
-def test_name_matches_installed_package() -> None:
-    """__init__conf__.name must match the installed package name."""
-    meta = metadata("bitranox_template_py_cli")
-    installed_name = meta["Name"]
+def test_name_matches_project_name() -> None:
+    """__init__conf__.name must match the pyproject.toml project name."""
+    project_name = _read_project_name()
 
     # Package names are normalized (underscores → hyphens in some contexts)
     # but __init__conf__.name should match the canonical form
-    assert __init__conf__.name.replace("-", "_") == installed_name.replace("-", "_"), (
-        f"__init__conf__.name '{__init__conf__.name}' does not match installed package name '{installed_name}'"
+    assert __init__conf__.name.replace("-", "_") == project_name.replace("-", "_"), (
+        f"__init__conf__.name '{__init__conf__.name}' does not match project name '{project_name}'"
     )
