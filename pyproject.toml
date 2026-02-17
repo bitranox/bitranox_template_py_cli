@@ -198,6 +198,7 @@ patterns = [
   "codecov.sh",
   ".cache",
   "result",
+  ".venv",
 ]
 
 [tool.git]
