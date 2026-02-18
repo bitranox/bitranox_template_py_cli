@@ -198,7 +198,7 @@ patterns = [
   "codecov.sh",
   ".cache",
   "result",
-  ".venv",
+  ".data_arch_violations.json",
 ]
 
 [tool.git]
