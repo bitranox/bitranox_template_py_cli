@@ -253,3 +253,8 @@ ignore-vulns = [
   "CVE-2026-25990",
   "CVE-2026-26007",
 ]
+
+[tool.bashate]
+# bashate style settings for .sh files (E003 excluded: indent handled by shfmt)
+max-line-length = 120
+ignores = ["E003"]
