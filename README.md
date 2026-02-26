@@ -13,6 +13,7 @@
 [![Known Vulnerabilities](https://snyk.io/test/github/bitranox/bitranox_template_py_cli/badge.svg)](https://snyk.io/test/github/bitranox/bitranox_template_py_cli)
 [![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 
+
 `bitranox_template_py_cli` is a template CLI application demonstrating configuration management and structured logging. It showcases rich-click for ergonomics and lib_cli_exit_tools for exits, providing a solid foundation for building CLI applications.
 - CLI entry point styled with rich-click (rich output + click ergonomics).
 - Layered configuration system with lib_layered_config (defaults → app → host → user → .env → env).
