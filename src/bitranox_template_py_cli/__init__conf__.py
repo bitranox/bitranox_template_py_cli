@@ -39,7 +39,7 @@ shell_command = "bitranox-template-py-cli"
 #: Vendor identifier for lib_layered_config paths (macOS/Windows)
 LAYEREDCONF_VENDOR: str = "bitranox"
 #: Application display name for lib_layered_config paths (macOS/Windows)
-LAYEREDCONF_APP: str = "Bitranox Template Py Cli"
+LAYEREDCONF_APP: str = "bitranox_template_py_cli"
 #: Configuration slug for lib_layered_config Linux paths and environment variables
 LAYEREDCONF_SLUG: str = "bitranox-template-py-cli"
 
