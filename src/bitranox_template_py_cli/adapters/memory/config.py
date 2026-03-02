@@ -20,6 +20,7 @@ def get_config_in_memory(
     *,
     profile: str | None = None,
     start_dir: str | None = None,
+    dotenv_path: str | None = None,
 ) -> Config:
     """Return an empty in-memory Config."""
     return Config({}, {})

@@ -1115,6 +1115,7 @@ def smtp_config_from_env() -> EmailConfig:
 
 
 @pytest.mark.local_only
+@pytest.mark.integration
 @pytest.mark.os_agnostic
 def test_real_smtp_sends_email(smtp_config_from_env: EmailConfig) -> None:
     """Integration: send real email via configured SMTP server."""
@@ -1132,6 +1133,7 @@ def test_real_smtp_sends_email(smtp_config_from_env: EmailConfig) -> None:
 
 
 @pytest.mark.local_only
+@pytest.mark.integration
 @pytest.mark.os_agnostic
 def test_real_smtp_sends_html_email(smtp_config_from_env: EmailConfig) -> None:
     """Integration: send HTML email via configured SMTP server."""
@@ -1147,6 +1149,7 @@ def test_real_smtp_sends_html_email(smtp_config_from_env: EmailConfig) -> None:
 
 
 @pytest.mark.local_only
+@pytest.mark.integration
 @pytest.mark.os_agnostic
 def test_real_smtp_sends_notification(smtp_config_from_env: EmailConfig) -> None:
     """Integration: send notification via configured SMTP server."""

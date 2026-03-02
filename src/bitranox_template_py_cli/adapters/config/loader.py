@@ -19,7 +19,9 @@ from bitranox_template_py_cli import __init__conf__
 class ConfigLoaderProtocol(Protocol):
     """Protocol for config loader with cache_clear method."""
 
-    def __call__(self, *, profile: str | None = None, start_dir: str | None = None) -> Config: ...
+    def __call__(
+        self, *, profile: str | None = None, start_dir: str | None = None, dotenv_path: str | None = None
+    ) -> Config: ...
     def cache_clear(self) -> None: ...
 
 
@@ -85,7 +87,9 @@ def get_default_config_path() -> Path:
 # Configuration is loaded once per (profile, start_dir) tuple and cached
 # for the process lifetime. Intentional for a short-lived CLI process.
 @lru_cache(maxsize=4)
-def _get_config_impl(*, profile: str | None = None, start_dir: str | None = None) -> Config:
+def _get_config_impl(
+    *, profile: str | None = None, start_dir: str | None = None, dotenv_path: str | None = None
+) -> Config:
     """Internal cached implementation of config loading.
 
     Profile validation must be done by caller before invoking this function.
@@ -97,10 +101,11 @@ def _get_config_impl(*, profile: str | None = None, start_dir: str | None = None
         profile=profile,
         default_file=get_default_config_path(),
         start_dir=start_dir,
+        dotenv_path=dotenv_path,
     )
 
 
-def _get_config(*, profile: str | None = None, start_dir: str | None = None) -> Config:
+def _get_config(*, profile: str | None = None, start_dir: str | None = None, dotenv_path: str | None = None) -> Config:
     """Load layered configuration with application defaults.
 
     Centralizes configuration loading so all entry points use the same
@@ -126,6 +131,8 @@ def _get_config(*, profile: str | None = None, start_dir: str | None = None) -> 
             'test', 'production', 'staging-v2'. Defaults to None (no profile).
         start_dir: Optional directory that seeds .env discovery. Defaults to current
             working directory when None.
+        dotenv_path: Optional explicit path to a ``.env`` file. When set, this
+            file is loaded directly instead of searching upward from *start_dir*.
 
     Returns:
         Immutable configuration object with provenance tracking.
@@ -150,7 +157,7 @@ def _get_config(*, profile: str | None = None, start_dir: str | None = None) -> 
     """
     if profile is not None:
         validate_profile(profile)
-    return _get_config_impl(profile=profile, start_dir=start_dir)
+    return _get_config_impl(profile=profile, start_dir=start_dir, dotenv_path=dotenv_path)
 
 
 def _cache_clear() -> None:

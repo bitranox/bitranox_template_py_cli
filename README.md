@@ -157,6 +157,10 @@ bitranox-template-py-cli config-deploy --target app --no-permissions       # Ski
 # Deploy configuration examples
 bitranox-template-py-cli config-generate-examples --destination ./examples
 
+# Load configuration from an explicit .env file (skips upward directory search)
+bitranox-template-py-cli --env-file /path/to/.env config
+bitranox-template-py-cli --env-file ./environments/production.env send-notification ...
+
 # Override configuration at runtime (repeatable --set)
 bitranox-template-py-cli --set lib_log_rich.console_level=DEBUG config
 bitranox-template-py-cli --set email.smtp_hosts='["smtp.example.com:587"]' config --format json

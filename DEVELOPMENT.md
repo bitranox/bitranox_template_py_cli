@@ -120,6 +120,12 @@ EMAIL__SMTP_USER=your_username
 EMAIL__SMTP_PASSWORD=your_password
 ```
 
+   Alternatively, use `--env-file` to point at an existing `.env` file:
+
+```bash
+bitranox-template-py-cli --env-file /path/to/my/.env send-notification --subject "Test" --message "Hello"
+```
+
 2. **Run the integration tests**:
 
 ```bash

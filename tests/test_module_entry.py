@@ -2,16 +2,28 @@
 
 from __future__ import annotations
 
+import os
 import runpy
 import subprocess
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 import lib_cli_exit_tools
 import pytest
 
 from bitranox_template_py_cli import __init__conf__, entry
 from bitranox_template_py_cli.adapters import cli as cli_mod
+
+# Ensure subprocess can find the package even without editable install.
+_SRC_DIR = str(Path(__file__).resolve().parents[1] / "src")
+
+
+def _subprocess_env() -> dict[str, str]:
+    """Build env dict with src/ on PYTHONPATH for subprocess tests."""
+    existing = os.environ.get("PYTHONPATH", "")
+    pythonpath = f"{_SRC_DIR}{os.pathsep}{existing}" if existing else _SRC_DIR
+    return {**os.environ, "PYTHONPATH": pythonpath}
 
 
 @pytest.mark.os_agnostic
@@ -104,10 +116,9 @@ def test_module_entry_subprocess_help() -> None:
         capture_output=True,
         timeout=30,
         check=False,
-        # Use UTF-8 with error replacement for Windows compatibility
-        # (rich-click outputs Unicode that cp1252 can't decode)
         encoding="utf-8",
         errors="replace",
+        env=_subprocess_env(),
     )
     assert result.returncode == 0
     assert "Usage:" in result.stdout
@@ -122,9 +133,9 @@ def test_module_entry_subprocess_version() -> None:
         capture_output=True,
         timeout=30,
         check=False,
-        # Use UTF-8 with error replacement for Windows compatibility
         encoding="utf-8",
         errors="replace",
+        env=_subprocess_env(),
     )
     assert result.returncode == 0
     assert __init__conf__.version in result.stdout

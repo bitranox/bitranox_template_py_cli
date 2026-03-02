@@ -21,12 +21,26 @@ from __future__ import annotations
 
 import sys
 
+__all__ = [
+    "name",
+    "title",
+    "version",
+    "homepage",
+    "author",
+    "author_email",
+    "shell_command",
+    "LAYEREDCONF_VENDOR",
+    "LAYEREDCONF_APP",
+    "LAYEREDCONF_SLUG",
+    "print_info",
+]
+
 #: Distribution name declared in ``pyproject.toml``.
 name = "bitranox_template_py_cli"
 #: Human-readable summary shown in CLI help output.
 title = "Template CLI application with configuration management and structured logging"
 #: Current release version pulled from ``pyproject.toml`` by automation.
-version = "1.4.1"
+version = "1.5.0"
 #: Repository homepage presented to users.
 homepage = "https://github.com/bitranox/bitranox_template_py_cli"
 #: Author attribution surfaced in CLI output.

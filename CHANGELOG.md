@@ -6,6 +6,27 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-03-02
+
+### Added
+- `--env-file PATH` global CLI option to load an explicit `.env` file instead of searching upward from the working directory
+- `dotenv_path` parameter added to `GetConfig` protocol, config loader, and in-memory adapter
+- `__all__` to `__init__conf__.py` listing all public symbols
+- `@pytest.mark.integration` marker on email integration tests
+
+### Fixed
+- Subprocess tests (`test_module_entry_subprocess_help`, `test_module_entry_subprocess_version`) now pass without editable install by setting `PYTHONPATH` to `src/`
+- pip-audit CVE-2025-8869 ignore (pip is environment-level, not a project dependency)
+
+### Changed
+- CI workflow: dynamic Python version matrix extracted from `pyproject.toml` classifiers
+- CI workflow: ruff cache restricted to GitHub-hosted runners
+- CI workflow: bandit reads configuration from `pyproject.toml` (`-c pyproject.toml`)
+- CI workflow: Codecov upload uses dynamically resolved latest Python version
+- Release workflow: `actions/upload-artifact` upgraded to v7
+- Added `[tool.hatch.metadata]` and `[tool.bashate]` sections to `pyproject.toml`
+- Documentation updates: CONFIG.md, README.md, DEVELOPMENT.md for `--env-file` option
+
 ## [1.4.1] - 2026-02-13
 
 ### Fixed

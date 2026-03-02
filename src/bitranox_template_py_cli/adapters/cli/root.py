@@ -74,8 +74,21 @@ def _apply_cli_overrides(config: Config, set_overrides: tuple[str, ...]) -> Conf
     metavar="SECTION.KEY=VALUE",
     help="Override a configuration setting (repeatable).",
 )
+@click.option(
+    "--env-file",
+    "env_file",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True),
+    default=None,
+    help="Explicit .env file path (skips upward directory search).",
+)
 @click.pass_context
-def cli(ctx: click.Context, traceback: bool, profile: str | None, set_overrides: tuple[str, ...]) -> None:
+def cli(
+    ctx: click.Context,
+    traceback: bool,
+    profile: str | None,
+    set_overrides: tuple[str, ...],
+    env_file: str | None,
+) -> None:
     """Root command storing global flags and syncing shared traceback state.
 
     Loads configuration once with the profile, applies any ``--set`` overrides,
@@ -96,7 +109,7 @@ def cli(ctx: click.Context, traceback: bool, profile: str | None, set_overrides:
     if not callable(ctx.obj):
         raise RuntimeError("Services factory not provided. This is a bug.")
     services: AppServices = ctx.obj()  # type: ignore[assignment]  # Click's obj is typed as Any
-    config = services.get_config(profile=profile)
+    config = services.get_config(profile=profile, dotenv_path=env_file)
     config = _apply_cli_overrides(config, set_overrides)
     services.init_logging(config)
     store_cli_context(

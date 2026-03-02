@@ -76,6 +76,7 @@ These options apply to all commands and must be specified **before** the command
 | `--version` | Show version and exit. |
 | `--profile NAME` | Load configuration from a named profile (e.g., `production`, `test`). |
 | `--set SECTION.KEY=VALUE` | Override a configuration setting. Can be repeated for multiple overrides. |
+| `--env-file PATH` | Explicit `.env` file path. Skips the default upward directory search. |
 | `--traceback` | Show full Python traceback on errors (useful for debugging). |
 | `--no-traceback` | Hide traceback, show only error message (default). |
 
@@ -88,6 +89,10 @@ bitranox-template-py-cli --profile production config
 # Override settings at runtime (repeatable)
 bitranox-template-py-cli --set lib_log_rich.console_level=DEBUG config
 bitranox-template-py-cli --set email.from_address=test@example.com --set email.smtp_hosts='["smtp.example.com:587"]' send-email ...
+
+# Load configuration from an explicit .env file
+bitranox-template-py-cli --env-file /etc/myapp/.env config
+bitranox-template-py-cli --env-file ./environments/production.env send-notification ...
 
 # Show full traceback for debugging
 bitranox-template-py-cli --traceback config-deploy --target user
@@ -429,7 +434,17 @@ LOG_CONSOLE_FORMAT_PRESET=short
 LOG_ENABLE_GRAYLOG=false
 ```
 
-The application automatically discovers and loads `.env` files from the current directory or parent directories.
+By default, the application searches upward from the current directory to discover `.env` files.
+
+To load a specific `.env` file instead, use `--env-file`:
+
+```bash
+# Load from an explicit path (skips upward directory search)
+bitranox-template-py-cli --env-file /opt/myapp/config/.env config
+bitranox-template-py-cli --env-file ./environments/staging.env send-notification ...
+```
+
+The file must exist and be readable; Click validates this before the command runs.
 
 ---
 

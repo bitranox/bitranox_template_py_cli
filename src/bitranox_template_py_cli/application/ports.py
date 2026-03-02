@@ -27,7 +27,9 @@ if TYPE_CHECKING:
 class GetConfig(Protocol):
     """Load layered configuration with application defaults."""
 
-    def __call__(self, *, profile: str | None = ..., start_dir: str | None = ...) -> Config: ...
+    def __call__(
+        self, *, profile: str | None = ..., start_dir: str | None = ..., dotenv_path: str | None = ...
+    ) -> Config: ...
 
 
 class GetDefaultConfigPath(Protocol):
