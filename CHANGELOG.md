@@ -6,7 +6,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-## [1.5.1] - 2026-03-05
+## [1.5.2] - 2026-03-05
+
+### Fixed
+- Re-release as 1.5.2: PyPI rejected 1.5.1 due to filename reuse after prior upload deletion
+
+### Changed
+- `get_permission_defaults()` now returns a `PermissionDefaults` Pydantic model instead of a raw dict, with typed field access and `dir_mode_for()`/`file_mode_for()` methods
+- `EmailSpy` now stores captured calls as `CapturedEmail` and `CapturedNotification` frozen dataclasses instead of `list[dict[str, Any]]`
+
+### Added
+- Tests for `--env-file` CLI option (argument passing, validation, end-to-end integration)
+
+## [1.5.1] - 2026-03-05 [YANKED]
 
 ### Changed
 - `get_permission_defaults()` now returns a `PermissionDefaults` Pydantic model instead of a raw dict, with typed field access and `dir_mode_for()`/`file_mode_for()` methods
