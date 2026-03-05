@@ -566,7 +566,7 @@ def email_cli_context(
                 obj=ctx.factory,
             )
             assert result.exit_code == 0
-            assert ctx.spy.sent_notifications[0]["subject"] == "Hi"
+            assert ctx.spy.sent_notifications[0].subject == "Hi"
     """
     from bitranox_template_py_cli.adapters.memory import load_email_config_from_dict_in_memory
     from bitranox_template_py_cli.adapters.memory.email import EmailSpy as EmailSpyImpl

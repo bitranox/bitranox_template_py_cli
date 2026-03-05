@@ -6,6 +6,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-03-05
+
+### Changed
+- `get_permission_defaults()` now returns a `PermissionDefaults` Pydantic model instead of a raw dict, with typed field access and `dir_mode_for()`/`file_mode_for()` methods
+- `EmailSpy` now stores captured calls as `CapturedEmail` and `CapturedNotification` frozen dataclasses instead of `list[dict[str, Any]]`
+
+### Added
+- Tests for `--env-file` CLI option (argument passing, validation, end-to-end integration)
+
 ## [1.5.0] - 2026-03-02
 
 ### Added

@@ -4,6 +4,8 @@ Provides email functions that satisfy the same Protocols as production
 adapters but perform no SMTP operations.
 
 Contents:
+    * :class:`CapturedEmail` - Typed record for captured send_email calls.
+    * :class:`CapturedNotification` - Typed record for captured send_notification calls.
     * :class:`EmailSpy` - Captures email calls for test assertions.
     * :func:`load_email_config_from_dict_in_memory` - In-memory config loader.
 """
@@ -19,9 +21,28 @@ from ..email.sender import EmailConfig
 from ..email.validation import validate_recipients
 
 
-def _empty_email_list() -> list[dict[str, Any]]:
-    """Create an empty typed list for email records."""
-    return []
+@dataclass(frozen=True, slots=True)
+class CapturedEmail:
+    """Typed record of a captured send_email call."""
+
+    config: EmailConfig
+    recipients: str | Sequence[str] | None
+    subject: str
+    body: str
+    body_html: str
+    from_address: str | None
+    attachments: list[Path] | None
+
+
+@dataclass(frozen=True, slots=True)
+class CapturedNotification:
+    """Typed record of a captured send_notification call."""
+
+    config: EmailConfig
+    recipients: str | Sequence[str] | None
+    subject: str
+    message: str
+    from_address: str | None
 
 
 @dataclass
@@ -46,8 +67,8 @@ class EmailSpy:
         1
     """
 
-    sent_emails: list[dict[str, Any]] = field(default_factory=_empty_email_list)
-    sent_notifications: list[dict[str, Any]] = field(default_factory=_empty_email_list)
+    sent_emails: list[CapturedEmail] = field(default_factory=lambda: [])
+    sent_notifications: list[CapturedNotification] = field(default_factory=lambda: [])
     should_fail: bool = False
     raise_exception: Exception | None = None
 
@@ -88,15 +109,15 @@ class EmailSpy:
         """
         validate_recipients(recipients)
         self.sent_emails.append(
-            {
-                "config": config,
-                "recipients": recipients,
-                "subject": subject,
-                "body": body,
-                "body_html": body_html,
-                "from_address": from_address,
-                "attachments": list(attachments) if attachments else None,
-            }
+            CapturedEmail(
+                config=config,
+                recipients=recipients,
+                subject=subject,
+                body=body,
+                body_html=body_html,
+                from_address=from_address,
+                attachments=list(attachments) if attachments else None,
+            )
         )
         if self.raise_exception is not None:
             raise self.raise_exception
@@ -129,13 +150,13 @@ class EmailSpy:
         """
         validate_recipients(recipients)
         self.sent_notifications.append(
-            {
-                "config": config,
-                "recipients": recipients,
-                "subject": subject,
-                "message": message,
-                "from_address": from_address,
-            }
+            CapturedNotification(
+                config=config,
+                recipients=recipients,
+                subject=subject,
+                message=message,
+                from_address=from_address,
+            )
         )
         if self.raise_exception is not None:
             raise self.raise_exception
@@ -151,6 +172,8 @@ def load_email_config_from_dict_in_memory(
 
 
 __all__ = [
+    "CapturedEmail",
+    "CapturedNotification",
     "EmailSpy",
     "load_email_config_from_dict_in_memory",
 ]

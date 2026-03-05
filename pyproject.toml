@@ -1,6 +1,6 @@
 [project]
 name = "bitranox_template_py_cli"
-version = "1.5.0"
+version = "1.5.1"
 description = "Template CLI application with configuration management and structured logging"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -47,7 +47,7 @@ dev = [
   "twine>=6.2.0",
   "codecov-cli>=11.2.6",
   "pip-audit>=2.10.0",
-  "textual>=8.0.1",
+  "textual>=8.0.2",
   "import-linter>=2.10",
   "rtoml>=0.13.0",
   "httpx>=0.28.1",

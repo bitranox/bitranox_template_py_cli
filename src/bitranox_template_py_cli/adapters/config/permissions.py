@@ -14,11 +14,43 @@ from lib_layered_config import (
     DEFAULT_USER_DIR_MODE,
     DEFAULT_USER_FILE_MODE,
 )
+from pydantic import BaseModel, ConfigDict
 
 from bitranox_template_py_cli.domain.enums import DeployTarget
 
 if TYPE_CHECKING:
     from lib_layered_config import Config
+
+
+class PermissionDefaults(BaseModel):
+    """Validated, immutable permission defaults for deployment layers.
+
+    Parsed at the boundary from ``[lib_layered_config.default_permissions]``
+    config section. All fields have library-level fallback defaults.
+
+    Example:
+        >>> defaults = PermissionDefaults()
+        >>> defaults.user_directory == 0o700
+        True
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    app_directory: int = DEFAULT_APP_DIR_MODE
+    app_file: int = DEFAULT_APP_FILE_MODE
+    host_directory: int = DEFAULT_APP_DIR_MODE
+    host_file: int = DEFAULT_APP_FILE_MODE
+    user_directory: int = DEFAULT_USER_DIR_MODE
+    user_file: int = DEFAULT_USER_FILE_MODE
+    enabled: bool = True
+
+    def dir_mode_for(self, layer: str) -> int:
+        """Return directory mode for the given layer name."""
+        return getattr(self, f"{layer}_directory")
+
+    def file_mode_for(self, layer: str) -> int:
+        """Return file mode for the given layer name."""
+        return getattr(self, f"{layer}_file")
 
 
 def parse_mode(value: int | str, default: int) -> int:
@@ -53,15 +85,20 @@ def parse_mode(value: int | str, default: int) -> int:
         return default
 
 
-def _get_mode(section: dict[str, int | str | bool], key: str, default: int) -> int:
-    """Get a mode value from config section, parsing octal strings."""
+def _parse_mode_from_section(section: dict[str, int | str | bool], key: str, default: int) -> int:
+    """Extract and parse a mode value from a raw config section dict.
+
+    Used only at the boundary when parsing the raw config dict into
+    PermissionDefaults. The raw section comes from lib_layered_config's
+    Config.get() which returns untyped dicts.
+    """
     raw = section.get(key, default)
     if isinstance(raw, bool):
         return default
     return parse_mode(raw, default)
 
 
-def get_permission_defaults(config: Config) -> dict[str, int | bool]:
+def get_permission_defaults(config: Config) -> PermissionDefaults:
     """Load permission defaults from [lib_layered_config.default_permissions].
 
     Reads configurable permission defaults for each deployment layer.
@@ -71,35 +108,29 @@ def get_permission_defaults(config: Config) -> dict[str, int | bool]:
         config: Configuration object with merged settings.
 
     Returns:
-        Dictionary with keys:
-            - app_directory: Directory mode for app layer (default 0o755)
-            - app_file: File mode for app layer (default 0o644)
-            - host_directory: Directory mode for host layer (default 0o755)
-            - host_file: File mode for host layer (default 0o644)
-            - user_directory: Directory mode for user layer (default 0o700)
-            - user_file: File mode for user layer (default 0o600)
-            - enabled: Whether permission setting is enabled (default True)
+        PermissionDefaults model with typed fields for each layer's
+        directory and file modes, plus an enabled flag.
 
     Example:
         >>> from lib_layered_config import Config
         >>> config = Config({}, {})  # Empty config
         >>> defaults = get_permission_defaults(config)
-        >>> defaults["user_directory"] == 0o700
+        >>> defaults.user_directory == 0o700
         True
     """
     section = config.get("lib_layered_config", {}).get("default_permissions", {})
     # NOTE: lib_layered_config does not define separate HOST_* constants.
     # Host layer shares defaults with app layer (both world-readable: 755/644).
     # This is intentional per CLAUDE.md "Deployment Permissions" documentation.
-    return {
-        "app_directory": _get_mode(section, "app_directory", DEFAULT_APP_DIR_MODE),
-        "app_file": _get_mode(section, "app_file", DEFAULT_APP_FILE_MODE),
-        "host_directory": _get_mode(section, "host_directory", DEFAULT_APP_DIR_MODE),
-        "host_file": _get_mode(section, "host_file", DEFAULT_APP_FILE_MODE),
-        "user_directory": _get_mode(section, "user_directory", DEFAULT_USER_DIR_MODE),
-        "user_file": _get_mode(section, "user_file", DEFAULT_USER_FILE_MODE),
-        "enabled": section.get("enabled", True),
-    }
+    return PermissionDefaults(
+        app_directory=_parse_mode_from_section(section, "app_directory", DEFAULT_APP_DIR_MODE),
+        app_file=_parse_mode_from_section(section, "app_file", DEFAULT_APP_FILE_MODE),
+        host_directory=_parse_mode_from_section(section, "host_directory", DEFAULT_APP_DIR_MODE),
+        host_file=_parse_mode_from_section(section, "host_file", DEFAULT_APP_FILE_MODE),
+        user_directory=_parse_mode_from_section(section, "user_directory", DEFAULT_USER_DIR_MODE),
+        user_file=_parse_mode_from_section(section, "user_file", DEFAULT_USER_FILE_MODE),
+        enabled=section.get("enabled", True),
+    )
 
 
 def get_modes_for_target(
@@ -140,15 +171,14 @@ def get_modes_for_target(
     defaults = get_permission_defaults(config)
     layer = target.value  # "app", "host", or "user"
 
-    # defaults always contains int values for all layer keys (get_permission_defaults
-    # uses lib_layered_config defaults as fallbacks), so cast is safe here.
-    dir_mode: int = dir_mode_override if dir_mode_override is not None else int(defaults[f"{layer}_directory"])
-    file_mode: int = file_mode_override if file_mode_override is not None else int(defaults[f"{layer}_file"])
+    dir_mode: int = dir_mode_override if dir_mode_override is not None else defaults.dir_mode_for(layer)
+    file_mode: int = file_mode_override if file_mode_override is not None else defaults.file_mode_for(layer)
 
     return dir_mode, file_mode
 
 
 __all__ = [
+    "PermissionDefaults",
     "get_modes_for_target",
     "get_permission_defaults",
     "parse_mode",
