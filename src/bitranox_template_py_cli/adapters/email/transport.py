@@ -22,13 +22,15 @@ logger = logging.getLogger(__name__)
 # Keywords that may indicate sensitive data in exception messages
 _SENSITIVE_KEYWORDS = frozenset(
     {
-        "password",
-        "credential",
+        "api_key",
         "auth",
-        "secret",
-        "token",
+        "bearer",
+        "credential",
         "key",
         "login",
+        "password",
+        "secret",
+        "token",
     }
 )
 
