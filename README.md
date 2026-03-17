@@ -42,6 +42,14 @@
 ```bash
 # macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Copy the actual binaries
+cp /root/.local/bin/uv /usr/local/bin/uv
+cp /root/.local/bin/uvx /usr/local/bin/uvx
+
+# Ensure world-executable
+chmod 755 /usr/local/bin/uv /usr/local/bin/uvx
+
 # Windows (PowerShell)
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
