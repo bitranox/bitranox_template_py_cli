@@ -6,6 +6,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-03-30
+
+### Changed
+- Bumped Codecov GitHub Action to V6
+- Updated CVE exclusion list: removed stale entries, added inline documentation for remaining exclusions
+- pip-audit set to warning-only to reduce CI noise
+
+### Fixed
+- Email transport: minor improvements to SMTP handling
+
 ## [1.5.2] - 2026-03-05
 
 ### Fixed
