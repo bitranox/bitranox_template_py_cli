@@ -114,6 +114,9 @@ uv tool install bitranox_template_py_cli
 # Verify
 bitranox-template-py-cli --version
 
+# deploy config files
+bitranox-template-py-cli deploy-config --target app
+
 # Try it out
 bitranox-template-py-cli hello
 bitranox-template-py-cli info
