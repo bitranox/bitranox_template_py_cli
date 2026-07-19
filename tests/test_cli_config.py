@@ -219,6 +219,10 @@ def test_when_config_deploy_is_invoked_it_deploys_configuration(
     assert result.exit_code == 0
     assert "Configuration deployed successfully" in result.output
     assert str(deployed_path) in result.output
+    # The output must survive a legacy Windows console codepage (cp1252): a non-ASCII
+    # marker here crashes config-deploy with a UnicodeEncodeError on Windows even though
+    # the files were already written. Keep the deploy report ASCII-only.
+    result.output.encode("cp1252")
 
 
 @pytest.mark.os_agnostic
