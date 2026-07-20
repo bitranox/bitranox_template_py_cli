@@ -2,26 +2,26 @@
 
 ## Make Targets
 
-| Target            | Description                                                                                |
-|-------------------|--------------------------------------------------------------------------------------------|
-| `help`            | Show help                                                                                  |
-| `install`         | Install package editable                                                                   |
-| `dev`             | Install package with dev extras                                                            |
-| `test`            | Lint, type-check, run tests with coverage, upload to Codecov                               |
-| `run`             | Run module CLI (requires dev install or src on PYTHONPATH)                                 |
-| `version-current` | Print current version from pyproject.toml                                                  |
-| `bump`            | Bump version (updates pyproject.toml and CHANGELOG.md)                                     |
-| `bump-patch`      | Bump patch version (X.Y.Z -> X.Y.(Z+1))                                                    |
-| `bump-minor`      | Bump minor version (X.Y.Z -> X.(Y+1).0)                                                    |
-| `bump-major`      | Bump major version ((X+1).0.0)                                                             |
-| `clean`           | Remove caches, build artifacts, and coverage                                               |
-| `push`            | Run tests, prompt for/accept a commit message, create (allow-empty) commit, push to remote |
-| `build`           | Build wheel/sdist artifacts via `python -m build`                                          |
-| `coverage`        | Generate coverage reports                                                                  |
-| `test-slow`       | Run slow integration tests (SMTP, external resources)                                      |
-| `dependencies`    | Check and list project dependencies                                                        |
-| `dependencies-update` | Update dependencies to latest versions                                                |
-| `menu`            | Interactive TUI to run targets and edit parameters (requires dev dep: textual)             |
+| Target                | Description                                                                                |
+|-----------------------|--------------------------------------------------------------------------------------------|
+| `help`                | Show help                                                                                  |
+| `install`             | Install package editable                                                                   |
+| `dev`                 | Install package with dev extras                                                            |
+| `test`                | Lint, type-check, run tests with coverage, upload to Codecov                               |
+| `run`                 | Run module CLI (requires dev install or src on PYTHONPATH)                                 |
+| `version-current`     | Print current version from pyproject.toml                                                  |
+| `bump`                | Bump version (updates pyproject.toml and CHANGELOG.md)                                     |
+| `bump-patch`          | Bump patch version (X.Y.Z -> X.Y.(Z+1))                                                    |
+| `bump-minor`          | Bump minor version (X.Y.Z -> X.(Y+1).0)                                                    |
+| `bump-major`          | Bump major version ((X+1).0.0)                                                             |
+| `clean`               | Remove caches, build artifacts, and coverage                                               |
+| `push`                | Run tests, prompt for/accept a commit message, create (allow-empty) commit, push to remote |
+| `build`               | Build wheel/sdist artifacts via `python -m build`                                          |
+| `coverage`            | Generate coverage reports                                                                  |
+| `testintegration`     | Run integration tests only (SMTP, external resources) [aliases: `testi`, `ti`]             |
+| `dependencies`        | Check and list project dependencies                                                        |
+| `dependencies-update` | Update dependencies to latest versions                                                     |
+| `menu`                | Interactive TUI to run targets and edit parameters (requires dev dep: textual)             |
 
 ### Target Parameters (env vars)
 
@@ -99,11 +99,11 @@ Some tests require external resources (SMTP servers, databases) and are excluded
 
 ### Quick Reference
 
-| Command | What it runs |
-|---------|--------------|
-| `make test` | All tests EXCEPT `local_only` (default for CI) |
-| `make test-slow` | ONLY `local_only` integration tests |
-| `pytest tests/` | ALL tests (no marker filter) |
+| Command                | What it runs                                   |
+|------------------------|------------------------------------------------|
+| `make test`            | All tests EXCEPT `local_only` (default for CI) |
+| `make testintegration` | ONLY `local_only` integration tests            |
+| `pytest tests/`        | ALL tests (no marker filter)                   |
 
 ### Email Integration Tests
 
@@ -116,7 +116,7 @@ To run email tests that actually send messages:
 EMAIL__SMTP_HOSTS=smtp.example.com:587
 EMAIL__FROM_ADDRESS=sender@example.com
 EMAIL__RECIPIENTS=recipient@example.com
-EMAIL__SMTP_USER=your_username
+EMAIL__SMTP_USERNAME=your_username
 EMAIL__SMTP_PASSWORD=your_password
 ```
 
@@ -129,7 +129,7 @@ bitranox-template-py-cli --env-file /path/to/my/.env send-notification --subject
 2. **Run the integration tests**:
 
 ```bash
-make test-slow
+make testintegration
 ```
 
 3. **Or run specific email tests**:
@@ -150,7 +150,23 @@ def test_real_external_service(...):
     ...
 ```
 
-These tests will be skipped in CI but run with `make test-slow`.
+These tests will be skipped in CI but run with `make testintegration`.
+
+### SMTP Test Seam
+
+`send_email()` and `send_notification()` accept an optional `transport` argument, forwarded
+to `btx_lib_mail`'s `Transport` port. Unit tests inject a double (`RecordingTransport` in
+`tests/test_mail.py`) rather than patching `smtplib.SMTP`, and assert on delivery intent:
+envelope sender, recipients, host failover order, credentials, and the composed payload.
+
+Do not go back to monkeypatching `smtplib`. btx_lib_mail streams the message over the wire
+protocol itself (MAIL/RCPT plus DATA or BDAT), so a `MagicMock` does not honour the contract
+and breaks whenever the library changes delivery strategy.
+
+The `SendEmail` / `SendNotification` ports in `application/ports.py` deliberately omit
+`transport`: a delivery mechanism is an adapter concern, not something the application layer
+should see. The adapter still satisfies the Protocol because an extra keyword parameter with
+a default is structurally compatible. Do not add `transport` to the port.
 
 ## Development Workflow
 
