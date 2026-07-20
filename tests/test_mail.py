@@ -7,10 +7,15 @@ email operations.
 
 from __future__ import annotations
 
+import smtplib
+from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from typing import IO
+from unittest.mock import patch
 
 import pytest
+from btx_lib_mail.lib_mail import DeliveryOptions
 from pydantic import ValidationError as PydanticValidationError
 
 from bitranox_template_py_cli.adapters.email.sender import (
@@ -20,6 +25,66 @@ from bitranox_template_py_cli.adapters.email.sender import (
     send_notification,
 )
 from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
+
+# ======================== Transport test double ========================
+
+
+@dataclass(frozen=True)
+class _Delivery:
+    """One message the transport was asked to deliver."""
+
+    host: str
+    sender: str
+    recipient: str
+    payload: bytes
+    credentials: tuple[str, str] | None
+
+
+class RecordingTransport:
+    """btx_lib_mail ``Transport`` double that records deliveries instead of sending.
+
+    Injected via the ``transport`` parameter rather than monkeypatching
+    :mod:`smtplib`, so these tests assert on delivery intent (who, where, what)
+    and stay independent of the library's wire protocol (DATA vs BDAT).
+
+    Hosts named in ``failing_hosts`` raise on delivery, which drives the
+    library's host-failover path without opening a socket.
+    """
+
+    def __init__(self, failing_hosts: Iterable[str] = (), failure: Exception | None = None) -> None:
+        self.deliveries: list[_Delivery] = []
+        self.attempted_hosts: list[str] = []
+        self._failing_hosts = frozenset(failing_hosts)
+        self._failure = failure
+
+    def deliver(
+        self,
+        *,
+        host: str,
+        sender: str,
+        recipient: str,
+        message: IO[bytes],
+        delivery: DeliveryOptions,
+    ) -> None:
+        """Record the attempt, or raise when ``host`` is configured to fail."""
+        self.attempted_hosts.append(host)
+        if host in self._failing_hosts:
+            raise self._failure or smtplib.SMTPConnectError(421, f"simulated failure for {host}")
+        self.deliveries.append(
+            _Delivery(
+                host=host,
+                sender=sender,
+                recipient=recipient,
+                payload=message.read(),
+                credentials=delivery.credentials,
+            )
+        )
+
+    @property
+    def recipients(self) -> list[str]:
+        """Recipients that were successfully delivered to, in order."""
+        return [delivery.recipient for delivery in self.deliveries]
+
 
 # ======================== EmailConfig Default Values ========================
 
@@ -305,7 +370,9 @@ def test_to_conf_mail_maps_credentials() -> None:
     conf = config.to_conf_mail()
 
     assert conf.smtp_username == "user"
-    assert conf.smtp_password == "pass"
+    # btx_lib_mail wraps the password in a SecretStr, so unwrap before comparing
+    assert conf.smtp_password is not None
+    assert conf.smtp_password.get_secret_value() == "pass"
 
 
 @pytest.mark.os_agnostic
@@ -482,15 +549,20 @@ def test_send_email_delivers_simple_message() -> None:
         from_address="sender@test.com",
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Test body",
-        )
+    transport = RecordingTransport()
+    result = send_email(
+        config=config,
+        recipients="recipient@test.com",
+        subject="Test Subject",
+        body="Test body",
+        transport=transport,
+    )
 
     assert result is True
+    assert transport.recipients == ["recipient@test.com"]
+    assert transport.deliveries[0].sender == "sender@test.com"
+    assert transport.deliveries[0].host == "smtp.test.com:587"
+    assert b"Test body" in transport.deliveries[0].payload
 
 
 @pytest.mark.os_agnostic
@@ -501,16 +573,20 @@ def test_send_email_includes_html_body() -> None:
         from_address="sender@test.com",
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Plain text",
-            body_html="<h1>HTML</h1>",
-        )
+    transport = RecordingTransport()
+    result = send_email(
+        config=config,
+        recipients="recipient@test.com",
+        subject="Test Subject",
+        body="Plain text",
+        body_html="<h1>HTML</h1>",
+        transport=transport,
+    )
 
     assert result is True
+    payload = transport.deliveries[0].payload
+    assert b"multipart/alternative" in payload
+    assert b"text/html" in payload
 
 
 @pytest.mark.os_agnostic
@@ -521,15 +597,17 @@ def test_send_email_accepts_multiple_recipients() -> None:
         from_address="sender@test.com",
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_email(
-            config=config,
-            recipients=["user1@test.com", "user2@test.com"],
-            subject="Test Subject",
-            body="Test body",
-        )
+    transport = RecordingTransport()
+    result = send_email(
+        config=config,
+        recipients=["user1@test.com", "user2@test.com"],
+        subject="Test Subject",
+        body="Test body",
+        transport=transport,
+    )
 
     assert result is True
+    assert transport.recipients == ["user1@test.com", "user2@test.com"]
 
 
 @pytest.mark.os_agnostic
@@ -540,16 +618,18 @@ def test_send_email_allows_sender_override() -> None:
         from_address="default@test.com",
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Test body",
-            from_address="override@test.com",
-        )
+    transport = RecordingTransport()
+    result = send_email(
+        config=config,
+        recipients="recipient@test.com",
+        subject="Test Subject",
+        body="Test body",
+        from_address="override@test.com",
+        transport=transport,
+    )
 
     assert result is True
+    assert transport.deliveries[0].sender == "override@test.com"
 
 
 @pytest.mark.os_agnostic
@@ -566,16 +646,18 @@ def test_send_email_includes_attachments(tmp_path: Path) -> None:
         attachment_blocked_directories=frozenset(),
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Test body",
-            attachments=[attachment],
-        )
+    transport = RecordingTransport()
+    result = send_email(
+        config=config,
+        recipients="recipient@test.com",
+        subject="Test Subject",
+        body="Test body",
+        attachments=[attachment],
+        transport=transport,
+    )
 
     assert result is True
+    assert b"test.txt" in transport.deliveries[0].payload
 
 
 @pytest.mark.os_agnostic
@@ -588,15 +670,17 @@ def test_send_email_uses_credentials_when_provided() -> None:
         smtp_password="testpass",
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Test body",
-        )
+    transport = RecordingTransport()
+    result = send_email(
+        config=config,
+        recipients="recipient@test.com",
+        subject="Test Subject",
+        body="Test body",
+        transport=transport,
+    )
 
     assert result is True
+    assert transport.deliveries[0].credentials == ("testuser", "testpass")
 
 
 # ======================== send_notification ========================
@@ -610,15 +694,19 @@ def test_send_notification_delivers_plain_text_message() -> None:
         from_address="alerts@test.com",
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_notification(
-            config=config,
-            recipients="admin@test.com",
-            subject="Alert",
-            message="System notification",
-        )
+    transport = RecordingTransport()
+    result = send_notification(
+        config=config,
+        recipients="admin@test.com",
+        subject="Alert",
+        message="System notification",
+        transport=transport,
+    )
 
     assert result is True
+    payload = transport.deliveries[0].payload
+    assert b"System notification" in payload
+    assert b"text/html" not in payload
 
 
 @pytest.mark.os_agnostic
@@ -629,15 +717,17 @@ def test_send_notification_accepts_multiple_recipients() -> None:
         from_address="alerts@test.com",
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_notification(
-            config=config,
-            recipients=["admin1@test.com", "admin2@test.com"],
-            subject="Alert",
-            message="System notification",
-        )
+    transport = RecordingTransport()
+    result = send_notification(
+        config=config,
+        recipients=["admin1@test.com", "admin2@test.com"],
+        subject="Alert",
+        message="System notification",
+        transport=transport,
+    )
 
     assert result is True
+    assert transport.recipients == ["admin1@test.com", "admin2@test.com"]
 
 
 @pytest.mark.os_agnostic
@@ -648,21 +738,20 @@ def test_send_notification_forwards_from_address_override() -> None:
         from_address="default@test.com",
     )
 
-    with patch("smtplib.SMTP") as mock_smtp:
-        mock_instance = mock_smtp.return_value.__enter__.return_value
-        result = send_notification(
-            config=config,
-            recipients="admin@test.com",
-            subject="Alert",
-            message="System notification",
-            from_address="override@test.com",
-        )
+    transport = RecordingTransport()
+    result = send_notification(
+        config=config,
+        recipients="admin@test.com",
+        subject="Alert",
+        message="System notification",
+        from_address="override@test.com",
+        transport=transport,
+    )
 
     assert result is True
-    # Verify the overridden from_address was used in the SMTP sendmail call
-    mock_instance.sendmail.assert_called_once()
-    call_args = mock_instance.sendmail.call_args
-    assert call_args[0][0] == "override@test.com"
+    # The override must reach the envelope sender, not just the rendered headers
+    assert len(transport.deliveries) == 1
+    assert transport.deliveries[0].sender == "override@test.com"
 
 
 # ======================== send_email — from_address validation ========================
@@ -722,41 +811,40 @@ def test_send_email_raises_when_smtp_connection_fails() -> None:
         from_address="sender@test.com",
     )
 
-    with patch("smtplib.SMTP") as mock_smtp:
-        mock_smtp.side_effect = ConnectionError("Cannot connect to SMTP server")
+    transport = RecordingTransport(failing_hosts=["smtp.test.com:587"])
 
-        with pytest.raises(DeliveryError, match=r"failed.*on all of following hosts"):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-            )
+    with pytest.raises(DeliveryError, match=r"failed.*on all of following hosts"):
+        send_email(
+            config=config,
+            recipients="recipient@test.com",
+            subject="Test",
+            body="Hello",
+            transport=transport,
+        )
 
 
 @pytest.mark.os_agnostic
 def test_send_email_raises_when_authentication_fails() -> None:
     """SMTP authentication failure raises DeliveryError."""
-    mock_instance = MagicMock()
-    mock_instance.login.side_effect = Exception("Authentication failed")
-
     config = EmailConfig(
         smtp_hosts=["smtp.test.com:587"],
         from_address="sender@test.com",
         smtp_username="user@test.com",
         smtp_password="wrong_password",
     )
+    transport = RecordingTransport(
+        failing_hosts=["smtp.test.com:587"],
+        failure=smtplib.SMTPAuthenticationError(535, b"Authentication credentials invalid"),
+    )
 
-    with patch("smtplib.SMTP") as mock_smtp:
-        mock_smtp.return_value.__enter__.return_value = mock_instance
-
-        with pytest.raises(DeliveryError, match=r"failed.*on all of following hosts"):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-            )
+    with pytest.raises(DeliveryError, match=r"failed.*on all of following hosts"):
+        send_email(
+            config=config,
+            recipients="recipient@test.com",
+            subject="Test",
+            body="Hello",
+            transport=transport,
+        )
 
 
 @pytest.mark.os_agnostic
@@ -767,16 +855,19 @@ def test_send_email_raises_when_recipient_validation_fails() -> None:
         from_address="sender@test.com",
     )
 
-    with patch("smtplib.SMTP") as mock_smtp:
-        mock_smtp.side_effect = ValueError("Invalid recipient address")
+    transport = RecordingTransport(
+        failing_hosts=["smtp.test.com:587"],
+        failure=smtplib.SMTPRecipientsRefused({"recipient@test.com": (550, b"No such user")}),
+    )
 
-        with pytest.raises(DeliveryError, match="following recipients failed"):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-            )
+    with pytest.raises(DeliveryError, match="following recipients failed"):
+        send_email(
+            config=config,
+            recipients="recipient@test.com",
+            subject="Test",
+            body="Hello",
+            transport=transport,
+        )
 
 
 @pytest.mark.os_agnostic
@@ -793,13 +884,14 @@ def test_send_email_raises_when_attachment_missing(tmp_path: Path) -> None:
         attachment_blocked_directories=frozenset(),
     )
 
-    with patch("smtplib.SMTP"), pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         send_email(
             config=config,
             recipients="recipient@test.com",
             subject="Test",
             body="Hello",
             attachments=[nonexistent],
+            transport=RecordingTransport(),
         )
 
 
@@ -811,16 +903,19 @@ def test_send_email_raises_when_all_smtp_hosts_fail() -> None:
         from_address="sender@test.com",
     )
 
-    with patch("smtplib.SMTP") as mock_smtp:
-        mock_smtp.side_effect = ConnectionError("Connection refused")
+    transport = RecordingTransport(failing_hosts=["smtp1.test.com:587", "smtp2.test.com:587"])
 
-        with pytest.raises(DeliveryError, match="following recipients failed"):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-            )
+    with pytest.raises(DeliveryError, match="following recipients failed"):
+        send_email(
+            config=config,
+            recipients="recipient@test.com",
+            subject="Test",
+            body="Hello",
+            transport=transport,
+        )
+
+    assert transport.attempted_hosts == ["smtp1.test.com:587", "smtp2.test.com:587"]
+    assert transport.deliveries == []
 
 
 @pytest.mark.os_agnostic
@@ -831,24 +926,19 @@ def test_send_email_falls_back_to_second_host_when_first_fails() -> None:
         from_address="sender@test.com",
     )
 
-    success_mock = MagicMock()
-    success_mock.__enter__ = MagicMock(return_value=success_mock)
-    success_mock.__exit__ = MagicMock(return_value=False)
+    transport = RecordingTransport(failing_hosts=["smtp1.test.com:587"])
 
-    side_effects: list[MagicMock | ConnectionError] = [
-        ConnectionError("First host down"),
-        success_mock,
-    ]
+    result = send_email(
+        config=config,
+        recipients="recipient@test.com",
+        subject="Fallback Test",
+        body="Should arrive via second host",
+        transport=transport,
+    )
 
-    with patch("smtplib.SMTP", side_effect=side_effects) as mock_smtp:
-        send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Fallback Test",
-            body="Should arrive via second host",
-        )
-
-    assert mock_smtp.call_count == 2, "SMTP should have been attempted twice (first fail, second succeed)"
+    assert result is True
+    assert transport.attempted_hosts == ["smtp1.test.com:587", "smtp2.test.com:587"]
+    assert [delivery.host for delivery in transport.deliveries] == ["smtp2.test.com:587"]
 
 
 # ======================== EmailConfig Recipients Defaults ========================
@@ -920,14 +1010,16 @@ def test_send_email_uses_config_recipients_when_parameter_is_none() -> None:
         recipients=["default@test.com"],
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_email(
-            config=config,
-            subject="Test Subject",
-            body="Test body",
-        )
+    transport = RecordingTransport()
+    result = send_email(
+        config=config,
+        subject="Test Subject",
+        body="Test body",
+        transport=transport,
+    )
 
     assert result is True
+    assert transport.recipients == ["default@test.com"]
 
 
 @pytest.mark.os_agnostic
@@ -939,15 +1031,17 @@ def test_send_email_parameter_overrides_config_recipients() -> None:
         recipients=["config@test.com"],
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_email(
-            config=config,
-            recipients="override@test.com",
-            subject="Test Subject",
-            body="Test body",
-        )
+    transport = RecordingTransport()
+    result = send_email(
+        config=config,
+        recipients="override@test.com",
+        subject="Test Subject",
+        body="Test body",
+        transport=transport,
+    )
 
     assert result is True
+    assert transport.recipients == ["override@test.com"]
 
 
 @pytest.mark.os_agnostic
@@ -1014,14 +1108,16 @@ def test_send_notification_uses_config_recipients_when_parameter_is_none() -> No
         recipients=["admin@test.com"],
     )
 
-    with patch("smtplib.SMTP"):
-        result = send_notification(
-            config=config,
-            subject="Alert",
-            message="System notification",
-        )
+    transport = RecordingTransport()
+    result = send_notification(
+        config=config,
+        subject="Alert",
+        message="System notification",
+        transport=transport,
+    )
 
     assert result is True
+    assert transport.recipients == ["admin@test.com"]
 
 
 @pytest.mark.os_agnostic
