@@ -6,7 +6,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-## [1.6.0] - 2026-07-20
+## [1.6.1] - 2026-07-20
+
+Re-release of 1.6.0. PyPI rejected the 1.6.0 upload because that filename was previously used by a file that has since been deleted, and PyPI never permits filename reuse. Package contents are identical to 1.6.0.
 
 ### Added
 - `send_email()` and `send_notification()` accept an optional `transport` argument, exposing btx_lib_mail's `Transport` port so a delivery double can be injected at a real seam instead of monkeypatching `smtplib`.
@@ -27,6 +29,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - `codecov-cli` disabled (it capped `click<8.3.0` and held click on CVE-2026-7246); the redundant PYSEC-2026-2132 ignore dropped.
 - LF line endings pinned via `.gitattributes`; file modes normalised so the executable bit is set only on shebang scripts.
 - Quickstart notebook installs the package with uv.
+
+## [1.6.0] - 2026-07-20 [NOT PUBLISHED]
+
+Tagged and released on GitHub, but never published to PyPI: the upload was rejected because the `1.6.0` filename had been used by a previously deleted file. Superseded by 1.6.1, which carries the same changes.
 
 ## [1.5.4] 2026-06-14
 
