@@ -6,6 +6,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [1.6.2] 2026-07-24 12:00:55
+
+### Fixed
+- CI (scheduled runs install the latest ruff) went red on `PLR0917` (too many positional arguments) for the four CLI command callbacks. Their option parameters are now keyword-only, which matches how Click actually invokes them (`f(ctx, **ctx.params)`) and drops the positional-argument count without suppressing the rule.
+
+### Changed
+- Removed the blanket `[tool.ruff.lint].ignore` list and fixed each cause at the root instead of silencing it: `RUF002` (en-dash to ASCII hyphen), `RUF022` (sorted `__all__`), `TC001`/`TC002`/`TC003` (typing-only imports moved into `TYPE_CHECKING`), and `TC006` (quoted `cast()` type expressions).
+- Added `[tool.ruff.lint.flake8-type-checking] runtime-evaluated-base-classes = ["pydantic.BaseModel"]` so the Pydantic models keep their field-type imports at runtime while the type-checking rules still apply everywhere else.
+- Genuinely deferred imports (the root/commands circular-import break, lazy heavy imports) now carry a narrow, documented `# noqa: PLC0415`; unjustified deferred imports were moved to module top. Deferred imports inside tests remain a deliberate idiom and are scoped-ignored.
+
 ## [1.6.1] - 2026-07-20
 
 Re-release of 1.6.0. PyPI rejected the 1.6.0 upload because that filename was previously used by a file that has since been deleted, and PyPI never permits filename reuse. Package contents are identical to 1.6.0.
