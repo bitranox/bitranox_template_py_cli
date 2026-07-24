@@ -178,6 +178,7 @@ def _parse_octal_mode(ctx: click.Context, param: click.Parameter, value: str | N
 @click.pass_context
 def cli_config_deploy(
     ctx: click.Context,
+    *,
     targets: tuple[str, ...],
     force: bool,
     profile: str | None,
@@ -218,11 +219,20 @@ def cli_config_deploy(
             "Deploying configuration",
             extra={"targets": target_values, "force": force, "profile": effective_profile},
         )
-        _execute_deploy(cli_ctx, deploy_targets, force, effective_profile, set_permissions, dir_mode, file_mode)
+        _execute_deploy(
+            cli_ctx,
+            targets=deploy_targets,
+            force=force,
+            profile=effective_profile,
+            set_permissions=set_permissions,
+            dir_mode=dir_mode,
+            file_mode=file_mode,
+        )
 
 
 def _execute_deploy(
     cli_ctx: CLIContext,
+    *,
     targets: tuple[DeployTarget, ...],
     force: bool,
     profile: str | None,
