@@ -21,12 +21,12 @@ from .errors import ConfigurationError, DeliveryError, InvalidRecipientError
 __all__ = [
     # Behaviors
     "CANONICAL_GREETING",
-    "build_greeting",
-    # Enums
-    "DeployTarget",
-    "OutputFormat",
     # Errors
     "ConfigurationError",
     "DeliveryError",
+    # Enums
+    "DeployTarget",
     "InvalidRecipientError",
+    "OutputFormat",
+    "build_greeting",
 ]

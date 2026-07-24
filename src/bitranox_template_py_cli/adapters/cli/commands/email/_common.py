@@ -9,20 +9,24 @@ from __future__ import annotations
 import functools
 import logging
 import os
-from collections.abc import Callable
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import rich_click as click
-from lib_layered_config import Config
-from pydantic import ValidationError
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
-from bitranox_template_py_cli.application.ports import LoadEmailConfigFromDict
 from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
 
 from ...exit_codes import ExitCode
 from ...typed_click import option
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from lib_layered_config import Config
+    from pydantic import ValidationError
+
+    from bitranox_template_py_cli.application.ports import LoadEmailConfigFromDict
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +49,7 @@ def filter_sentinels(**kwargs: Any) -> dict[str, Any]:
         if v is None or v == ():
             continue
         if isinstance(v, tuple):
-            result[k] = list(cast(tuple[Any, ...], v))
+            result[k] = list(cast("tuple[Any, ...]", v))
         else:
             result[k] = v
     return result
@@ -276,10 +280,10 @@ def _handle_send_error(
 
 
 __all__ = [
-    "filter_sentinels",
     "apply_validated_overrides",
-    "smtp_config_options",
-    "load_and_validate_email_config",
     "execute_with_email_error_handling",
+    "filter_sentinels",
     "handle_validation_error",
+    "load_and_validate_email_config",
+    "smtp_config_options",
 ]

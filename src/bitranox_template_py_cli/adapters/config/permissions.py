@@ -16,10 +16,10 @@ from lib_layered_config import (
 )
 from pydantic import BaseModel, ConfigDict
 
-from bitranox_template_py_cli.domain.enums import DeployTarget
-
 if TYPE_CHECKING:
     from lib_layered_config import Config
+
+    from bitranox_template_py_cli.domain.enums import DeployTarget
 
 
 class PermissionDefaults(BaseModel):
@@ -161,6 +161,7 @@ def get_modes_for_target(
 
     Example:
         >>> from lib_layered_config import Config
+        >>> from bitranox_template_py_cli.domain.enums import DeployTarget
         >>> config = Config({}, {})
         >>> dir_mode, file_mode = get_modes_for_target(
         ...     DeployTarget.USER, config

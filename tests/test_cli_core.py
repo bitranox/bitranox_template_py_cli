@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import lib_cli_exit_tools
 import pytest
-from click.testing import CliRunner, Result
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod
 from bitranox_template_py_cli.composition import build_production
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from click.testing import CliRunner, Result
 
 
 @pytest.mark.os_agnostic

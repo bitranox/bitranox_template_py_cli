@@ -6,14 +6,10 @@ the CLI, and delivered to deploy_configuration.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
-from click.testing import CliRunner, Result
-from lib_layered_config import Config
 
 from bitranox_template_py_cli.adapters import cli as cli_mod
 from bitranox_template_py_cli.adapters.config.permissions import (
@@ -23,6 +19,13 @@ from bitranox_template_py_cli.adapters.config.permissions import (
 )
 from bitranox_template_py_cli.composition import AppServices, build_production
 from bitranox_template_py_cli.domain.enums import DeployTarget
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+    from click.testing import CliRunner, Result
+    from lib_layered_config import Config
 
 # ======================== Permission Settings Loader Tests ========================
 

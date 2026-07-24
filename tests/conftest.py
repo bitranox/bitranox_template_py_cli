@@ -12,7 +12,6 @@ import contextlib
 import os
 import re
 import tempfile
-from collections.abc import Callable, Iterator
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -21,9 +20,12 @@ import lib_cli_exit_tools
 import pytest
 from click.testing import CliRunner
 from lib_layered_config import Config
-from lib_layered_config.domain.config import SourceInfo
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+
+    from lib_layered_config.domain.config import SourceInfo
+
     from bitranox_template_py_cli.adapters.memory.email import EmailSpy
     from bitranox_template_py_cli.composition import AppServices
 
