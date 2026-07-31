@@ -6,7 +6,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-## [1.7.0] 2026-08-01 00:45:53
+## [1.7.1] 2026-08-01 01:02:45
+
+Re-release of 1.7.0, which was tagged but never published: PyPI rejected the upload because
+that filename had been used by a file that has since been deleted, and PyPI never permits
+filename reuse. Package contents are identical to 1.7.0.
+
+## [1.7.0] 2026-08-01 00:45:53 [NOT PUBLISHED]
 
 ### Added
 - **`adapters/cli/safe_console.py`, an encode-safe replacement for `click.echo`.** A Windows console at
