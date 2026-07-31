@@ -11,12 +11,11 @@ import logging
 import os
 from typing import TYPE_CHECKING, Any, cast
 
-import rich_click as click
-
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
 
+from ... import safe_console
 from ...exit_codes import ExitCode
 from ...typed_click import option
 
@@ -127,10 +126,10 @@ def load_and_validate_email_config(config: Config, loader: LoadEmailConfigFromDi
 
     if not email_config.smtp_hosts:
         logger.error("No SMTP hosts configured")
-        click.echo(
+        safe_console.echo(
             "\nError: No SMTP hosts configured. Please configure email.smtp_hosts in your config file.", err=True
         )
-        click.echo(f"See: {__init__conf__.shell_command} config-deploy --target user", err=True)
+        safe_console.echo(f"See: {__init__conf__.shell_command} config-deploy --target user", err=True)
         raise SystemExit(ExitCode.CONFIG_ERROR)
 
     return email_config
@@ -243,10 +242,10 @@ def _handle_send_result(result: bool, recipients: list[str] | None, message_type
         SystemExit: If send failed.
     """
     if result:
-        click.echo(f"\n{message_type} sent successfully!")
+        safe_console.echo(f"\n{message_type} sent successfully!")
         logger.info("%s sent via CLI", message_type, extra={"recipients": recipients})
     else:
-        click.echo(f"\n{message_type} sending failed.", err=True)
+        safe_console.echo(f"\n{message_type} sending failed.", err=True)
         raise SystemExit(ExitCode.SMTP_FAILURE)
 
 
@@ -275,7 +274,7 @@ def _handle_send_error(
         extra={"error": str(exc), "error_type": type(exc).__name__},
         exc_info=log_traceback,
     )
-    click.echo(f"\nError: {user_message} - {exc}", err=True)
+    safe_console.echo(f"\nError: {user_message} - {exc}", err=True)
     raise SystemExit(exit_code)
 
 

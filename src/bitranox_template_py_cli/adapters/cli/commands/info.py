@@ -18,6 +18,7 @@ import rich_click as click
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.domain.behaviors import build_greeting
 
+from .. import safe_console
 from ..constants import CLICK_CONTEXT_SETTINGS
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ def cli_hello() -> None:
     """
     with lib_log_rich.runtime.bind(job_id="cli-hello", extra={"command": "hello"}):
         logger.info("Executing hello command")
-        click.echo(build_greeting())
+        safe_console.echo(build_greeting())
 
 
 @click.command("fail", context_settings=CLICK_CONTEXT_SETTINGS)

@@ -6,6 +6,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+- **`adapters/cli/safe_console.py`, an encode-safe replacement for `click.echo`.** A Windows console at
+  codepage 1252 gives Python an `errors="strict"` stream, so writing a check mark raises
+  `UnicodeEncodeError: 'charmap' codec can't encode character '✓'` and the command exits 1 *after*
+  its work has already succeeded. Click does not protect against this, and Rich raises the same way
+  through its own writer. `safe_console.echo` degrades at the sink, so a UTF-8 terminal and every email
+  body still receive the character and only a stream that cannot encode it sees `[OK]` / `[X]` /
+  `[!]`; `safe_console.safe_stream` wraps a writer handed to Rich.
+
+  The template itself never emitted such a character, but nine repos derived from it have since
+  drifted into doing so, which is why the protection and its guard now ship from here.
+
+### Changed
+- All 21 `click.echo` call sites route through `safe_console.echo`. `tests/test_safe_console.py` asserts that
+  no module calls `click.echo` or builds an unwrapped `Console(file=sys.stdout)` again, so a project
+  scaffolded from this template keeps the property by construction.
+
 ## [1.6.2] 2026-07-24 12:00:55
 
 ### Fixed
