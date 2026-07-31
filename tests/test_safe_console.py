@@ -8,6 +8,7 @@ keeps the next output line someone adds covered by construction.
 from __future__ import annotations
 
 import io
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -125,7 +126,9 @@ class TestTheRealCliSurvivesALegacyCodepage:
         completed = subprocess.run(
             [sys.executable, "-X", "utf8=0", "-m", "bitranox_template_py_cli", "--help"],
             capture_output=True,
-            env={"PYTHONIOENCODING": "cp1252:strict", "PATH": "/usr/bin:/bin"},
+            # Inherit the real environment: replacing it outright leaves a Windows
+            # child with no SYSTEMROOT and no usable PATH, so python.exe never starts.
+            env={**os.environ, "PYTHONIOENCODING": "cp1252:strict"},
             check=False,
         )
         assert completed.returncode == 0, completed.stderr.decode("cp1252", "replace")
