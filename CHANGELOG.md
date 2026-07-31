@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [1.7.0] 2026-08-01 00:45:53
+
 ### Added
 - **`adapters/cli/safe_console.py`, an encode-safe replacement for `click.echo`.** A Windows console at
   codepage 1252 gives Python an `errors="strict"` stream, so writing a check mark raises
