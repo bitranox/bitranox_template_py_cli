@@ -6,6 +6,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [1.7.2] 2026-09-12 02:11:47
+
+### Fixed
+- **`--set` overrides now report the CLI as their source.** `Config.with_overrides` returns the
+  merged data with the ORIGINAL provenance map by design, so an overridden key kept naming the
+  file it replaced and `config` sent a reader to a file holding the old value. The override path
+  rebuilds provenance, naming layer `cli` with no path for exactly the keys `--set` supplied and
+  leaving every other key's source alone.
+
 ## [1.7.1] 2026-08-01 01:02:45
 
 Re-release of 1.7.0, which was tagged but never published: PyPI rejected the upload because
