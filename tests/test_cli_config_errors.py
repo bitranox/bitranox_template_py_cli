@@ -5,7 +5,11 @@ cannot report a failure in the form the subcommand would, and it must not block 
 that never reads the configuration: ``config-deploy`` is how a broken file gets replaced,
 and ``info`` or ``--help`` have to work meanwhile. The root records the failure; a command
 that reads the configuration refuses with exit 78 and one stderr line naming it. Every way
-loading can fail (a broken file, an invalid profile, an unreadable file) takes that path.
+loading can fail (a broken or invalid file, an unreadable file) takes that path; ``--traceback``
+adds the loader's traceback. What the command line itself gets wrong - a malformed ``--set``,
+an invalid ``--profile`` name - is a usage error (exit 2) for every command, checked before
+loading, so a load failure cannot hide it. Any other exception from the loader is a bug and is
+not dressed up as a configuration error.
 
 ``config-deploy`` reads one thing from the configuration: the permission settings. It runs
 without them only when they cannot matter - ``--no-permissions``, or both ``--dir-mode`` and
@@ -35,7 +39,7 @@ if TYPE_CHECKING:
     from click.testing import CliRunner
 
 BROKEN_TOML = "Invalid TOML in /etc/xdg/app/config.toml: expected a right bracket"
-BAD_PROFILE = "profile contains invalid characters: ../x"
+BROKEN_PROFILE_TOML = "Invalid TOML in /etc/xdg/app/profile/prod/config.toml"
 UNREADABLE = PermissionError(13, "Permission denied", "/etc/xdg/app/config.toml")
 
 #: Each command with the arguments that get it past click's own option parsing. A command
@@ -72,8 +76,8 @@ def test_every_command_is_classified() -> None:
 @pytest.mark.parametrize("args", NEEDS_CONFIG.values(), ids=NEEDS_CONFIG.keys())
 @pytest.mark.parametrize(
     ("error", "message"),
-    [(ConfigError(BROKEN_TOML), BROKEN_TOML), (ValueError(BAD_PROFILE), BAD_PROFILE), (UNREADABLE, str(UNREADABLE))],
-    ids=["broken-file", "invalid-profile", "unreadable-file"],
+    [(ConfigError(BROKEN_TOML), BROKEN_TOML), (UNREADABLE, str(UNREADABLE))],
+    ids=["broken-file", "unreadable-file"],
 )
 def test_a_command_that_reads_the_config_refuses_with_exit_78(
     cli_runner: CliRunner, args: list[str], error: Exception, message: str
@@ -183,17 +187,71 @@ def test_a_malformed_set_is_still_a_usage_error(cli_runner: CliRunner) -> None:
 
 
 @pytest.mark.os_agnostic
+@pytest.mark.parametrize("command", [["info"], ["hello"], ["config"]], ids=["info", "hello", "config"])
+def test_a_malformed_set_is_a_usage_error_even_when_the_config_does_not_load(
+    cli_runner: CliRunner, command: list[str]
+) -> None:
+    """The overrides used to be applied only to a loaded configuration, so info/hello ignored them."""
+    args = ["--set", "no-equals-sign", *command]
+    result = cli_runner.invoke(cli_mod.cli, args, obj=_failing_config(ConfigError(BROKEN_TOML)))
+
+    assert result.exit_code == 2, result.output
+    assert "no-equals-sign" in result.output
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    "args",
+    [["--profile", "../x", "info"], ["--profile", "../x", "hello"], ["config", "--profile", "../x"]],
+    ids=["root-info", "root-hello", "config-option"],
+)
+def test_an_invalid_profile_name_is_a_usage_error_for_every_command(cli_runner: CliRunner, args: list[str]) -> None:
+    result = cli_runner.invoke(cli_mod.cli, args, obj=build_testing)
+
+    assert result.exit_code == 2, result.output
+    assert "../x" in result.output
+
+
+@pytest.mark.os_agnostic
+def test_a_bug_in_the_loader_is_not_reported_as_a_configuration_error(cli_runner: CliRunner) -> None:
+    result = cli_runner.invoke(cli_mod.cli, ["config"], obj=_failing_config(ValueError("a bug, not a config file")))
+
+    assert result.exit_code != 78, result.output
+    assert isinstance(result.exception, ValueError)
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("args", [["config"], ["config-deploy", "--target", "user"]], ids=["config", "config-deploy"])
+def test_traceback_shows_why_the_config_did_not_load(
+    cli_runner: CliRunner, managed_traceback_state: None, args: list[str]
+) -> None:
+    def get_config(**_kwargs: Any) -> Config:
+        try:
+            raise OSError("the underlying cause")
+        except OSError as cause:
+            raise ConfigError(BROKEN_TOML) from cause
+
+    services = dataclasses.replace(build_testing(), get_config=get_config)
+    result = cli_runner.invoke(cli_mod.cli, ["--traceback", *args], obj=lambda: services)
+
+    assert result.exit_code == 78, result.output
+    assert "Traceback" in result.stderr
+    assert "OSError: the underlying cause" in result.stderr
+    assert BROKEN_TOML in result.stderr
+
+
+@pytest.mark.os_agnostic
 def test_a_profile_given_to_config_itself_fails_like_one_given_to_the_root(cli_runner: CliRunner) -> None:
     def get_config(*, profile: str | None = None, **_kwargs: Any) -> Config:
         if profile == "prod":
-            raise ValueError(BAD_PROFILE)
+            raise ConfigError(BROKEN_PROFILE_TOML)
         return Config({}, {})
 
     services = dataclasses.replace(build_testing(), get_config=get_config)
     result = cli_runner.invoke(cli_mod.cli, ["config", "--profile", "prod"], obj=lambda: services)
 
     assert result.exit_code == 78, result.output
-    assert f"Error: {BAD_PROFILE}" in result.stderr
+    assert f"Error: {BROKEN_PROFILE_TOML}" in result.stderr
 
 
 @pytest.mark.os_agnostic
@@ -287,3 +345,16 @@ def test_a_real_invalid_permission_section_is_replaced_by_a_forced_deploy_withou
 
     assert completed.returncode == 0, completed.stderr.decode("utf-8", "replace")
     assert (config_dir / "config.toml").read_text(encoding="utf-8") != bad
+
+
+@_LINUX_ONLY
+def test_a_real_invalid_profile_name_stops_info_with_a_usage_error(tmp_path: Path) -> None:
+    """End to end through the real loader: an invalid --profile is not silently ignored."""
+    completed = subprocess.run(
+        [sys.executable, "-m", "bitranox_template_py_cli", "--profile", "../x", "info"],
+        capture_output=True,
+        check=False,
+        env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path)},
+    )
+
+    assert completed.returncode == 2, completed.stderr.decode("utf-8", "replace")

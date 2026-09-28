@@ -7,19 +7,28 @@ never reads the configuration: ``config-deploy`` is how a broken file gets repla
 failure, and each command that reads the configuration asks for it through
 :func:`require_config`.
 
+What the command line itself gets wrong is not a configuration failure: a malformed
+``--set`` or an invalid ``--profile`` name is a usage error (exit 2), checked BEFORE
+loading so that a broken file cannot hide it from a command that does not read the
+configuration.
+
 Contents:
     * :func:`load_config` - load with profile, ``.env`` and ``--set``, or say why not.
     * :func:`require_config` - the configuration, or exit 78 naming the failure.
+    * :func:`report_load_failure` - the one-line report, after the traceback on request.
+    * :func:`echo_load_traceback` - the loader's traceback alone, for a caller with its own line.
 """
 
 from __future__ import annotations
 
+from traceback import format_exception
 from typing import TYPE_CHECKING
 
 import rich_click as click
 from lib_layered_config import Config, ConfigError
 
-from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
+from bitranox_template_py_cli.adapters.config.loader import validate_profile
+from bitranox_template_py_cli.adapters.config.overrides import apply_overrides, parse_override
 
 from . import safe_console
 from .exit_codes import ExitCode
@@ -29,14 +38,26 @@ if TYPE_CHECKING:
 
     from .context import CLIContext
 
-#: Every way loading can fail: a broken or invalid file (ConfigError), a profile name the
-#: loader rejects (ValueError), and a file the running user cannot read (OSError).
-_LOAD_ERRORS = (ConfigError, ValueError, OSError)
+#: Every way loading a configuration can fail: a broken or invalid file (ConfigError, which
+#: lib_layered_config's own validation error subclasses) and a file the running user cannot
+#: read (OSError). Anything else the loader raises is a bug and propagates as one.
+_LOAD_ERRORS = (ConfigError, OSError)
+
+
+def _check_command_line(profile: str | None, set_overrides: tuple[str, ...]) -> None:
+    """Refuse a malformed ``--set`` or an invalid ``--profile`` name as a usage error (exit 2)."""
+    try:
+        if profile is not None:
+            validate_profile(profile)
+        for raw in set_overrides:
+            parse_override(raw)
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
 
 
 def load_config(
     services: AppServices, *, profile: str | None, env_file: str | None, set_overrides: tuple[str, ...]
-) -> tuple[Config, str]:
+) -> tuple[Config, Exception | None]:
     """Load the layered configuration, or say why it could not be loaded.
 
     Args:
@@ -46,26 +67,51 @@ def load_config(
         set_overrides: The ``--set`` values, applied only to a configuration that loaded.
 
     Returns:
-        The configuration and ``""``, or an empty configuration and the reason it failed.
+        The configuration and None, or an empty configuration and the exception that says
+        why loading failed.
 
     Raises:
-        click.UsageError: A ``--set`` value is malformed; that is a command-line error
-            (exit 2), not a configuration one.
+        click.UsageError: A ``--set`` value is malformed or the profile name is invalid;
+            that is a command-line error (exit 2), not a configuration one, and it is
+            raised whether or not the configuration would load.
 
     Example:
         >>> from bitranox_template_py_cli.composition import build_testing
         >>> config, error = load_config(build_testing(), profile=None, env_file=None, set_overrides=("a.b=1",))
         >>> config.get("a"), error
-        ({'b': 1}, '')
+        ({'b': 1}, None)
     """
+    _check_command_line(profile, set_overrides)
     try:
         config = services.get_config(profile=profile, dotenv_path=env_file)
     except _LOAD_ERRORS as exc:
-        return Config({}, {}), str(exc)
-    try:
-        return apply_overrides(config, set_overrides), ""
-    except ValueError as exc:
-        raise click.UsageError(str(exc)) from exc
+        return Config({}, {}), exc
+    return apply_overrides(config, set_overrides), None
+
+
+def echo_load_traceback(error: Exception, *, show_traceback: bool) -> None:
+    """Write the loader's chained traceback to stderr when ``--traceback`` was given.
+
+    The failure is recorded, not raised, so the usual ``--traceback`` handling in ``main()``
+    never sees it; without this the flag would show nothing about why loading failed.
+
+    Args:
+        error: The exception :func:`load_config` returned.
+        show_traceback: Whether ``--traceback`` was given.
+    """
+    if show_traceback:
+        safe_console.echo("".join(format_exception(error)).rstrip(), err=True)
+
+
+def report_load_failure(error: Exception, *, show_traceback: bool) -> None:
+    """Write why the configuration did not load: one line, after the traceback on request.
+
+    Args:
+        error: The exception :func:`load_config` returned.
+        show_traceback: Whether ``--traceback`` was given.
+    """
+    echo_load_traceback(error, show_traceback=show_traceback)
+    safe_console.echo(f"Error: {error}", err=True)
 
 
 def require_config(ctx: click.Context, cli_ctx: CLIContext) -> Config:
@@ -80,12 +126,12 @@ def require_config(ctx: click.Context, cli_ctx: CLIContext) -> Config:
 
     Raises:
         click.exceptions.Exit: The configuration could not be loaded; one stderr line names
-            the reason.
+            the reason, after the loader's traceback when ``--traceback`` was given.
     """
-    if cli_ctx.config_error:
-        safe_console.echo(f"Error: {cli_ctx.config_error}", err=True)
+    if cli_ctx.config_error is not None:
+        report_load_failure(cli_ctx.config_error, show_traceback=cli_ctx.traceback)
         ctx.exit(ExitCode.CONFIG_ERROR)
     return cli_ctx.config
 
 
-__all__ = ["load_config", "require_config"]
+__all__ = ["echo_load_traceback", "load_config", "report_load_failure", "require_config"]

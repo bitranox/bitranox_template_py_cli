@@ -30,8 +30,8 @@ class CLIContext:
         set_overrides: Raw ``--set`` strings, reapplied when a subcommand reloads the
             configuration with another profile.
         env_file: The root's ``--env-file``, for the same reload.
-        config_error: Why the configuration could not be loaded, ``""`` when it loaded. The
-            root records it; each command that reads the configuration reports it.
+        config_error: Why the configuration could not be loaded, None when it loaded. The
+            root records the exception; each command that reads the configuration reports it.
     """
 
     traceback: bool
@@ -40,7 +40,7 @@ class CLIContext:
     profile: str | None = None
     set_overrides: tuple[str, ...] = ()
     env_file: str | None = None
-    config_error: str = ""
+    config_error: Exception | None = None
 
 
 def store_cli_context(
@@ -52,7 +52,7 @@ def store_cli_context(
     profile: str | None = None,
     set_overrides: tuple[str, ...] = (),
     env_file: str | None = None,
-    config_error: str = "",
+    config_error: Exception | None = None,
 ) -> None:
     """Store CLI state in the Click context for subcommand access.
 
@@ -65,7 +65,7 @@ def store_cli_context(
         set_overrides: Raw ``--set`` override strings for reapplication when
             subcommands reload config with a different profile.
         env_file: The root's ``--env-file``, for the same reload.
-        config_error: Why the configuration could not be loaded, ``""`` when it loaded.
+        config_error: Why the configuration could not be loaded, None when it loaded.
 
     Example:
         >>> from click.testing import CliRunner

@@ -29,7 +29,7 @@ from bitranox_template_py_cli.domain.enums import DeployTarget, OutputFormat
 from bitranox_template_py_cli.domain.errors import ConfigurationError
 
 from .. import safe_console
-from ..config_load import load_config, require_config
+from ..config_load import echo_load_traceback, load_config, report_load_failure, require_config
 from ..constants import CLICK_CONTEXT_SETTINGS
 from ..context import CLIContext, get_cli_context
 from ..exit_codes import ExitCode
@@ -122,8 +122,8 @@ def _resolve_config(ctx: click.Context, cli_ctx: CLIContext, profile: str | None
     config, error = load_config(
         cli_ctx.services, profile=profile, env_file=cli_ctx.env_file, set_overrides=cli_ctx.set_overrides
     )
-    if error:
-        safe_console.echo(f"Error: {error}", err=True)
+    if error is not None:
+        report_load_failure(error, show_traceback=cli_ctx.traceback)
         ctx.exit(ExitCode.CONFIG_ERROR)
     return config, effective_profile
 
@@ -349,7 +349,8 @@ def _permission_defaults(cli_ctx: CLIContext, *, permissions_irrelevant: bool) -
         click.exceptions.Exit: The settings are unknown and would decide a mode (78); one
             stderr line names the problem and the options that deploy anyway.
     """
-    if cli_ctx.config_error:
+    if cli_ctx.config_error is not None:
+        echo_load_traceback(cli_ctx.config_error, show_traceback=cli_ctx.traceback)
         problem = f"configuration not loaded, so its permission settings are unknown: {cli_ctx.config_error}"
     else:
         try:

@@ -43,7 +43,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `config-deploy` runs (with a warning) when its permission settings cannot matter, i.e. with
   `--no-permissions` or both `--dir-mode` and `--file-mode`, and otherwise exits 78 with a hint
   naming those options instead of deploying with library defaults that may be wider than the
-  configured modes. An invalid profile and an unreadable file take the same path.
+  configured modes. An unreadable file takes the same path, and `--traceback` prints the
+  loader's chained traceback before the line. What the command line gets wrong is checked BEFORE
+  loading, so a broken file cannot hide it: a malformed `--set` or an invalid `--profile` name is
+  a usage error (exit 2) for every command, `info` and `hello` included. Any other exception from
+  the loader is a bug and propagates as one instead of being reported as a configuration error.
   `config --profile X` reloads with the root's `--env-file` instead of searching for another `.env`.
 - **`[lib_layered_config.default_permissions]` now takes effect.** The per-layer modes were read,
   but only `enabled` was ever used: `get_modes_for_target` had no production caller, so
