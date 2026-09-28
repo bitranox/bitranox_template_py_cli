@@ -46,15 +46,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `config-deploy` runs (with a warning) when its permission settings cannot matter, i.e. with
   `--no-permissions` or both `--dir-mode` and `--file-mode`, and otherwise exits 78 with a hint
   naming those options instead of deploying with library defaults that may be wider than the
-  configured modes. An unreadable file takes the same path, and so does an `--env-file` that is
-  not UTF-8 (lib_layered_config's `.env` parser lets that `UnicodeDecodeError` escape unwrapped;
-  the line names the file). `--traceback` prints the
-  loader's chained traceback before the line. What the command line gets wrong is checked BEFORE
-  loading, so a broken file cannot hide it: a malformed `--set` or an invalid `--profile` name is
-  a usage error (exit 2) for every command, `info` and `hello` included. So are two `--set` values
-  that give one key a value and put a key under it (`--set a.b=1 --set a.b.c=2`), which escaped as
-  a `TypeError` (exit 22) in one order and silently dropped the earlier value in the other. Any other exception from
-  the loader is a bug and propagates as one instead of being reported as a configuration error.
+  configured modes (it logs "Deploying configuration" only once it goes ahead). An unreadable
+  file takes the same path, and so does an `--env-file` that is not UTF-8 (lib_layered_config's
+  `.env` parser lets that `UnicodeDecodeError` escape unwrapped; the line names the file).
+  `--traceback` prints the loader's chained traceback before the line. What the command line
+  gets wrong is checked BEFORE loading, so a broken file cannot hide it: a malformed `--set` or
+  an invalid `--profile` name is a usage error (exit 2) for every command, `info` and `hello`
+  included (see Changed for the `--profile` exit code). So are two `--set` values that give one
+  key a value and put a key under it (`--set a.b=1 --set a.b.c=2`), which escaped as a
+  `TypeError` (exit 22) in one order and silently dropped the earlier value in the other. Any
+  other exception from the loader is a bug and propagates as one instead of being reported as a
+  configuration error.
   `config --profile X` reloads with the root's `--env-file` instead of searching for another `.env`.
 - **`[lib_layered_config.default_permissions]` now takes effect.** The per-layer modes were read,
   but only `enabled` was ever used: `get_modes_for_target` had no production caller, so
@@ -75,6 +77,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   same one-line form (`Error: Invalid option value: ...`).
 
 ### Changed
+- **Breaking: an invalid `--profile` name exits 2, no longer 78.** A name such as `../x` is now
+  refused as a usage error for every command, before the configuration is loaded (the root's
+  `--profile`, `config --profile` and `config-deploy --profile`). `config`, `send-email` and
+  `send-notification` exited 78 for it, `config-deploy` exited 1 ("Failed to deploy
+  configuration"), and `info` and `hello` ignored it and exited 0. A script that tells a bad
+  profile name from a broken configuration file by exit code 78 has to test for 2. A profile
+  FILE that does not load is still 78.
 - **Breaking: `EmailConfig.smtp_password` is a pydantic `SecretStr`, no longer a `str`** (see
   Security below for why). Code that reads the password now gets a `SecretStr`, so
   `config.smtp_password == "app-password"` is silently `False`, and under pyright strict
