@@ -65,6 +65,7 @@ Complete (v1.1.2+)
 - `tests/test_config_overrides.py`  -  `--set` parsing tests
 - `tests/test_safe_console.py`  -  Legacy-codepage output tests, plus the guard forbidding direct `click.echo`
 - `tests/test_display.py`  -  Config display formatting tests
+- `tests/test_deploy_mode_safety.py`  -  `--dir-mode`/`--file-mode` literal, range and safety checks
 - `tests/test_exit_codes.py`  -  ExitCode enum tests
 - `tests/test_mail.py`  -  Email configuration and sending tests
 - `tests/test_memory_logging.py`  -  Testing-composition logging runtime and the per-test logging reset

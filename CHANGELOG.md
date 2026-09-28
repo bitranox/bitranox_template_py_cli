@@ -27,6 +27,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   The send result is handled in the `try`'s `else`, and `config-deploy` re-raises an `Exit` before
   its catch-all.
 
+### Security
+- **`config-deploy` refuses unsafe and malformed modes.** `--dir-mode -1` passed the unbounded
+  octal parser and chmodded the config directory to `0o7777` (setuid, sticky, world-writable); a
+  20-digit value raised `OverflowError`. `--dir-mode`/`--file-mode` now accept only a plain octal
+  literal in `0`..`0o7777`, and refuse the setuid/setgid/sticky bits, world write, a directory
+  without owner `rwx` and a file without owner `rw`, naming each offending bit (exit 2, nothing
+  written).
+
 ## [1.7.2] 2026-09-12 02:11:47
 
 ### Fixed

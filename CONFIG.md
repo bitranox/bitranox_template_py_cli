@@ -239,6 +239,12 @@ bitranox-template-py-cli config-deploy --target user --dir-mode 750 --file-mode 
 bitranox-template-py-cli config-deploy --target user --dir-mode 0o750
 ```
 
+A mode must be a plain octal literal (`750` or `0o750`; no sign, whitespace, `_` or other base)
+within `0`..`0o7777`. Because the deployed files can hold credentials, a mode is also refused when
+it sets the setuid, setgid or sticky bit, grants world write, or takes the owner's access away
+(a directory needs owner `rwx`, a file owner `rw`). A refused mode is a usage error (exit 2) that
+names the offending bits, and nothing is written.
+
 **Configurable defaults:**
 
 Permission defaults can be customized in `[lib_layered_config.default_permissions]`:

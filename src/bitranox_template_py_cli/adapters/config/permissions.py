@@ -6,7 +6,8 @@ compute effective permission modes for deployment targets.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import re
+from typing import TYPE_CHECKING, Final
 
 from lib_layered_config import (
     DEFAULT_APP_DIR_MODE,
@@ -51,6 +52,84 @@ class PermissionDefaults(BaseModel):
     def file_mode_for(self, layer: str) -> int:
         """Return file mode for the given layer name."""
         return getattr(self, f"{layer}_file")
+
+
+#: chmod(2) defines only the low 12 bits (setuid, setgid, sticky and rwxrwxrwx).
+MAX_PERMISSION_MODE: Final[int] = 0o7777
+
+#: A plain octal literal: an optional lowercase ``0o`` prefix, then octal digits, nothing
+#: else. A bare ``int(value, 8)`` would also accept surrounding whitespace, ``_`` digit
+#: separators and non-ASCII decimal digits, and ``int(value, 0)`` a sign or another base.
+_OCTAL_MODE_PATTERN: Final[re.Pattern[str]] = re.compile(r"(?:0o)?[0-7]+")
+
+#: The special bits no deployed configuration directory or file may carry.
+_SPECIAL_BITS: Final[tuple[tuple[int, str], ...]] = ((0o4000, "setuid"), (0o2000, "setgid"), (0o1000, "sticky"))
+_WORLD_WRITE: Final[int] = 0o002
+_OWNER_DIRECTORY: Final[int] = 0o700
+_OWNER_FILE: Final[int] = 0o600
+
+
+def parse_octal_mode_string(value: str) -> int:
+    """Parse a plain octal literal (``"750"`` or ``"0o750"``) into a mode in 0..0o7777.
+
+    The single rule for what a textual mode looks like, shared by the ``--dir-mode`` /
+    ``--file-mode`` options and the configured permission defaults.
+
+    Args:
+        value: The candidate literal.
+
+    Returns:
+        The parsed mode.
+
+    Raises:
+        ValueError: `value` is not a plain octal literal, or lies outside 0..0o7777.
+
+    Example:
+        >>> oct(parse_octal_mode_string("0o750"))
+        '0o750'
+        >>> parse_octal_mode_string("-1")
+        Traceback (most recent call last):
+        ...
+        ValueError: Invalid octal mode '-1': not a plain octal literal
+    """
+    if not _OCTAL_MODE_PATTERN.fullmatch(value):
+        raise ValueError(f"Invalid octal mode {value!r}: not a plain octal literal")
+    mode = int(value.removeprefix("0o"), 8)
+    if mode > MAX_PERMISSION_MODE:
+        raise ValueError(f"Invalid octal mode {value!r}: must be between 0 and {oct(MAX_PERMISSION_MODE)}")
+    return mode
+
+
+def check_deploy_mode(mode: int, *, is_directory: bool) -> None:
+    """Refuse a mode that is unsafe for configuration that can hold secrets.
+
+    The deployed directory and files can hold SMTP credentials, so a mode may widen access
+    beyond the layer defaults (755/644 for app and host, 700/600 for user) but may not add a
+    special bit, grant the world write access, or lock the owner out: a directory needs
+    owner rwx to be entered and redeployed into, a file owner rw to be read and rewritten.
+
+    Args:
+        mode: A mode in 0..0o7777.
+        is_directory: Whether the mode is for the configuration directory or its files.
+
+    Raises:
+        ValueError: The mode is unsafe; the message names every offending bit.
+
+    Example:
+        >>> check_deploy_mode(0o750, is_directory=True)
+        >>> check_deploy_mode(0o4750, is_directory=True)
+        Traceback (most recent call last):
+        ...
+        ValueError: unsafe mode 0o4750: the setuid bit (0o4000)
+    """
+    problems = [f"the {name} bit ({oct(bit)})" for bit, name in _SPECIAL_BITS if mode & bit]
+    if mode & _WORLD_WRITE:
+        problems.append(f"world-write ({oct(_WORLD_WRITE)})")
+    owner = _OWNER_DIRECTORY if is_directory else _OWNER_FILE
+    if mode & owner != owner:
+        problems.append(f"no owner {'rwx' if is_directory else 'rw'} ({oct(owner)} is required)")
+    if problems:
+        raise ValueError(f"unsafe mode {oct(mode)}: {'; '.join(problems)}")
 
 
 def parse_mode(value: int | str, default: int) -> int:
@@ -179,8 +258,11 @@ def get_modes_for_target(
 
 
 __all__ = [
+    "MAX_PERMISSION_MODE",
     "PermissionDefaults",
+    "check_deploy_mode",
     "get_modes_for_target",
     "get_permission_defaults",
     "parse_mode",
+    "parse_octal_mode_string",
 ]

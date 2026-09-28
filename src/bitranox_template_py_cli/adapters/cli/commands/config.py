@@ -20,7 +20,11 @@ from lib_layered_config import Config, generate_examples
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.config.overrides import apply_overrides
-from bitranox_template_py_cli.adapters.config.permissions import get_permission_defaults
+from bitranox_template_py_cli.adapters.config.permissions import (
+    check_deploy_mode,
+    get_permission_defaults,
+    parse_octal_mode_string,
+)
 from bitranox_template_py_cli.domain.enums import DeployTarget, OutputFormat
 
 from .. import safe_console
@@ -116,27 +120,39 @@ def _resolve_config(cli_ctx: CLIContext, profile: str | None) -> tuple[Config, s
     return cli_ctx.config, effective_profile
 
 
-def _parse_octal_mode(ctx: click.Context, param: click.Parameter, value: str | None) -> int | None:
-    """Parse octal mode string (e.g., '750' or '0o750') to int.
+def _parse_deploy_mode(value: str | None, *, is_directory: bool) -> int | None:
+    """Parse an octal mode string (``750`` or ``0o750``) and refuse an unsafe one.
 
     Args:
-        ctx: Click context (unused but required by callback signature).
-        param: Click parameter (unused but required by callback signature).
-        value: Octal mode string from CLI, or None.
+        value: Octal mode string from the CLI, or None when the option was not given.
+        is_directory: Whether the value is ``--dir-mode`` or ``--file-mode``.
 
     Returns:
-        Integer permission mode, or None if value was None.
+        The permission mode, or None if value was None.
 
     Raises:
-        click.BadParameter: If value cannot be parsed as octal.
+        click.BadParameter: The value is not a plain octal literal, lies outside 0..0o7777
+            (either would reach ``chmod`` as unintended bits or an ``OverflowError``), or is
+            unsafe for configuration that can hold secrets (see ``check_deploy_mode``).
     """
     if value is None:
         return None
     try:
-        # Handle both '750' and '0o750' formats
-        return int(value, 8) if not value.startswith("0o") else int(value, 0)
+        mode = parse_octal_mode_string(value)
+        check_deploy_mode(mode, is_directory=is_directory)
     except ValueError as exc:
-        raise click.BadParameter(f"Invalid octal mode: {value}") from exc
+        raise click.BadParameter(str(exc)) from exc
+    return mode
+
+
+def _parse_dir_mode(_ctx: click.Context, _param: click.Parameter, value: str | None) -> int | None:
+    """The ``--dir-mode`` callback; see :func:`_parse_deploy_mode`."""
+    return _parse_deploy_mode(value, is_directory=True)
+
+
+def _parse_file_mode(_ctx: click.Context, _param: click.Parameter, value: str | None) -> int | None:
+    """The ``--file-mode`` callback; see :func:`_parse_deploy_mode`."""
+    return _parse_deploy_mode(value, is_directory=False)
 
 
 @click.command("config-deploy", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -170,14 +186,14 @@ def _parse_octal_mode(ctx: click.Context, param: click.Parameter, value: str | N
     "--dir-mode",
     type=str,
     default=None,
-    callback=_parse_octal_mode,
+    callback=_parse_dir_mode,
     help="Override directory mode (octal, e.g., 750 or 0o750)",
 )
 @option(
     "--file-mode",
     type=str,
     default=None,
-    callback=_parse_octal_mode,
+    callback=_parse_file_mode,
     help="Override file mode (octal, e.g., 640 or 0o640)",
 )
 @click.pass_context
