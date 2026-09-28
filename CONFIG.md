@@ -280,8 +280,14 @@ suggest. Quote it in TOML (`user_file = "640"`); in an environment variable or `
 `config-deploy` before it writes anything, with exit 78 and one line naming the key, for example:
 
 ```text
-Error: Invalid configuration: lib_layered_config.default_permissions.user_file: a bare integer is read as decimal (400 = 0o620); write the mode as an octal string such as "0o640" instead
+Error: Invalid configuration: lib_layered_config.default_permissions.user_file: a bare integer is read as decimal (400 = 0o620); write the mode as an octal string such as "0o640" instead (to deploy without them, pass --no-permissions, or both --dir-mode and --file-mode)
 ```
+
+The same refusal applies when the configuration cannot be loaded at all: `config-deploy` never
+falls back to the library's layer defaults, which may be wider than what was configured. It
+deploys only when the settings cannot matter, that is with `--no-permissions` or with both
+`--dir-mode` and `--file-mode`; then it warns and goes on, so `config-deploy --force` can still
+replace the file that carries the bad value.
 
 ### Generate Example Configuration Files
 

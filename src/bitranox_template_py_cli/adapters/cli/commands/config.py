@@ -20,8 +20,8 @@ from lib_layered_config import Config, generate_examples
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.config.permissions import (
+    PermissionDefaults,
     check_deploy_mode,
-    get_modes_for_target,
     get_permission_defaults,
     parse_octal_mode_string,
 )
@@ -238,12 +238,6 @@ def cli_config_deploy(
         >>> # Real invocation tested in test_cli_config.py
     """
     cli_ctx = get_cli_context(ctx)
-    if cli_ctx.config_error:
-        # Deploying is how a broken configuration gets replaced, so it runs anyway, with the
-        # permission defaults of an empty configuration; the user is told which file was skipped.
-        safe_console.echo(
-            f"Warning: configuration not loaded, using default permissions: {cli_ctx.config_error}", err=True
-        )
     effective_profile = _get_effective_profile(cli_ctx, profile)
     deploy_targets = tuple(DeployTarget(t.lower()) for t in targets)
     target_values = tuple(t.value for t in deploy_targets)
@@ -287,17 +281,12 @@ def _execute_deploy(
         file_mode: File mode for every target; None uses each target's configured mode.
 
     Raises:
-        click.exceptions.Exit: On invalid permission settings (78), a permission error or any
-            other failure, raised through ``ctx.exit`` so ``main()`` returns the code instead of
-            printing a bare ``SystemExit``.
+        click.exceptions.Exit: On unreadable permission settings that decide a mode (78), a
+            permission error or any other failure, raised through ``ctx.exit`` so ``main()``
+            returns the code instead of printing a bare ``SystemExit``.
     """
-    try:
-        perm_defaults = get_permission_defaults(cli_ctx.config)
-    except ConfigurationError as exc:
-        # A bad permission setting is a configuration error, not a deploy failure: it gets its
-        # own exit code and one line naming the key, and nothing is deployed.
-        safe_console.echo(f"Error: Invalid configuration: {exc}", err=True)
-        get_current_context().exit(ExitCode.CONFIG_ERROR)
+    irrelevant = set_permissions is False or (dir_mode is not None and file_mode is not None)
+    perm_defaults = _permission_defaults(cli_ctx, permissions_irrelevant=irrelevant)
 
     # CLI --permissions/--no-permissions overrides config enabled setting
     effective_set_permissions = set_permissions if set_permissions is not None else perm_defaults.enabled
@@ -307,8 +296,8 @@ def _execute_deploy(
         for target in targets:
             # One call per target: the configured modes differ per layer, while the deploy
             # port takes one directory and one file mode for all the targets it is given.
-            target_dir_mode, target_file_mode = get_modes_for_target(
-                target, cli_ctx.config, dir_mode_override=dir_mode, file_mode_override=file_mode
+            target_dir_mode, target_file_mode = perm_defaults.modes_for(
+                target, dir_mode_override=dir_mode, file_mode_override=file_mode
             )
             deployed_paths += cli_ctx.services.deploy_configuration(
                 targets=(target,),
@@ -332,6 +321,46 @@ def _execute_deploy(
         logger.error("Failed to deploy configuration", extra={"error": str(exc), "error_type": type(exc).__name__})
         safe_console.echo(f"\nError: Failed to deploy configuration: {exc}", err=True)
         get_current_context().exit(ExitCode.GENERAL_ERROR)
+
+
+#: How to deploy when the permission settings cannot be read: make them irrelevant.
+_DEPLOY_ANYWAY_HINT = "to deploy without them, pass --no-permissions, or both --dir-mode and --file-mode"
+
+
+def _permission_defaults(cli_ctx: CLIContext, *, permissions_irrelevant: bool) -> PermissionDefaults:
+    """Return the configured permission settings, or end the command when they are unknown.
+
+    The settings are unknown when the configuration could not be loaded or its
+    ``[lib_layered_config.default_permissions]`` section is invalid. Deploying is how a
+    broken file gets replaced, so that is no reason to refuse when the settings cannot
+    matter (`permissions_irrelevant`: ``--no-permissions``, or both ``--dir-mode`` and
+    ``--file-mode``); the command then warns and goes on. Otherwise it refuses: the
+    library's layer defaults could be wider than what an administrator configured for a
+    file that holds the SMTP password, and a warning scrolls by.
+
+    Args:
+        cli_ctx: The state the root group stored.
+        permissions_irrelevant: Whether the command line already decides every mode.
+
+    Returns:
+        The configured settings, or the layer defaults when they are irrelevant anyway.
+
+    Raises:
+        click.exceptions.Exit: The settings are unknown and would decide a mode (78); one
+            stderr line names the problem and the options that deploy anyway.
+    """
+    if cli_ctx.config_error:
+        problem = f"configuration not loaded, so its permission settings are unknown: {cli_ctx.config_error}"
+    else:
+        try:
+            return get_permission_defaults(cli_ctx.config)
+        except ConfigurationError as exc:
+            problem = f"Invalid configuration: {exc}"
+    if permissions_irrelevant:
+        safe_console.echo(f"Warning: {problem}; the command line decides the permissions", err=True)
+        return PermissionDefaults()
+    safe_console.echo(f"Error: {problem} ({_DEPLOY_ANYWAY_HINT})", err=True)
+    get_current_context().exit(ExitCode.CONFIG_ERROR)
 
 
 def _report_deployment_result(deployed_paths: list[Path], profile: str | None, set_permissions: bool) -> None:

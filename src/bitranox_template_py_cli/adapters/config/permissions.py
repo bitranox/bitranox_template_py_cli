@@ -189,6 +189,25 @@ class PermissionDefaults(BaseModel):
         """Return file mode for the given layer name."""
         return getattr(self, f"{layer}_file")
 
+    def modes_for(
+        self,
+        target: DeployTarget,
+        *,
+        dir_mode_override: int | None = None,
+        file_mode_override: int | None = None,
+    ) -> tuple[int, int]:
+        """Return ``(dir_mode, file_mode)`` for `target`; an override wins over the setting.
+
+        Example:
+            >>> from bitranox_template_py_cli.domain.enums import DeployTarget
+            >>> [oct(mode) for mode in PermissionDefaults().modes_for(DeployTarget.USER, file_mode_override=0o640)]
+            ['0o700', '0o640']
+        """
+        layer = target.value  # "app", "host", or "user"
+        dir_mode = dir_mode_override if dir_mode_override is not None else self.dir_mode_for(layer)
+        file_mode = file_mode_override if file_mode_override is not None else self.file_mode_for(layer)
+        return dir_mode, file_mode
+
 
 class _LayeredConfigSection(BaseModel):
     """The ``[lib_layered_config]`` section, as far as this module reads it."""
@@ -282,13 +301,9 @@ def get_modes_for_target(
         >>> dir_mode == 0o700
         True
     """
-    defaults = get_permission_defaults(config)
-    layer = target.value  # "app", "host", or "user"
-
-    dir_mode: int = dir_mode_override if dir_mode_override is not None else defaults.dir_mode_for(layer)
-    file_mode: int = file_mode_override if file_mode_override is not None else defaults.file_mode_for(layer)
-
-    return dir_mode, file_mode
+    return get_permission_defaults(config).modes_for(
+        target, dir_mode_override=dir_mode_override, file_mode_override=file_mode_override
+    )
 
 
 __all__ = [

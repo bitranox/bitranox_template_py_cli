@@ -183,6 +183,51 @@ def test_an_invalid_permission_setting_is_a_one_line_config_error(
     assert len(error_lines) == 1, result.stderr
     assert error_lines[0].startswith("Error: Invalid configuration:")
     assert named in error_lines[0]
+    assert all(flag in error_lines[0] for flag in ("--no-permissions", "--dir-mode", "--file-mode"))
+    assert calls == []
+
+
+_INVALID_SECTION = {"lib_layered_config": {"default_permissions": {"user_directory": "0o777"}}}
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        (["--force", "--no-permissions", "--dir-mode", "700", "--file-mode", "600"], (False, 0o700, 0o600)),
+        (["--no-permissions"], (False, 0o700, 0o600)),
+        (["--dir-mode", "750", "--file-mode", "640"], (True, 0o750, 0o640)),
+    ],
+    ids=["reviewer-command", "no-permissions", "both-modes"],
+)
+def test_an_invalid_section_does_not_block_a_deploy_it_cannot_affect(
+    cli_runner: CliRunner,
+    recorded_deploys: Callable[[dict[str, Any]], tuple[list[dict[str, Any]], Callable[[], AppServices]]],
+    options: list[str],
+    expected: tuple[bool, int, int],
+) -> None:
+    """config-deploy --force is how the file carrying the bad value gets replaced."""
+    calls, factory = recorded_deploys(_INVALID_SECTION)
+
+    result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", *options], obj=factory)
+
+    assert result.exit_code == 0, result.output
+    assert "user_directory: unsafe mode 0o777" in result.stderr
+    assert [(call["set_permissions"], call["dir_mode"], call["file_mode"]) for call in calls] == [expected]
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("options", [["--dir-mode", "700"], ["--file-mode", "600"], ["--permissions"]])
+def test_an_invalid_section_still_blocks_a_deploy_it_decides_a_mode_for(
+    cli_runner: CliRunner,
+    recorded_deploys: Callable[[dict[str, Any]], tuple[list[dict[str, Any]], Callable[[], AppServices]]],
+    options: list[str],
+) -> None:
+    calls, factory = recorded_deploys(_INVALID_SECTION)
+
+    result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", *options], obj=factory)
+
+    assert result.exit_code == 78, result.output
     assert calls == []
 
 
@@ -197,7 +242,10 @@ def test_a_non_boolean_enabled_is_not_reported_as_a_mode(
         cli_mod.cli, ["--set", f'{_SECTION}.enabled="maybe"', "config-deploy", "--target", "user"], obj=factory
     )
 
-    assert "mode" not in result.stderr.lower()
+    # The line ends with a hint naming --dir-mode/--file-mode; the reason is what precedes it.
+    reason = result.stderr.split(" (to deploy without them", 1)[0]
+    assert "enabled" in reason
+    assert "mode" not in reason.lower()
     assert "errors.pydantic.dev" not in result.stderr
 
 

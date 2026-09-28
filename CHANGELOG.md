@@ -39,8 +39,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   malformed `config.toml` made every command, `--help` and `config-deploy` (the command that
   replaces the file) exit 1 with empty stdout. The root now records the failure
   (`adapters/cli/config_load.py`); `config`, `send-email` and `send-notification` refuse with exit
-  78 and one line naming it, while `config-deploy` (with a warning), `config-generate-examples`,
-  `info`, `hello` and help still run. An invalid profile and an unreadable file take the same path.
+  78 and one line naming it, while `config-generate-examples`, `info`, `hello` and help still run.
+  `config-deploy` runs (with a warning) when its permission settings cannot matter, i.e. with
+  `--no-permissions` or both `--dir-mode` and `--file-mode`, and otherwise exits 78 with a hint
+  naming those options instead of deploying with library defaults that may be wider than the
+  configured modes. An invalid profile and an unreadable file take the same path.
   `config --profile X` reloads with the root's `--env-file` instead of searching for another `.env`.
 - **`[lib_layered_config.default_permissions]` now takes effect.** The per-layer modes were read,
   but only `enabled` was ever used: `get_modes_for_target` had no production caller, so
@@ -49,7 +52,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (CLI `--dir-mode`/`--file-mode` still win). The section is validated through the
   `PermissionDefaults` pydantic model: a malformed or out-of-range mode, a bare integer, an
   unsafe mode, a non-boolean `enabled`, a section that is not a table or an unknown key stops the
-  command with exit 78 and one line naming the key, where it used to fall back to the default,
+  command with exit 78 and one line naming the key and the options that deploy anyway
+  (`--no-permissions`, or both `--dir-mode` and `--file-mode`, with which it only warns), where it used to fall back to the default,
   crash with `AttributeError`, or print pydantic's multi-line error.
 
 ### Changed
