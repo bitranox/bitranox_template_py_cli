@@ -51,7 +51,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   the line names the file). `--traceback` prints the
   loader's chained traceback before the line. What the command line gets wrong is checked BEFORE
   loading, so a broken file cannot hide it: a malformed `--set` or an invalid `--profile` name is
-  a usage error (exit 2) for every command, `info` and `hello` included. Any other exception from
+  a usage error (exit 2) for every command, `info` and `hello` included. So are two `--set` values
+  that give one key a value and put a key under it (`--set a.b=1 --set a.b.c=2`), which escaped as
+  a `TypeError` (exit 22) in one order and silently dropped the earlier value in the other. Any other exception from
   the loader is a bug and propagates as one instead of being reported as a configuration error.
   `config --profile X` reloads with the root's `--env-file` instead of searching for another `.env`.
 - **`[lib_layered_config.default_permissions]` now takes effect.** The per-layer modes were read,

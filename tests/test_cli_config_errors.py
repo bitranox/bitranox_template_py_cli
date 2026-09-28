@@ -200,6 +200,18 @@ def test_a_malformed_set_is_a_usage_error_even_when_the_config_does_not_load(
 
 
 @pytest.mark.os_agnostic
+@pytest.mark.parametrize("command", [["info"], ["config"]], ids=["info", "config"])
+@pytest.mark.parametrize("loads", [True, False], ids=["config-loads", "config-broken"])
+def test_conflicting_set_overrides_are_a_usage_error(cli_runner: CliRunner, command: list[str], loads: bool) -> None:
+    """``--set a.b=1 --set a.b.c=2`` used to escape as a TypeError (exit 22 through main)."""
+    factory = build_testing if loads else _failing_config(ConfigError(BROKEN_TOML))
+    result = cli_runner.invoke(cli_mod.cli, ["--set", "a.b=1", "--set", "a.b.c=2", *command], obj=factory)
+
+    assert result.exit_code == 2, result.output
+    assert "conflicting --set overrides: a.b is given a value and a.b.c" in result.output
+
+
+@pytest.mark.os_agnostic
 @pytest.mark.parametrize(
     "args",
     [["--profile", "../x", "info"], ["--profile", "../x", "hello"], ["config", "--profile", "../x"]],

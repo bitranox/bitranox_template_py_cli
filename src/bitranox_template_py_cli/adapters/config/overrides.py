@@ -146,12 +146,59 @@ def _nest_override(target: dict[str, dict[str, object]], override: ConfigOverrid
     """
     node: dict[str, object] = target.setdefault(override.section, {})
     for part in override.key_path[:-1]:
-        existing = node.setdefault(part, {})
-        if not isinstance(existing, dict):
-            msg = f"Expected dict at key {part!r}, got {type(existing).__name__}"
-            raise TypeError(msg)
-        node = cast("dict[str, object]", existing)
+        # Always a table: nest_overrides refuses a key given both a value and keys under it
+        # before nesting, so no override's value ever sits where another needs a table.
+        node = cast("dict[str, object]", node.setdefault(part, {}))
     node[override.key_path[-1]] = override.value
+
+
+def _refuse_conflicts(dotted_keys: list[str]) -> None:
+    """Refuse a key that one override gives a value and another gives keys under.
+
+    Either order is a contradiction on the command line: nesting ``a.b.c`` under the value
+    of ``a.b`` fails, and ``a.b=1`` after ``a.b.c=2`` would silently drop the earlier one.
+
+    Raises:
+        ValueError: Naming the key and the override that puts a key under it.
+
+    Examples:
+        >>> _refuse_conflicts(["a.b", "a.bc", "a.b"])
+        >>> _refuse_conflicts(["a.b.c", "a.b"])
+        Traceback (most recent call last):
+        ...
+        ValueError: conflicting --set overrides: a.b is given a value and a.b.c puts a key under it
+    """
+    for key in dotted_keys:
+        nested = next((other for other in dotted_keys if other.startswith(f"{key}.")), None)
+        if nested is not None:
+            raise ValueError(f"conflicting --set overrides: {key} is given a value and {nested} puts a key under it")
+
+
+def nest_overrides(raw_overrides: tuple[str, ...]) -> tuple[dict[str, dict[str, object]], frozenset[str]]:
+    """Parse ``--set`` values into the nested mapping they override, checking them together.
+
+    Args:
+        raw_overrides: Tuple of ``SECTION.KEY=VALUE`` strings from ``--set``.
+
+    Returns:
+        The nested override mapping and the dotted keys it sets. For one key given twice,
+        the last value wins.
+
+    Raises:
+        ValueError: An override is malformed, or two of them conflict (one gives a key a
+            value, another puts a key under it).
+
+    Example:
+        >>> nest_overrides(("a.b=1", "a.c.d=x"))
+        ({'a': {'b': 1, 'c': {'d': 'x'}}}, frozenset({'a.b', 'a.c.d'}))
+    """
+    parsed = [parse_override(raw) for raw in raw_overrides]
+    dotted_keys = [".".join((override.section, *override.key_path)) for override in parsed]
+    _refuse_conflicts(dotted_keys)
+    overrides: dict[str, dict[str, object]] = {}
+    for override in parsed:
+        _nest_override(overrides, override)
+    return overrides, frozenset(dotted_keys)
 
 
 def _dotted_keys(data: Mapping[str, object], prefix: str = "") -> Iterator[str]:
@@ -216,7 +263,7 @@ def apply_overrides(config: Config, raw_overrides: tuple[str, ...]) -> Config:
         ``raw_overrides`` is empty.
 
     Raises:
-        ValueError: If any override string is malformed.
+        ValueError: If any override string is malformed, or two of them conflict.
 
     Examples:
         >>> from lib_layered_config import Config
@@ -232,12 +279,7 @@ def apply_overrides(config: Config, raw_overrides: tuple[str, ...]) -> Config:
     if not raw_overrides:
         return config
 
-    overrides: dict[str, dict[str, object]] = {}
-    overridden: set[str] = set()
-    for raw in raw_overrides:
-        parsed = parse_override(raw)
-        _nest_override(overrides, parsed)
-        overridden.add(".".join((parsed.section, *parsed.key_path)))
+    overrides, overridden = nest_overrides(raw_overrides)
 
     # Rebuilt rather than returned straight from with_overrides, which shares
     # the original provenance map by design: the merged value is the CLI's and
@@ -245,7 +287,7 @@ def apply_overrides(config: Config, raw_overrides: tuple[str, ...]) -> Config:
     # reader to a file holding the old value.
     merged = config.with_overrides(overrides)
     merged_as_dict = merged.as_dict()
-    return Config(merged_as_dict, _provenance_naming_the_cli(config, merged_as_dict, frozenset(overridden)))
+    return Config(merged_as_dict, _provenance_naming_the_cli(config, merged_as_dict, overridden))
 
 
 __all__ = [
@@ -254,5 +296,6 @@ __all__ = [
     "ConfigOverride",
     "apply_overrides",
     "coerce_value",
+    "nest_overrides",
     "parse_override",
 ]

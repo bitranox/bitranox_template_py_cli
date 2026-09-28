@@ -7,8 +7,8 @@ never reads the configuration: ``config-deploy`` is how a broken file gets repla
 failure, and each command that reads the configuration asks for it through
 :func:`require_config`.
 
-What the command line itself gets wrong is not a configuration failure: a malformed
-``--set`` or an invalid ``--profile`` name is a usage error (exit 2), checked BEFORE
+What the command line itself gets wrong is not a configuration failure: a malformed or
+conflicting ``--set`` or an invalid ``--profile`` name is a usage error (exit 2), checked BEFORE
 loading so that a broken file cannot hide it from a command that does not read the
 configuration.
 
@@ -28,7 +28,7 @@ import rich_click as click
 from lib_layered_config import Config, ConfigError
 
 from bitranox_template_py_cli.adapters.config.loader import validate_profile
-from bitranox_template_py_cli.adapters.config.overrides import apply_overrides, parse_override
+from bitranox_template_py_cli.adapters.config.overrides import apply_overrides, nest_overrides
 
 from . import safe_console
 from .exit_codes import ExitCode
@@ -61,12 +61,11 @@ def _not_utf8(error: UnicodeError, env_file: str | None) -> ConfigError:
 
 
 def _check_command_line(profile: str | None, set_overrides: tuple[str, ...]) -> None:
-    """Refuse a malformed ``--set`` or an invalid ``--profile`` name as a usage error (exit 2)."""
+    """Refuse a malformed or conflicting ``--set`` or an invalid ``--profile`` name (exit 2)."""
     try:
         if profile is not None:
             validate_profile(profile)
-        for raw in set_overrides:
-            parse_override(raw)
+        nest_overrides(set_overrides)
     except ValueError as exc:
         raise click.UsageError(str(exc)) from exc
 
@@ -87,7 +86,8 @@ def load_config(
         why loading failed.
 
     Raises:
-        click.UsageError: A ``--set`` value is malformed or the profile name is invalid;
+        click.UsageError: A ``--set`` value is malformed, two of them conflict, or the
+            profile name is invalid;
             that is a command-line error (exit 2), not a configuration one, and it is
             raised whether or not the configuration would load.
 
