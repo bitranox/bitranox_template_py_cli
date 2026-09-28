@@ -126,20 +126,20 @@ def test_enabled_false_turns_permission_setting_off(
 
 #: Each ``--set`` value, and the text the one-line refusal must contain.
 _REFUSED = [
-    (f'{_SECTION}.user_directory="10000"', "user_directory"),
-    (f'{_SECTION}.user_directory="-1"', "user_directory"),
-    (f'{_SECTION}.user_directory="7_5_0"', "user_directory"),
-    (f'{_SECTION}.user_directory="rwx"', "user_directory"),
-    (f"{_SECTION}.user_directory=-1", "user_directory"),
-    (f"{_SECTION}.user_directory=10000", "user_directory"),
-    (f"{_SECTION}.user_directory=1.5", "user_directory"),
-    (f"{_SECTION}.user_directory=true", "user_directory"),
-    (f"{_SECTION}.user_directory=511", "world-write"),
-    (f'{_SECTION}.user_file="0o4600"', "setuid"),
-    (f'{_SECTION}.app_file="0o400"', "owner rw"),
-    (f'{_SECTION}.enabled="maybe"', "enabled"),
-    (f"{_SECTION}=5", "default_permissions"),
-    (f'{_SECTION}.user_dir="0o750"', "user_dir"),
+    (f'{_SECTION}.user_directory="10000"', "user_directory: Invalid octal mode '10000': must be between"),
+    (f'{_SECTION}.user_directory="-1"', "user_directory: Invalid octal mode '-1': not a plain octal literal"),
+    (f'{_SECTION}.user_directory="7_5_0"', "user_directory: Invalid octal mode '7_5_0': not a plain octal literal"),
+    (f'{_SECTION}.user_directory="rwx"', "user_directory: Invalid octal mode 'rwx': not a plain octal literal"),
+    (f"{_SECTION}.user_directory=-1", "user_directory: Invalid mode -1: must be between"),
+    (f"{_SECTION}.user_directory=10000", "user_directory: Invalid mode 10000: must be between"),
+    (f"{_SECTION}.user_directory=1.5", "user_directory: expected an octal string or an integer, got float"),
+    (f"{_SECTION}.user_directory=true", "user_directory: expected an octal string or an integer, got bool"),
+    (f"{_SECTION}.user_directory=511", "user_directory: unsafe mode 0o777: world-write"),
+    (f'{_SECTION}.user_file="0o4600"', "user_file: unsafe mode 0o4600: the setuid bit"),
+    (f'{_SECTION}.app_file="0o400"', "app_file: unsafe mode 0o400: no owner rw"),
+    (f'{_SECTION}.enabled="maybe"', "default_permissions.enabled: Input should be a valid boolean"),
+    (f"{_SECTION}=5", "default_permissions: Input should be a valid dictionary"),
+    (f'{_SECTION}.user_dir="0o750"', "default_permissions.user_dir: Extra inputs are not permitted"),
 ]
 
 
