@@ -189,8 +189,9 @@ def nest_overrides(raw_overrides: tuple[str, ...]) -> tuple[dict[str, dict[str, 
             value, another puts a key under it).
 
     Example:
-        >>> nest_overrides(("a.b=1", "a.c.d=x"))
-        ({'a': {'b': 1, 'c': {'d': 'x'}}}, frozenset({'a.b', 'a.c.d'}))
+        >>> tree, keys = nest_overrides(("a.b=1", "a.c.d=x"))
+        >>> tree, sorted(keys)
+        ({'a': {'b': 1, 'c': {'d': 'x'}}}, ['a.b', 'a.c.d'])
     """
     parsed = [parse_override(raw) for raw in raw_overrides]
     dotted_keys = [".".join((override.section, *override.key_path)) for override in parsed]
