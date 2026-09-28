@@ -183,7 +183,7 @@ Deploy default configuration to system or user directories.
 | `--dir-mode MODE`                  | Directory mode for every target (octal)                          |
 | `--file-mode MODE`                 | File mode for every target (octal)                               |
 
-**Exit codes:** 0, 1, 2 (usage error, including a refused `--dir-mode`/`--file-mode`), 13 (permission denied), 78 (configuration not loadable or its permission settings invalid, unless `--no-permissions` or both `--dir-mode` and `--file-mode` are given)
+**Exit codes:** 0, 1, 2 (usage error, including a refused `--dir-mode`/`--file-mode` or `--profile` name), 13 (permission denied), 78 (configuration not loadable or its permission settings invalid, unless `--no-permissions` or both `--dir-mode` and `--file-mode` are given)
 
 ### config-generate-examples
 

@@ -235,8 +235,13 @@ def test_conflicting_set_overrides_are_a_usage_error(cli_runner: CliRunner, comm
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize(
     "args",
-    [["--profile", "../x", "info"], ["--profile", "../x", "hello"], ["config", "--profile", "../x"]],
-    ids=["root-info", "root-hello", "config-option"],
+    [
+        ["--profile", "../x", "info"],
+        ["--profile", "../x", "hello"],
+        ["config", "--profile", "../x"],
+        ["config-deploy", "--target", "user", "--no-permissions", "--profile", "../x"],
+    ],
+    ids=["root-info", "root-hello", "config-option", "config-deploy-option"],
 )
 def test_an_invalid_profile_name_is_a_usage_error_for_every_command(cli_runner: CliRunner, args: list[str]) -> None:
     result = cli_runner.invoke(cli_mod.cli, args, obj=build_testing)

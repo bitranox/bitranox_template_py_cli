@@ -19,6 +19,7 @@ import rich_click as click
 from lib_layered_config import Config, generate_examples
 
 from bitranox_template_py_cli import __init__conf__
+from bitranox_template_py_cli.adapters.config.loader import validate_profile
 from bitranox_template_py_cli.adapters.config.permissions import (
     PermissionDefaults,
     check_deploy_mode,
@@ -163,6 +164,26 @@ def _parse_file_mode(_ctx: click.Context, _param: click.Parameter, value: str | 
     return _parse_deploy_mode(value, is_directory=False)
 
 
+def _check_profile_name(_ctx: click.Context, _param: click.Parameter, value: str | None) -> str | None:
+    """The ``config-deploy --profile`` callback: an invalid name is a usage error (exit 2).
+
+    The root's ``--profile`` and ``config --profile`` are checked when the configuration is
+    loaded; this one only names the deploy directory, so without the check the name failed
+    inside the deploy as "Failed to deploy configuration" (exit 1).
+
+    Raises:
+        click.BadParameter: The name is empty, too long or holds a path separator or a
+            character outside the allowed set.
+    """
+    if value is None:
+        return None
+    try:
+        validate_profile(value)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc)) from exc
+    return value
+
+
 @click.command("config-deploy", context_settings=CLICK_CONTEXT_SETTINGS)
 @option(
     "--target",
@@ -182,6 +203,7 @@ def _parse_file_mode(_ctx: click.Context, _param: click.Parameter, value: str | 
     "--profile",
     type=str,
     default=None,
+    callback=_check_profile_name,
     help="Override profile from root command (e.g., 'production', 'test')",
 )
 @option(
