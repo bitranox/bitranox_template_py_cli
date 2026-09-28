@@ -51,7 +51,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   directory. `config-deploy` now deploys each target with its configured directory and file mode
   (CLI `--dir-mode`/`--file-mode` still win). The section is validated through the
   `PermissionDefaults` pydantic model: a malformed or out-of-range mode, a bare integer, an
-  unsafe mode, a non-boolean `enabled`, a section that is not a table or an unknown key stops the
+  unsafe mode, a non-boolean `enabled` (strictly: `"no"`, `"off"`, `0` and `1` are refused, not
+  read as a boolean), a section that is not a table or an unknown key stops the
   command with exit 78 and one line naming the key and the options that deploy anyway
   (`--no-permissions`, or both `--dir-mode` and `--file-mode`, with which it only warns), where it used to fall back to the default,
   crash with `AttributeError`, or print pydantic's multi-line error.

@@ -161,6 +161,12 @@ _REFUSED = [
     (f'{_SECTION}.user_file="0o4600"', "user_file: unsafe mode 0o4600: the setuid bit"),
     (f'{_SECTION}.app_file="0o400"', "app_file: unsafe mode 0o400: no owner rw"),
     (f'{_SECTION}.enabled="maybe"', "default_permissions.enabled: Input should be a valid boolean"),
+    # pydantic's lax bool would read each of these as a boolean; the setting is a TOML boolean.
+    (f'{_SECTION}.enabled="no"', "default_permissions.enabled: Input should be a valid boolean"),
+    (f'{_SECTION}.enabled="off"', "default_permissions.enabled: Input should be a valid boolean"),
+    (f'{_SECTION}.enabled="false"', "default_permissions.enabled: Input should be a valid boolean"),
+    (f"{_SECTION}.enabled=0", "default_permissions.enabled: Input should be a valid boolean"),
+    (f"{_SECTION}.enabled=1", "default_permissions.enabled: Input should be a valid boolean"),
     (f"{_SECTION}=5", "default_permissions: Input should be a valid dictionary"),
     (f'{_SECTION}.user_dir="0o750"', "default_permissions.user_dir: Extra inputs are not permitted"),
 ]
@@ -320,3 +326,19 @@ def test_a_decimal_mode_in_the_user_config_file_is_refused(tmp_path: Path) -> No
     assert completed.returncode == 78, stderr
     assert "user_file: a bare integer is read as decimal (400 = 0o620)" in stderr
     assert (config_dir / "config.toml").read_text(encoding="utf-8") == original
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="XDG_CONFIG_HOME locates the user layer on Linux")
+@pytest.mark.parametrize(("value", "expected_rc"), [("no", 78), ("false", 0)])
+def test_enabled_from_the_environment_must_be_a_boolean_literal(tmp_path: Path, value: str, expected_rc: int) -> None:
+    """End to end: ``false`` arrives as a boolean; ``no`` stays a string and is refused, not read as off."""
+    prefix = __init__conf__.LAYEREDCONF_SLUG.upper().replace("-", "_")
+    variable = f"{prefix}___LIB_LAYERED_CONFIG__DEFAULT_PERMISSIONS__ENABLED"
+    completed = subprocess.run(
+        [sys.executable, "-m", "bitranox_template_py_cli", "config-deploy", "--target", "user"],
+        capture_output=True,
+        check=False,
+        env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path), variable: value},
+    )
+
+    assert completed.returncode == expected_rc, completed.stderr.decode("utf-8", "replace")

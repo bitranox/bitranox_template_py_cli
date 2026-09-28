@@ -276,8 +276,11 @@ or a directory without owner `rwx` / a file without owner `rw`. A bare integer i
 than reinterpreted: TOML `user_file = 400`, `--set ...user_file=400` and an environment value `400`
 all arrive as the DECIMAL integer 400, which is `0o620`, not the owner-read-only mode the digits
 suggest. Quote it in TOML (`user_file = "640"`); in an environment variable or `--set`, use the
-`0o` prefix (`0o640`), which is never read as a number. `enabled` must be a boolean, and an unknown key in the section is refused rather than ignored. Any violation stops
-`config-deploy` before it writes anything, with exit 78 and one line naming the key, for example:
+`0o` prefix (`0o640`), which is never read as a number. `enabled` must be a real boolean
+(`true`/`false` in TOML, an environment variable or `--set`); `"no"`, `"off"`, `0` or `1` are
+refused rather than read as one. An unknown key in the section is refused rather than ignored.
+Any violation stops `config-deploy` before it writes anything, with exit 78 and one line naming
+the key, for example:
 
 ```text
 Error: Invalid configuration: lib_layered_config.default_permissions.user_file: a bare integer is read as decimal (400 = 0o620); write the mode as an octal string such as "0o640" instead (to deploy without them, pass --no-permissions, or both --dir-mode and --file-mode)

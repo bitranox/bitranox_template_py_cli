@@ -179,7 +179,10 @@ class PermissionDefaults(BaseModel):
     host_file: FileMode = DEFAULT_APP_FILE_MODE
     user_directory: DirectoryMode = DEFAULT_USER_DIR_MODE
     user_file: FileMode = DEFAULT_USER_FILE_MODE
-    enabled: bool = True
+    # strict: pydantic's lax bool reads "no", "off", "0", 0 and 1 as booleans, so a typo or a
+    # quoted TOML value would switch permission setting off without a word. The environment
+    # layer turns true/false into real booleans before this sees them.
+    enabled: bool = Field(default=True, strict=True)
 
     def dir_mode_for(self, layer: str) -> int:
         """Return directory mode for the given layer name."""
