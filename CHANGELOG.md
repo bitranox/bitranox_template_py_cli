@@ -32,7 +32,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `config-generate-examples` into such a directory wrote its files and then exited 1 on the path
   echo. Once any character failed, the fallback also rewrote every known glyph in the text,
   including ones the stream could print. The fallback is now a registered codec error handler: the
-  codec calls it for exactly the characters it rejects, which become their ASCII form or `?`.
+  codec calls it for exactly the characters it rejects, which become their ASCII form or, when
+  the table has none, whatever the stream's own error handler writes: under Python's UTF-8 mode
+  or a C/POSIX locale stdout uses `surrogateescape`, so a non-UTF-8 path prints byte-exact and
+  still names the directory on disk, and stderr (`backslashreplace`) spells such a character
+  out. Only a `strict` stream gets `?`.
 
 - **A broken configuration file no longer disables every command.** The root group loaded the
   configuration before any subcommand option was parsed and let a load error escape, so a
