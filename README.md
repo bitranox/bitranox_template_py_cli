@@ -309,15 +309,18 @@ bitranox-template-py-cli send-notification \
 #### Programmatic Email Usage
 
 ```python
+from pydantic import SecretStr
+
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 from bitranox_template_py_cli.composition import send_email, send_notification
 
-# Configure email
+# Configure email. smtp_password is a SecretStr: it prints as '**********' in logs, reprs
+# and dumps, and config.smtp_password.get_secret_value() returns the plain text.
 config = EmailConfig(
     smtp_hosts=["smtp.gmail.com:587"],
     from_address="alerts@myapp.com",
     smtp_username="myuser@gmail.com",
-    smtp_password="app-password",
+    smtp_password=SecretStr("app-password"),
     timeout=60.0,
 )
 

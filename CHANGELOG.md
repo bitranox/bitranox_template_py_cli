@@ -37,7 +37,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   or a C/POSIX locale stdout uses `surrogateescape`, so a non-UTF-8 path prints byte-exact and
   still names the directory on disk, and stderr (`backslashreplace`) spells such a character
   out. Only a `strict` stream gets `?`.
-
 - **A broken configuration file no longer disables every command.** The root group loaded the
   configuration before any subcommand option was parsed and let a load error escape, so a
   malformed `config.toml` made every command, `--help` and `config-deploy` (the command that
@@ -66,6 +65,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   crash with `AttributeError`, or print pydantic's multi-line error.
 
 ### Changed
+- **Breaking: `EmailConfig.smtp_password` is a pydantic `SecretStr`, no longer a `str`** (see
+  Security below for why). Code that reads the password now gets a `SecretStr`, so
+  `config.smtp_password == "app-password"` is silently `False`, and under pyright strict
+  `EmailConfig(smtp_password="app-password")` is a `reportArgumentType` error (pydantic still
+  coerces a plain string at run time). Migration: read the value with
+  `config.smtp_password.get_secret_value()`, and construct with
+  `EmailConfig(smtp_password=SecretStr("app-password"))` (`from pydantic import SecretStr`).
 - **`click` is a declared dependency.** The package imports it directly (`adapters/cli/main.py`,
   `commands/config.py`) but only had it through rich-click. `permissions.py` no longer imports
   `pydantic_core`, which was never declared either; its validators raise `ValueError`. A new test

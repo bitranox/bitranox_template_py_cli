@@ -109,19 +109,19 @@ Run `lint-imports` to verify compliance.
 
 POSIX-conventional exit codes defined in `adapters/cli/exit_codes.py`:
 
-| Code | Name                | Usage                                     |
-|------|---------------------|-------------------------------------------|
-| 0    | `SUCCESS`           | Command completed successfully            |
-| 1    | `GENERAL_ERROR`     | Unhandled exception, general failure      |
-| 2    | `FILE_NOT_FOUND`    | Attachment or file not found              |
-| 13   | `PERMISSION_DENIED` | Cannot write to target directory          |
-| 22   | `INVALID_ARGUMENT`  | Invalid CLI argument or section not found |
-| 69   | `SMTP_FAILURE`      | SMTP delivery failed                      |
-| 78   | `CONFIG_ERROR`      | Missing required configuration            |
-| 110  | `TIMEOUT`           | Operation timed out                       |
-| 130  | `SIGNAL_INT`        | Interrupted (SIGINT/Ctrl+C)               |
-| 141  | `BROKEN_PIPE`       | Output pipe closed                        |
-| 143  | `SIGNAL_TERM`       | Terminated (SIGTERM)                      |
+| Code | Name                | Usage                                                                                                                  |
+|------|---------------------|------------------------------------------------------------------------------------------------------------------------|
+| 0    | `SUCCESS`           | Command completed successfully                                                                                         |
+| 1    | `GENERAL_ERROR`     | Unhandled exception, general failure                                                                                   |
+| 2    | `FILE_NOT_FOUND`    | Attachment or file not found; also click's usage error (bad option value, malformed `--set`, invalid `--profile` name) |
+| 13   | `PERMISSION_DENIED` | Cannot write to target directory                                                                                       |
+| 22   | `INVALID_ARGUMENT`  | Invalid CLI argument or section not found                                                                              |
+| 69   | `SMTP_FAILURE`      | SMTP delivery failed                                                                                                   |
+| 78   | `CONFIG_ERROR`      | Configuration missing, not loadable or invalid                                                                         |
+| 110  | `TIMEOUT`           | Operation timed out                                                                                                    |
+| 130  | `SIGNAL_INT`        | Interrupted (SIGINT/Ctrl+C)                                                                                            |
+| 141  | `BROKEN_PIPE`       | Output pipe closed                                                                                                     |
+| 143  | `SIGNAL_TERM`       | Terminated (SIGTERM)                                                                                                   |
 
 ---
 
@@ -166,19 +166,22 @@ Display merged configuration from all sources.
 | `--format [human\|json]` | Output format (default: human) |
 | `--section NAME`         | Show only specific section     |
 
-**Exit codes:** 0, 22 (section not found)
+**Exit codes:** 0, 2 (usage error), 22 (section not found), 78 (configuration not loadable)
 
 ### config-deploy
 
 Deploy default configuration to system or user directories.
 
-| Option                       | Description                              |
-|------------------------------|------------------------------------------|
-| `--target [app\|host\|user]` | Target layer(s)  -  required, repeatable |
-| `--force`                    | Overwrite existing files                 |
-| `--profile NAME`             | Deploy to profile subdirectory           |
+| Option                             | Description                                                      |
+|------------------------------------|------------------------------------------------------------------|
+| `--target [app\|host\|user]`       | Target layer(s)  -  required, repeatable                         |
+| `--force`                          | Overwrite existing files                                         |
+| `--profile NAME`                   | Deploy to profile subdirectory                                   |
+| `--permissions / --no-permissions` | Set Unix permissions (default: `enabled` from the configuration) |
+| `--dir-mode MODE`                  | Directory mode for every target (octal)                          |
+| `--file-mode MODE`                 | File mode for every target (octal)                               |
 
-**Exit codes:** 0, 1, 13 (permission denied)
+**Exit codes:** 0, 1, 2 (usage error, including a refused `--dir-mode`/`--file-mode`), 13 (permission denied), 78 (configuration not loadable or its permission settings invalid, unless `--no-permissions` or both `--dir-mode` and `--file-mode` are given)
 
 ### config-generate-examples
 
@@ -209,7 +212,7 @@ Send email using configured SMTP settings.
 | `--use-starttls / --no-use-starttls` | Override STARTTLS               |
 | `--timeout SECONDS`                  | Override timeout                |
 
-**Exit codes:** 0, 2 (file not found), 22, 69 (SMTP failure), 78 (no SMTP hosts)
+**Exit codes:** 0, 2 (file not found, or usage error), 22, 69 (SMTP failure), 78 (no SMTP hosts, or configuration not loadable)
 
 ### send-notification
 
@@ -227,7 +230,7 @@ Send simple plain-text notification email.
 | `--use-starttls / --no-use-starttls` | Override STARTTLS               |
 | `--timeout SECONDS`                  | Override timeout                |
 
-**Exit codes:** 0, 22, 69 (SMTP failure), 78 (no SMTP hosts)
+**Exit codes:** 0, 2 (usage error), 22, 69 (SMTP failure), 78 (no SMTP hosts, or configuration not loadable)
 
 ### logdemo
 
@@ -283,17 +286,17 @@ Raises `ValueError` with descriptive message on invalid input.
 
 The `EmailConfig` Pydantic model (`adapters/email/sender.py`) provides validated, immutable email configuration:
 
-| Field                          | Type          | Default | Description                          |
-|--------------------------------|---------------|---------|--------------------------------------|
-| `smtp_hosts`                   | `list[str]`   | `[]`    | SMTP servers in `host[:port]` format |
-| `from_address`                 | `str \| None` | `None`  | Default sender address               |
-| `recipients`                   | `list[str]`   | `[]`    | Default recipient addresses          |
-| `smtp_username`                | `str \| None` | `None`  | SMTP authentication username         |
-| `smtp_password`                | `str \| None` | `None`  | SMTP authentication password         |
-| `use_starttls`                 | `bool`        | `True`  | Enable STARTTLS negotiation          |
-| `timeout`                      | `float`       | `30.0`  | Socket timeout in seconds            |
-| `raise_on_missing_attachments` | `bool`        | `True`  | Raise on missing attachment files    |
-| `raise_on_invalid_recipient`   | `bool`        | `True`  | Raise on invalid recipient addresses |
+| Field                          | Type                | Default | Description                                                     |
+|--------------------------------|---------------------|---------|-----------------------------------------------------------------|
+| `smtp_hosts`                   | `list[str]`         | `[]`    | SMTP servers in `host[:port]` format                            |
+| `from_address`                 | `str \| None`       | `None`  | Default sender address                                          |
+| `recipients`                   | `list[str]`         | `[]`    | Default recipient addresses                                     |
+| `smtp_username`                | `str \| None`       | `None`  | SMTP authentication username                                    |
+| `smtp_password`                | `SecretStr \| None` | `None`  | SMTP authentication password; unwrap with `.get_secret_value()` |
+| `use_starttls`                 | `bool`              | `True`  | Enable STARTTLS negotiation                                     |
+| `timeout`                      | `float`             | `30.0`  | Socket timeout in seconds                                       |
+| `raise_on_missing_attachments` | `bool`              | `True`  | Raise on missing attachment files                               |
+| `raise_on_invalid_recipient`   | `bool`              | `True`  | Raise on invalid recipient addresses                            |
 
 ### Attachment Security Fields
 
@@ -346,15 +349,16 @@ Use `composition.build_testing()` to wire all in-memory adapters.
 
 ### Test Fixtures (conftest.py)
 
-| Fixture                   | Purpose                                        |
-|---------------------------|------------------------------------------------|
-| `config_factory`          | Creates real `Config` instances from test data |
-| `inject_config`           | Injects config into CLI path                   |
-| `cli_runner`              | Fresh `CliRunner` per test                     |
-| `strip_ansi`              | Strips ANSI escape codes from output           |
-| `clear_config_cache`      | Clears LRU cache before tests                  |
-| `managed_traceback_state` | Resets/restores traceback configuration        |
+| Fixture                   | Purpose                                                                                                               |
+|---------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `config_factory`          | Creates real `Config` instances from test data                                                                        |
+| `inject_config`           | Injects config into CLI path                                                                                          |
+| `cli_runner`              | Fresh `CliRunner` per test                                                                                            |
+| `strip_ansi`              | Strips ANSI escape codes from output                                                                                  |
+| `clear_config_cache`      | Clears LRU cache before tests                                                                                         |
+| `managed_traceback_state` | Resets/restores traceback configuration                                                                               |
+| `isolated_logging_state`  | Autouse: after every test, shuts the lib_log_rich runtime down and restores the root logger; yields that restore step |
 
 ---
 
-**Last Updated:** 2026-01-30 (attachment security)
+**Last Updated:** 2026-09-28 (exit codes, permission settings, SecretStr password)
