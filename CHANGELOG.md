@@ -46,7 +46,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `config-deploy` runs (with a warning) when its permission settings cannot matter, i.e. with
   `--no-permissions` or both `--dir-mode` and `--file-mode`, and otherwise exits 78 with a hint
   naming those options instead of deploying with library defaults that may be wider than the
-  configured modes. An unreadable file takes the same path, and `--traceback` prints the
+  configured modes. An unreadable file takes the same path, and so does an `--env-file` that is
+  not UTF-8 (lib_layered_config's `.env` parser lets that `UnicodeDecodeError` escape unwrapped;
+  the line names the file). `--traceback` prints the
   loader's chained traceback before the line. What the command line gets wrong is checked BEFORE
   loading, so a broken file cannot hide it: a malformed `--set` or an invalid `--profile` name is
   a usage error (exit 2) for every command, `info` and `hello` included. Any other exception from

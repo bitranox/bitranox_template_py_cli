@@ -220,6 +220,44 @@ def test_a_bug_in_the_loader_is_not_reported_as_a_configuration_error(cli_runner
     assert isinstance(result.exception, ValueError)
 
 
+#: What lib_layered_config's ``.env`` parser raises for a file that is not UTF-8. The same
+#: failure in a TOML file arrives wrapped in ConfigError; this one escapes unwrapped, and it
+#: is a subclass of ValueError, so "anything else is a bug" would crash every command on it.
+NOT_UTF8 = UnicodeDecodeError("utf-8", b"A=\xff\n", 2, 3, "invalid start byte")
+
+
+@pytest.fixture
+def non_utf8_env_file(tmp_path: Path) -> Path:
+    env_file = tmp_path / "latin1.env"
+    env_file.write_bytes(b"A=\xff\xfe\n")
+    return env_file
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("args", RUNS_WITHOUT_CONFIG.values(), ids=RUNS_WITHOUT_CONFIG.keys())
+def test_a_command_that_does_not_read_the_config_runs_past_a_non_utf8_env_file(
+    cli_runner: CliRunner, non_utf8_env_file: Path, args: list[str]
+) -> None:
+    argv = ["--env-file", str(non_utf8_env_file), *args]
+    result = cli_runner.invoke(cli_mod.cli, argv, obj=_failing_config(NOT_UTF8))
+
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("args", NEEDS_CONFIG.values(), ids=NEEDS_CONFIG.keys())
+def test_a_non_utf8_env_file_is_a_configuration_error_naming_the_file(
+    cli_runner: CliRunner, non_utf8_env_file: Path, args: list[str]
+) -> None:
+    argv = ["--env-file", str(non_utf8_env_file), *args]
+    result = cli_runner.invoke(cli_mod.cli, argv, obj=_failing_config(NOT_UTF8))
+
+    error_lines = [line for line in result.stderr.splitlines() if line.strip()]
+    assert result.exit_code == 78, result.output
+    assert len(error_lines) == 1, result.stderr
+    assert f"{non_utf8_env_file}: not valid UTF-8" in error_lines[0]
+
+
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize("args", [["config"], ["config-deploy", "--target", "user"]], ids=["config", "config-deploy"])
 def test_traceback_shows_why_the_config_did_not_load(
@@ -284,6 +322,66 @@ def broken_user_config_env(tmp_path: Path) -> dict[str, str]:
 _LINUX_ONLY = pytest.mark.skipif(
     not sys.platform.startswith("linux"), reason="XDG_CONFIG_HOME locates the user layer on Linux"
 )
+
+
+def _stderr_of(completed: subprocess.CompletedProcess[bytes]) -> str:
+    stderr = completed.stderr.decode("utf-8", "replace")
+    assert "UnicodeDecodeError" not in stderr
+    return stderr
+
+
+@_LINUX_ONLY
+def test_a_real_non_utf8_env_file_does_not_stop_info(tmp_path: Path, non_utf8_env_file: Path) -> None:
+    """End to end through the real loader, whose ``.env`` parser raises an unwrapped UnicodeDecodeError."""
+    completed = subprocess.run(
+        [sys.executable, "-m", "bitranox_template_py_cli", "--env-file", "latin1.env", "info"],
+        capture_output=True,
+        check=False,
+        cwd=non_utf8_env_file.parent,
+        env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path / "xdg")},
+    )
+
+    assert completed.returncode == 0, _stderr_of(completed)
+
+
+@_LINUX_ONLY
+def test_a_real_non_utf8_env_file_refuses_config_with_78(tmp_path: Path, non_utf8_env_file: Path) -> None:
+    completed = subprocess.run(
+        [sys.executable, "-m", "bitranox_template_py_cli", "--env-file", "latin1.env", "config"],
+        capture_output=True,
+        check=False,
+        cwd=non_utf8_env_file.parent,
+        env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path / "xdg")},
+    )
+
+    stderr = _stderr_of(completed)
+    assert completed.returncode == 78, stderr
+    assert "latin1.env: not valid UTF-8" in stderr
+
+
+@_LINUX_ONLY
+def test_a_real_non_utf8_env_file_does_not_stop_config_deploy(tmp_path: Path, non_utf8_env_file: Path) -> None:
+    """The command that replaces a broken configuration must not be blocked by it."""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "bitranox_template_py_cli",
+            "--env-file",
+            "latin1.env",
+            "config-deploy",
+            "--target",
+            "user",
+            "--no-permissions",
+        ],
+        capture_output=True,
+        check=False,
+        cwd=non_utf8_env_file.parent,
+        env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path / "xdg")},
+    )
+
+    assert completed.returncode == 0, _stderr_of(completed)
+    assert (tmp_path / "xdg" / __init__conf__.LAYEREDCONF_SLUG / "config.toml").is_file()
 
 
 @_LINUX_ONLY
