@@ -52,6 +52,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   command with exit 78 and one line naming the key, where it used to fall back to the default,
   crash with `AttributeError`, or print pydantic's multi-line error.
 
+### Changed
+- **`click` is a declared dependency.** The package imports it directly (`adapters/cli/main.py`,
+  `commands/config.py`) but only had it through rich-click. `permissions.py` no longer imports
+  `pydantic_core`, which was never declared either; its validators raise `ValueError`. A new test
+  fails when a runtime import is missing from `[project].dependencies`.
+
 ### Removed
 - `adapters.config.permissions.parse_mode`, whose silent fall-back to the default is what the
   model validation above replaces.

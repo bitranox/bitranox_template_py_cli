@@ -19,7 +19,6 @@ from lib_layered_config import (
     DEFAULT_USER_FILE_MODE,
 )
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
-from pydantic_core import PydanticCustomError
 
 from bitranox_template_py_cli.domain.errors import ConfigurationError
 
@@ -111,42 +110,27 @@ def _to_mode(value: object) -> int:
 
     A malformed or out-of-range string is refused like an out-of-range integer; a silent
     fallback to the layer default would hide a typo in a setting that guards credentials.
+    Every refusal is a ``ValueError``, which pydantic reports as a ``value_error`` carrying
+    it; :func:`_describe` prints its message.
     """
     if isinstance(value, bool) or not isinstance(value, (int, str)):
-        raise PydanticCustomError(
-            "permission_mode_type",
-            "expected an octal string or an integer, got {type_name}",
-            {"type_name": type(value).__name__},
-        )
+        raise ValueError(f"expected an octal string or an integer, got {type(value).__name__}")
     if isinstance(value, str):
-        try:
-            return parse_octal_mode_string(value)
-        except ValueError as exc:
-            raise PydanticCustomError("permission_mode", "{reason}", {"reason": str(exc)}) from exc
+        return parse_octal_mode_string(value)
     if not 0 <= value <= MAX_PERMISSION_MODE:
-        raise PydanticCustomError(
-            "permission_mode_range",
-            "Invalid mode {value}: must be between 0 and {maximum}",
-            {"value": value, "maximum": oct(MAX_PERMISSION_MODE)},
-        )
+        raise ValueError(f"Invalid mode {value}: must be between 0 and {oct(MAX_PERMISSION_MODE)}")
     return value
 
 
 def _safe_directory_mode(mode: int) -> int:
     """Pydantic after-validator: refuse a directory mode :func:`check_deploy_mode` rejects."""
-    return _checked(mode, is_directory=True)
+    check_deploy_mode(mode, is_directory=True)
+    return mode
 
 
 def _safe_file_mode(mode: int) -> int:
     """Pydantic after-validator: refuse a file mode :func:`check_deploy_mode` rejects."""
-    return _checked(mode, is_directory=False)
-
-
-def _checked(mode: int, *, is_directory: bool) -> int:
-    try:
-        check_deploy_mode(mode, is_directory=is_directory)
-    except ValueError as exc:
-        raise PydanticCustomError("unsafe_permission_mode", "{reason}", {"reason": str(exc)}) from exc
+    check_deploy_mode(mode, is_directory=False)
     return mode
 
 
@@ -202,9 +186,13 @@ _SECTION: Final[str] = "lib_layered_config"
 
 def _describe(error: ValidationError) -> str:
     """Render a validation error as one line: ``<dotted key>: <reason>`` per problem."""
-    problems = [
-        f"{'.'.join((_SECTION, *(str(part) for part in item['loc'])))}: {item['msg']}" for item in error.errors()
-    ]
+    problems: list[str] = []
+    for item in error.errors():
+        key = ".".join((_SECTION, *(str(part) for part in item["loc"])))
+        # pydantic prefixes the message of a ValueError raised by our validators with
+        # "Value error, "; the exception it carries holds the message as written.
+        raised = item.get("ctx", {}).get("error")
+        problems.append(f"{key}: {raised if isinstance(raised, ValueError) else item['msg']}")
     return "; ".join(problems).replace("\n", " ")
 
 
