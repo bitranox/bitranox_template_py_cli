@@ -15,6 +15,35 @@ from btx_lib_mail.lib_mail import ConfMail
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 
+def _credential_text(value: object) -> str | None:
+    """Return a user name or password as text, refusing a type that cannot be one.
+
+    The environment layer of lib_layered_config reads an all-digit value as an integer, so
+    an all-digit password arrives as an ``int``: it is read back as its digits (a leading
+    zero is already gone by then). Any other type is refused, and the message names only the
+    type: this runs for the password, whose value must never reach an error message.
+
+    Examples:
+        >>> _credential_text(98979695)
+        '98979695'
+        >>> _credential_text(SecretStr("abc"))
+        'abc'
+        >>> _credential_text(True)
+        Traceback (most recent call last):
+        ...
+        ValueError: expected a string, got bool
+    """
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, SecretStr):
+        return value.get_secret_value()
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    # A float is refused rather than printed: str(1.50) is "1.5" and str(1e3) is "1000.0",
+    # so the text would silently differ from what was written.
+    raise ValueError(f"expected a string, got {type(value).__name__}")
+
+
 class EmailConfig(BaseModel):
     """Validated, immutable email configuration.
 
@@ -27,7 +56,10 @@ class EmailConfig(BaseModel):
         ['smtp.example.com:587']
     """
 
-    model_config = ConfigDict(frozen=True)
+    # hide_input_in_errors: pydantic otherwise prints the input it refused, the offending
+    # value for a field error and the whole input mapping for a model-level one, and that
+    # input holds the SMTP password.
+    model_config = ConfigDict(frozen=True, hide_input_in_errors=True)
 
     smtp_hosts: list[str] = Field(default_factory=list)
     from_address: str | None = None
@@ -72,21 +104,38 @@ class EmailConfig(BaseModel):
             return cast("list[str]", v)
         return []
 
-    @field_validator("from_address", "smtp_username", "smtp_password", mode="before")
+    @field_validator("from_address", mode="before")
     @classmethod
     def _coerce_empty_string_to_none(cls, v: object) -> object:
-        """Coerce empty or whitespace-only strings to None.
-
-        Treats empty strings from config files as "not configured" rather than
-        explicit empty values. This prevents accidental auth attempts with
-        empty credentials and ensures consistent "not set" semantics.
-
-        Applies to: from_address, smtp_username, smtp_password.
-        """
-        text = v.get_secret_value() if isinstance(v, SecretStr) else v
-        if isinstance(text, str) and not text.strip():
+        """Coerce an empty or whitespace-only string to None ("not configured")."""
+        if isinstance(v, str) and not v.strip():
             return None
         return v
+
+    @field_validator("smtp_username", "smtp_password", mode="before")
+    @classmethod
+    def _read_credential(cls, v: object) -> object:
+        """Read the SMTP login's user name or password, or None when it is not configured.
+
+        An empty or whitespace-only value means "not configured", so no login is attempted
+        with empty credentials. An all-digit value from the environment arrives as an
+        integer and is read as its digits (see :func:`_credential_text`). A non-ASCII value
+        is refused: smtplib encodes the AUTH exchange as ASCII, so the login could never
+        succeed, and its UnicodeEncodeError would carry the attempt into the delivery log.
+        No message names the value.
+
+        Examples:
+            >>> EmailConfig._read_credential("   ") is None
+            True
+            >>> EmailConfig._read_credential(1234)
+            '1234'
+        """
+        text = _credential_text(v)
+        if text is None or not text.strip():
+            return None
+        if not text.isascii():
+            raise ValueError("must be ASCII: smtplib sends the SMTP login as ASCII, so it could never log in")
+        return v if isinstance(v, SecretStr) else text
 
     @field_validator(
         "attachment_allowed_extensions",

@@ -101,6 +101,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **The SMTP password no longer prints.** `EmailConfig.smtp_password` was a plain `str`: the
   custom `__repr__` hid it, but `str()`, `format()` and `model_dump()`/`model_dump_json()` printed it.
   It is now a pydantic `SecretStr`, unwrapped only where the SMTP login receives it.
+- **The SMTP password no longer appears in validation errors.** pydantic prints the input it
+  refuses: the offending value for a field error (an integer or list password was shown in full,
+  on stderr through `main()` with and without `--traceback`) and the whole input mapping for a
+  model-level error such as a negative `timeout` or an invalid host next to the password (shown
+  or elided depending on key order). `EmailConfig` now sets `hide_input_in_errors=True`, and the
+  credential validator names only the type it refuses. An all-digit password, which the
+  environment layer reads as an integer and which was therefore refused and could never be used,
+  is now read as its digits (a leading zero is lost in the environment; quote such a password
+  in a TOML file). A float, boolean, list or table is refused. A non-ASCII password or user name
+  is refused at validation: smtplib sends the SMTP login as ASCII, so it could never log in,
+  and its `UnicodeEncodeError` carried the attempt into btx_lib_mail's delivery log.
 - **No group-writable or executable configuration, and no decimal integer read as a mode.** A
   configured mode given as a bare integer was read as DECIMAL (TOML `user_file = 444`, `--set`, or
   the environment value `444`), and several such values passed the safety rule: `444` deployed

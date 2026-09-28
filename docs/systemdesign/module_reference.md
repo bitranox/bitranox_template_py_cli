@@ -286,17 +286,17 @@ Raises `ValueError` with descriptive message on invalid input.
 
 The `EmailConfig` Pydantic model (`adapters/email/sender.py`) provides validated, immutable email configuration:
 
-| Field                          | Type                | Default | Description                                                     |
-|--------------------------------|---------------------|---------|-----------------------------------------------------------------|
-| `smtp_hosts`                   | `list[str]`         | `[]`    | SMTP servers in `host[:port]` format                            |
-| `from_address`                 | `str \| None`       | `None`  | Default sender address                                          |
-| `recipients`                   | `list[str]`         | `[]`    | Default recipient addresses                                     |
-| `smtp_username`                | `str \| None`       | `None`  | SMTP authentication username                                    |
-| `smtp_password`                | `SecretStr \| None` | `None`  | SMTP authentication password; unwrap with `.get_secret_value()` |
-| `use_starttls`                 | `bool`              | `True`  | Enable STARTTLS negotiation                                     |
-| `timeout`                      | `float`             | `30.0`  | Socket timeout in seconds                                       |
-| `raise_on_missing_attachments` | `bool`              | `True`  | Raise on missing attachment files                               |
-| `raise_on_invalid_recipient`   | `bool`              | `True`  | Raise on invalid recipient addresses                            |
+| Field                          | Type                | Default | Description                                                                                                   |
+|--------------------------------|---------------------|---------|---------------------------------------------------------------------------------------------------------------|
+| `smtp_hosts`                   | `list[str]`         | `[]`    | SMTP servers in `host[:port]` format                                                                          |
+| `from_address`                 | `str \| None`       | `None`  | Default sender address                                                                                        |
+| `recipients`                   | `list[str]`         | `[]`    | Default recipient addresses                                                                                   |
+| `smtp_username`                | `str \| None`       | `None`  | SMTP authentication username; ASCII only                                                                      |
+| `smtp_password`                | `SecretStr \| None` | `None`  | SMTP authentication password; unwrap with `.get_secret_value()`; ASCII only, an integer is read as its digits |
+| `use_starttls`                 | `bool`              | `True`  | Enable STARTTLS negotiation                                                                                   |
+| `timeout`                      | `float`             | `30.0`  | Socket timeout in seconds                                                                                     |
+| `raise_on_missing_attachments` | `bool`              | `True`  | Raise on missing attachment files                                                                             |
+| `raise_on_invalid_recipient`   | `bool`              | `True`  | Raise on invalid recipient addresses                                                                          |
 
 ### Attachment Security Fields
 
