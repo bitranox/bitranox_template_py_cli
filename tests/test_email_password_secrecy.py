@@ -238,7 +238,7 @@ def recorded_log() -> Iterator[Callable[[], str]]:
 
 
 @pytest.mark.os_agnostic
-@pytest.mark.parametrize("case", REFUSED_BY_OPTION.values(), ids=REFUSED_BY_OPTION.keys())
+@pytest.mark.parametrize("case", REFUSED.values(), ids=REFUSED.keys())
 def test_a_refused_email_configuration_does_not_log_the_password(
     cli_runner: CliRunner, recorded_log: Callable[[], str], case: Refusal
 ) -> None:

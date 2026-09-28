@@ -65,6 +65,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   command with exit 78 and one line naming the key and the options that deploy anyway
   (`--no-permissions`, or both `--dir-mode` and `--file-mode`, with which it only warns), where it used to fall back to the default,
   crash with `AttributeError`, or print pydantic's multi-line error.
+- **An invalid `[email]` section is a configuration error.** `send-email` and `send-notification`
+  let the `ValidationError` escape to `main()`'s catch-all, which exited 22 with pydantic's
+  multi-line report and documentation URL. They now exit 78 with one line per problem,
+  `Error: Invalid configuration: email.<key>: <reason>` (an `[email.attachments]` setting is
+  named by its nested key). An invalid option value (`--timeout -5`) still exits 22, now in the
+  same one-line form (`Error: Invalid option value: ...`).
 
 ### Changed
 - **Breaking: `EmailConfig.smtp_password` is a pydantic `SecretStr`, no longer a `str`** (see
