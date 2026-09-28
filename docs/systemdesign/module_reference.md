@@ -20,6 +20,7 @@ Complete (v1.1.2+)
 - `src/bitranox_template_py_cli/adapters/config/deploy.py`  -  Configuration deployment
 - `src/bitranox_template_py_cli/adapters/config/display.py`  -  Configuration display (TOML/JSON output, redaction)
 - `src/bitranox_template_py_cli/adapters/config/overrides.py`  -  CLI `--set` override parsing and deep-merge
+- `src/bitranox_template_py_cli/adapters/config/permissions.py`  -  Deploy mode rules and the `PermissionDefaults` model for `[lib_layered_config.default_permissions]`
 - `src/bitranox_template_py_cli/adapters/email/sender.py`  -  SMTP email with EmailConfig (Pydantic)
 - `src/bitranox_template_py_cli/adapters/email/validation.py`  -  Email recipient validation
 - `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization
@@ -70,6 +71,7 @@ Complete (v1.1.2+)
 - `tests/test_deploy_mode_safety.py`  -  `--dir-mode`/`--file-mode` literal, range and safety checks
 - `tests/test_exit_codes.py`  -  ExitCode enum tests
 - `tests/test_mail.py`  -  Email configuration and sending tests
+- `tests/test_permission_defaults.py`  -  Configured per-layer permission defaults reach `config-deploy`; invalid ones exit 78
 - `tests/test_memory_logging.py`  -  Testing-composition logging runtime and the per-test logging reset
 - `tests/test_metadata.py`  -  Package metadata tests
 - `tests/test_module_entry.py`  -  `python -m` entry tests

@@ -1,13 +1,16 @@
-"""Permission settings loader for config deployment.
+"""Permission settings for config deployment.
 
-Provides functions to load permission defaults from configuration and
-compute effective permission modes for deployment targets.
+Reads ``[lib_layered_config.default_permissions]`` into a validated model and computes the
+directory and file mode ``config-deploy`` applies to each target layer. The section is part
+of this application's configuration (lib_layered_config's own ``deploy_config`` only knows
+its built-in layer defaults), so these settings take effect only because ``config-deploy``
+passes each target's modes explicitly.
 """
 
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Annotated, Final
 
 from lib_layered_config import (
     DEFAULT_APP_DIR_MODE,
@@ -15,44 +18,15 @@ from lib_layered_config import (
     DEFAULT_USER_DIR_MODE,
     DEFAULT_USER_FILE_MODE,
 )
-from pydantic import BaseModel, ConfigDict
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, ValidationError
+from pydantic_core import PydanticCustomError
+
+from bitranox_template_py_cli.domain.errors import ConfigurationError
 
 if TYPE_CHECKING:
     from lib_layered_config import Config
 
     from bitranox_template_py_cli.domain.enums import DeployTarget
-
-
-class PermissionDefaults(BaseModel):
-    """Validated, immutable permission defaults for deployment layers.
-
-    Parsed at the boundary from ``[lib_layered_config.default_permissions]``
-    config section. All fields have library-level fallback defaults.
-
-    Example:
-        >>> defaults = PermissionDefaults()
-        >>> defaults.user_directory == 0o700
-        True
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    app_directory: int = DEFAULT_APP_DIR_MODE
-    app_file: int = DEFAULT_APP_FILE_MODE
-    host_directory: int = DEFAULT_APP_DIR_MODE
-    host_file: int = DEFAULT_APP_FILE_MODE
-    user_directory: int = DEFAULT_USER_DIR_MODE
-    user_file: int = DEFAULT_USER_FILE_MODE
-    enabled: bool = True
-
-    def dir_mode_for(self, layer: str) -> int:
-        """Return directory mode for the given layer name."""
-        return getattr(self, f"{layer}_directory")
-
-    def file_mode_for(self, layer: str) -> int:
-        """Return file mode for the given layer name."""
-        return getattr(self, f"{layer}_file")
-
 
 #: chmod(2) defines only the low 12 bits (setuid, setgid, sticky and rwxrwxrwx).
 MAX_PERMISSION_MODE: Final[int] = 0o7777
@@ -132,84 +106,137 @@ def check_deploy_mode(mode: int, *, is_directory: bool) -> None:
         raise ValueError(f"unsafe mode {oct(mode)}: {'; '.join(problems)}")
 
 
-def parse_mode(value: int | str, default: int) -> int:
-    """Parse a permission mode value from config.
+def _to_mode(value: object) -> int:
+    """Pydantic before-validator: an integer or a plain octal string, as a mode in 0..0o7777.
 
-    Accepts either an integer or an octal string (e.g., "0o755" or "755").
+    A malformed or out-of-range string is refused like an out-of-range integer; a silent
+    fallback to the layer default would hide a typo in a setting that guards credentials.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise PydanticCustomError(
+            "permission_mode_type",
+            "expected an octal string or an integer, got {type_name}",
+            {"type_name": type(value).__name__},
+        )
+    if isinstance(value, str):
+        try:
+            return parse_octal_mode_string(value)
+        except ValueError as exc:
+            raise PydanticCustomError("permission_mode", "{reason}", {"reason": str(exc)}) from exc
+    if not 0 <= value <= MAX_PERMISSION_MODE:
+        raise PydanticCustomError(
+            "permission_mode_range",
+            "Invalid mode {value}: must be between 0 and {maximum}",
+            {"value": value, "maximum": oct(MAX_PERMISSION_MODE)},
+        )
+    return value
 
-    Args:
-        value: Integer mode or octal string.
-        default: Fallback value if parsing fails.
 
-    Returns:
-        Integer permission mode.
+def _safe_directory_mode(mode: int) -> int:
+    """Pydantic after-validator: refuse a directory mode :func:`check_deploy_mode` rejects."""
+    return _checked(mode, is_directory=True)
+
+
+def _safe_file_mode(mode: int) -> int:
+    """Pydantic after-validator: refuse a file mode :func:`check_deploy_mode` rejects."""
+    return _checked(mode, is_directory=False)
+
+
+def _checked(mode: int, *, is_directory: bool) -> int:
+    try:
+        check_deploy_mode(mode, is_directory=is_directory)
+    except ValueError as exc:
+        raise PydanticCustomError("unsafe_permission_mode", "{reason}", {"reason": str(exc)}) from exc
+    return mode
+
+
+DirectoryMode = Annotated[int, BeforeValidator(_to_mode), AfterValidator(_safe_directory_mode)]
+FileMode = Annotated[int, BeforeValidator(_to_mode), AfterValidator(_safe_file_mode)]
+
+
+class PermissionDefaults(BaseModel):
+    """Validated, immutable permission defaults for deployment layers.
+
+    Parsed at the boundary from the ``[lib_layered_config.default_permissions]`` section.
+    Every field falls back to lib_layered_config's layer default; the host layer shares the
+    app layer's (lib_layered_config defines no separate host constants). An unknown key is
+    refused rather than ignored, so a misspelt setting cannot silently not apply.
 
     Example:
-        >>> parse_mode(493, 0o755)
-        493
-        >>> parse_mode("0o755", 0o644)
-        493
-        >>> parse_mode("755", 0o644)
-        493
+        >>> defaults = PermissionDefaults()
+        >>> defaults.user_directory == 0o700
+        True
+        >>> oct(PermissionDefaults.model_validate({"user_directory": "750"}).user_directory)
+        '0o750'
     """
-    if isinstance(value, int):
-        return value
-    # value is str at this point
-    try:
-        # Handle both "755" and "0o755" formats
-        if value.startswith("0o"):
-            return int(value, 0)  # int() auto-detects 0o prefix
-        return int(value, 8)  # Plain "755" needs explicit base 8
-    except ValueError:
-        return default
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    app_directory: DirectoryMode = DEFAULT_APP_DIR_MODE
+    app_file: FileMode = DEFAULT_APP_FILE_MODE
+    host_directory: DirectoryMode = DEFAULT_APP_DIR_MODE
+    host_file: FileMode = DEFAULT_APP_FILE_MODE
+    user_directory: DirectoryMode = DEFAULT_USER_DIR_MODE
+    user_file: FileMode = DEFAULT_USER_FILE_MODE
+    enabled: bool = True
+
+    def dir_mode_for(self, layer: str) -> int:
+        """Return directory mode for the given layer name."""
+        return getattr(self, f"{layer}_directory")
+
+    def file_mode_for(self, layer: str) -> int:
+        """Return file mode for the given layer name."""
+        return getattr(self, f"{layer}_file")
 
 
-def _parse_mode_from_section(section: dict[str, int | str | bool], key: str, default: int) -> int:
-    """Extract and parse a mode value from a raw config section dict.
+class _LayeredConfigSection(BaseModel):
+    """The ``[lib_layered_config]`` section, as far as this module reads it."""
 
-    Used only at the boundary when parsing the raw config dict into
-    PermissionDefaults. The raw section comes from lib_layered_config's
-    Config.get() which returns untyped dicts.
-    """
-    raw = section.get(key, default)
-    if isinstance(raw, bool):
-        return default
-    return parse_mode(raw, default)
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    default_permissions: PermissionDefaults = Field(default_factory=PermissionDefaults)
+
+
+_SECTION: Final[str] = "lib_layered_config"
+
+
+def _describe(error: ValidationError) -> str:
+    """Render a validation error as one line: ``<dotted key>: <reason>`` per problem."""
+    problems = [
+        f"{'.'.join((_SECTION, *(str(part) for part in item['loc'])))}: {item['msg']}" for item in error.errors()
+    ]
+    return "; ".join(problems).replace("\n", " ")
 
 
 def get_permission_defaults(config: Config) -> PermissionDefaults:
-    """Load permission defaults from [lib_layered_config.default_permissions].
-
-    Reads configurable permission defaults for each deployment layer.
-    Falls back to lib_layered_config library defaults if not configured.
+    """Load permission defaults from ``[lib_layered_config.default_permissions]``.
 
     Args:
         config: Configuration object with merged settings.
 
     Returns:
-        PermissionDefaults model with typed fields for each layer's
-        directory and file modes, plus an enabled flag.
+        PermissionDefaults with each layer's directory and file mode and the enabled flag;
+        lib_layered_config's layer defaults where nothing is configured.
+
+    Raises:
+        ConfigurationError: A value is malformed, out of range, unsafe or of the wrong type,
+            the section is not a table, or it holds an unknown key. The message is one line
+            naming each offending key.
 
     Example:
         >>> from lib_layered_config import Config
-        >>> config = Config({}, {})  # Empty config
-        >>> defaults = get_permission_defaults(config)
-        >>> defaults.user_directory == 0o700
+        >>> get_permission_defaults(Config({}, {})).user_directory == 0o700
         True
+        >>> get_permission_defaults(Config({"lib_layered_config": {"default_permissions": {"enabled": "maybe"}}}, {}))
+        Traceback (most recent call last):
+        ...
+        bitranox_template_py_cli.domain.errors.ConfigurationError: lib_layered_config.default_permissions.enabled: ...
     """
-    section = config.get("lib_layered_config", {}).get("default_permissions", {})
-    # NOTE: lib_layered_config does not define separate HOST_* constants.
-    # Host layer shares defaults with app layer (both world-readable: 755/644).
-    # This is intentional per CLAUDE.md "Deployment Permissions" documentation.
-    return PermissionDefaults(
-        app_directory=_parse_mode_from_section(section, "app_directory", DEFAULT_APP_DIR_MODE),
-        app_file=_parse_mode_from_section(section, "app_file", DEFAULT_APP_FILE_MODE),
-        host_directory=_parse_mode_from_section(section, "host_directory", DEFAULT_APP_DIR_MODE),
-        host_file=_parse_mode_from_section(section, "host_file", DEFAULT_APP_FILE_MODE),
-        user_directory=_parse_mode_from_section(section, "user_directory", DEFAULT_USER_DIR_MODE),
-        user_file=_parse_mode_from_section(section, "user_file", DEFAULT_USER_FILE_MODE),
-        enabled=section.get("enabled", True),
-    )
+    raw: object = config.get(_SECTION, default={})
+    try:
+        return _LayeredConfigSection.model_validate(raw).default_permissions
+    except ValidationError as exc:
+        raise ConfigurationError(_describe(exc)) from exc
 
 
 def get_modes_for_target(
@@ -235,8 +262,10 @@ def get_modes_for_target(
 
     Returns:
         Tuple of (dir_mode, file_mode) to pass to deploy_config.
-        Values are integers (octal mode values). Always returns valid modes
-        since get_permission_defaults provides fallbacks for all targets.
+
+    Raises:
+        ConfigurationError: The configured permission defaults are invalid; see
+            :func:`get_permission_defaults`.
 
     Example:
         >>> from lib_layered_config import Config
@@ -259,10 +288,11 @@ def get_modes_for_target(
 
 __all__ = [
     "MAX_PERMISSION_MODE",
+    "DirectoryMode",
+    "FileMode",
     "PermissionDefaults",
     "check_deploy_mode",
     "get_modes_for_target",
     "get_permission_defaults",
-    "parse_mode",
     "parse_octal_mode_string",
 ]

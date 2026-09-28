@@ -13,12 +13,13 @@ import pytest
 
 from bitranox_template_py_cli.adapters import cli as cli_mod
 from bitranox_template_py_cli.adapters.config.permissions import (
+    PermissionDefaults,
     get_modes_for_target,
     get_permission_defaults,
-    parse_mode,
 )
 from bitranox_template_py_cli.composition import AppServices, build_production
 from bitranox_template_py_cli.domain.enums import DeployTarget
+from bitranox_template_py_cli.domain.errors import ConfigurationError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -136,38 +137,27 @@ def test_get_modes_for_target_returns_library_defaults_for_app_layer(
     assert file_mode == 0o644
 
 
-# ======================== parse_mode Tests ========================
+# ======================== PermissionDefaults mode parsing ========================
 
 
 @pytest.mark.os_agnostic
-def test_parse_mode_accepts_integer() -> None:
-    """parse_mode returns integer values unchanged."""
-    assert parse_mode(493, 0o644) == 493
-    assert parse_mode(0o755, 0o644) == 0o755
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [(493, 0o755), (0o750, 0o750), ("0o755", 0o755), ("0o700", 0o700), ("755", 0o755), ("700", 0o700)],
+)
+def test_a_mode_is_an_integer_or_a_plain_octal_string(raw: object, expected: int) -> None:
+    assert PermissionDefaults.model_validate({"user_directory": raw}).user_directory == expected
 
 
 @pytest.mark.os_agnostic
-def test_parse_mode_accepts_octal_string_with_prefix() -> None:
-    """parse_mode parses '0o755' format."""
-    assert parse_mode("0o755", 0o644) == 0o755
-    assert parse_mode("0o644", 0o755) == 0o644
-    assert parse_mode("0o700", 0o755) == 0o700
+@pytest.mark.parametrize("raw", ["abc", "999", "", "10000", "-1", "7_5_0"])
+def test_a_malformed_mode_string_is_refused_not_replaced_by_the_default(
+    config_factory: Callable[[dict[str, Any]], Config], raw: str
+) -> None:
+    config = config_factory({"lib_layered_config": {"default_permissions": {"user_directory": raw}}})
 
-
-@pytest.mark.os_agnostic
-def test_parse_mode_accepts_octal_string_without_prefix() -> None:
-    """parse_mode parses '755' format (no 0o prefix)."""
-    assert parse_mode("755", 0o644) == 0o755
-    assert parse_mode("644", 0o755) == 0o644
-    assert parse_mode("600", 0o755) == 0o600
-
-
-@pytest.mark.os_agnostic
-def test_parse_mode_returns_default_on_invalid_string() -> None:
-    """parse_mode returns default for invalid octal strings."""
-    assert parse_mode("abc", 0o644) == 0o644
-    assert parse_mode("999", 0o755) == 0o755  # 9 is not a valid octal digit
-    assert parse_mode("", 0o700) == 0o700
+    with pytest.raises(ConfigurationError, match="user_directory"):
+        get_permission_defaults(config)
 
 
 @pytest.mark.os_agnostic

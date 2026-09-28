@@ -40,6 +40,11 @@
 #   - Octal string: "0o755", "0o644", "755", "640" (quoted)
 #   - Decimal integer: 493 (= 0o755), 420 (= 0o644)
 #
+# Each value must lie in 0..0o7777 and must not set setuid/setgid/sticky, grant
+# world write, or take away the owner's rwx (directory) / rw (file). A malformed,
+# unsafe or unknown setting stops config-deploy with exit 78 before anything is
+# written; it never falls back to the default silently.
+#
 # CLI overrides:
 #   --permissions / --no-permissions  Enable/disable permission setting
 #   --dir-mode MODE                   Override directory mode (octal, e.g., 750)

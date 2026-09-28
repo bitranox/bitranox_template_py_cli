@@ -296,6 +296,9 @@ def test_when_config_deploy_supports_multiple_targets(
     path1.touch()
     path2.touch()
 
+    deployed = {"user": path1, "host": path2}
+    seen: list[str] = []
+
     def mock_deploy(
         *,
         targets: Any,
@@ -306,10 +309,8 @@ def test_when_config_deploy_supports_multiple_targets(
         file_mode: int | None = None,
     ) -> list[Path]:
         target_values = [t.value if isinstance(t, DeployTarget) else t for t in targets]
-        assert len(target_values) == 2
-        assert "user" in target_values
-        assert "host" in target_values
-        return [path1, path2]
+        seen.extend(target_values)
+        return [deployed[value] for value in target_values]
 
     factory = inject_deploy_configuration(mock_deploy)
 
@@ -318,6 +319,7 @@ def test_when_config_deploy_supports_multiple_targets(
     )
 
     assert result.exit_code == 0
+    assert seen == ["user", "host"]
     assert str(path1) in result.output
     assert str(path2) in result.output
 

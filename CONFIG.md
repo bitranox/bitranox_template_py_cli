@@ -263,6 +263,21 @@ user_file = "0o600"
 enabled = true
 ```
 
+`config-deploy` applies these per target: each `--target` gets its own layer's directory and file
+mode. `--dir-mode`/`--file-mode` override them for every target, and a key left out falls back to
+the layer default in the table above. `enabled = false` behaves like `--no-permissions` unless
+`--permissions` is given.
+
+A configured mode follows the same rules as `--dir-mode`/`--file-mode`: a plain octal string
+(`"0o750"`, `"750"`) or an integer in `0`..`0o7777`, and never setuid/setgid/sticky, world write, or
+a directory without owner `rwx` / a file without owner `rw`. `enabled` must be a boolean, and an
+unknown key in the section is refused rather than ignored. Any violation stops `config-deploy`
+before it writes anything, with exit 78 and one line naming the key, for example:
+
+```text
+Error: Invalid configuration: lib_layered_config.default_permissions.user_directory: unsafe mode 0o777: world-write (0o2)
+```
+
 ### Generate Example Configuration Files
 
 Create example TOML files showing all available options with default values and documentation comments. Useful for learning the configuration structure or creating initial configuration files.

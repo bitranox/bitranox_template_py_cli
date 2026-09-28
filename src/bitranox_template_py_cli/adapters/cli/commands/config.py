@@ -21,10 +21,12 @@ from lib_layered_config import Config, generate_examples
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.config.permissions import (
     check_deploy_mode,
+    get_modes_for_target,
     get_permission_defaults,
     parse_octal_mode_string,
 )
 from bitranox_template_py_cli.domain.enums import DeployTarget, OutputFormat
+from bitranox_template_py_cli.domain.errors import ConfigurationError
 
 from .. import safe_console
 from ..config_load import load_config, require_config
@@ -281,28 +283,41 @@ def _execute_deploy(
         force: Whether to overwrite existing files.
         profile: Optional profile name.
         set_permissions: Whether to set Unix permissions. None uses config default.
-        dir_mode: Override directory permission mode.
-        file_mode: Override file permission mode.
+        dir_mode: Directory mode for every target; None uses each target's configured mode.
+        file_mode: File mode for every target; None uses each target's configured mode.
 
     Raises:
-        click.exceptions.Exit: On permission or other errors, raised through ``ctx.exit`` so
-            ``main()`` returns the code instead of printing a bare ``SystemExit``.
+        click.exceptions.Exit: On invalid permission settings (78), a permission error or any
+            other failure, raised through ``ctx.exit`` so ``main()`` returns the code instead of
+            printing a bare ``SystemExit``.
     """
-    # Get permission defaults from config
-    perm_defaults = get_permission_defaults(cli_ctx.config)
+    try:
+        perm_defaults = get_permission_defaults(cli_ctx.config)
+    except ConfigurationError as exc:
+        # A bad permission setting is a configuration error, not a deploy failure: it gets its
+        # own exit code and one line naming the key, and nothing is deployed.
+        safe_console.echo(f"Error: Invalid configuration: {exc}", err=True)
+        get_current_context().exit(ExitCode.CONFIG_ERROR)
 
     # CLI --permissions/--no-permissions overrides config enabled setting
     effective_set_permissions = set_permissions if set_permissions is not None else perm_defaults.enabled
 
     try:
-        deployed_paths = cli_ctx.services.deploy_configuration(
-            targets=targets,
-            force=force,
-            profile=profile,
-            set_permissions=effective_set_permissions,
-            dir_mode=dir_mode,
-            file_mode=file_mode,
-        )
+        deployed_paths: list[Path] = []
+        for target in targets:
+            # One call per target: the configured modes differ per layer, while the deploy
+            # port takes one directory and one file mode for all the targets it is given.
+            target_dir_mode, target_file_mode = get_modes_for_target(
+                target, cli_ctx.config, dir_mode_override=dir_mode, file_mode_override=file_mode
+            )
+            deployed_paths += cli_ctx.services.deploy_configuration(
+                targets=(target,),
+                force=force,
+                profile=profile,
+                set_permissions=effective_set_permissions,
+                dir_mode=target_dir_mode,
+                file_mode=target_file_mode,
+            )
         _report_deployment_result(deployed_paths, profile, effective_set_permissions)
     except PermissionError as exc:
         logger.error("Permission denied when deploying configuration", extra={"error": str(exc)})

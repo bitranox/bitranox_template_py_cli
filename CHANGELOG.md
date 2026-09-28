@@ -42,6 +42,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   78 and one line naming it, while `config-deploy` (with a warning), `config-generate-examples`,
   `info`, `hello` and help still run. An invalid profile and an unreadable file take the same path.
   `config --profile X` reloads with the root's `--env-file` instead of searching for another `.env`.
+- **`[lib_layered_config.default_permissions]` now takes effect.** The per-layer modes were read,
+  but only `enabled` was ever used: `get_modes_for_target` had no production caller, so
+  `--set lib_layered_config.default_permissions.user_directory=488` still produced a `0o700`
+  directory. `config-deploy` now deploys each target with its configured directory and file mode
+  (CLI `--dir-mode`/`--file-mode` still win). The section is validated through the
+  `PermissionDefaults` pydantic model: a malformed or out-of-range mode (string or integer), an
+  unsafe mode, a non-boolean `enabled`, a section that is not a table or an unknown key stops the
+  command with exit 78 and one line naming the key, where it used to fall back to the default,
+  crash with `AttributeError`, or print pydantic's multi-line error.
+
+### Removed
+- `adapters.config.permissions.parse_mode`, whose silent fall-back to the default is what the
+  model validation above replaces.
 
 ### Security
 - **`config-deploy` refuses unsafe and malformed modes.** `--dir-mode -1` passed the unbounded
