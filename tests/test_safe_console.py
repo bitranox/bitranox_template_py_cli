@@ -105,6 +105,61 @@ class TestTheDefaultTargetFollowsTheStreamEchoWritesTo:
         assert "[OK]" in _read_back(stream)
 
 
+class TestOnlyTheUnencodableCharacterDegrades:
+    """The fallback replaces what the stream cannot take, never the rest of the text."""
+
+    def test_a_glyph_cp1252_has_survives_beside_one_it_lacks(self) -> None:
+        """The check mark forces the fallback; the ellipsis and the apostrophe must not be rewritten."""
+        assert safe_console.encode_safe("✓ done… it\u2019s", "cp1252") == "[OK] done… it\u2019s"
+
+    def test_rich_output_keeps_what_cp1252_can_print(self) -> None:
+        stream = _cp1252_stream()
+        Console(file=safe_console.safe_stream(stream), legacy_windows=False, width=80).print("✓ done… ok")
+        assert "[OK] done… ok" in _read_back(stream)
+
+
+class TestALoneSurrogate:
+    """A surrogate (a non-UTF-8 path byte decoded with surrogateescape) encodes in NO codec,
+    including utf-8/16/32, so a universal encoding is no reason to skip the check."""
+
+    @pytest.mark.parametrize("encoding", ["utf-8", "UTF-8", "utf-16", "utf-32", "cp1252"])
+    def test_it_degrades_to_a_question_mark(self, encoding: str) -> None:
+        result = safe_console.encode_safe("path-\udcff-name", encoding)
+
+        result.encode(encoding)
+        assert result == "path-?-name"
+
+    def test_only_the_surrogate_is_replaced_on_utf8(self) -> None:
+        assert safe_console.encode_safe("check ✓ \udcff", "utf-8") == "check ✓ ?"
+
+    def test_echo_on_a_strict_utf8_stream_does_not_raise(self) -> None:
+        stream = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="strict", newline="")
+        safe_console.echo("path-\udcff-name ✓", file=stream)
+        stream.flush()
+        buffer = stream.buffer
+        assert isinstance(buffer, io.BytesIO)
+        assert buffer.getvalue().decode("utf-8") == "path-?-name ✓\n"
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="Windows and APFS refuse a filename that is not valid UTF-8"
+)
+def test_a_command_echoing_a_surrogate_escaped_path_still_exits_0(tmp_path: Path) -> None:
+    """A destination holding a raw non-UTF-8 byte reaches echo as a lone surrogate; the files
+    are written, so the path line must degrade rather than turn the run into a crash."""
+    completed = subprocess.run(
+        [sys.executable, "-m", "bitranox_template_py_cli", "config-generate-examples", "--destination", "ex\udcff"],
+        capture_output=True,
+        check=False,
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8:strict"},
+    )
+
+    assert completed.returncode == 0, completed.stderr.decode("utf-8", "replace")
+    assert b"Generated" in completed.stdout
+    assert any((tmp_path / os.fsdecode(b"ex\xff")).iterdir())
+
+
 class TestSafeStreamProtectsRich:
     """Rich raises on a legacy codepage too; it renders through its own writer."""
 

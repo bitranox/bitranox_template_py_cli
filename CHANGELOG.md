@@ -26,6 +26,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   branch, adding "SMTP delivery failed" / "Failed to send email" to the correct "sending failed".
   The send result is handled in the `try`'s `else`, and `config-deploy` re-raises an `Exit` before
   its catch-all.
+- **A non-UTF-8 path no longer crashes output, and the console fallback degrades only what it
+  must.** `safe_console.encode_safe` skipped its check for utf-8/16/32, but a lone surrogate (a
+  filesystem byte decoded with `surrogateescape`) encodes in none of them, so
+  `config-generate-examples` into such a directory wrote its files and then exited 1 on the path
+  echo. Once any character failed, the fallback also rewrote every known glyph in the text,
+  including ones the stream could print. The fallback is now a registered codec error handler: the
+  codec calls it for exactly the characters it rejects, which become their ASCII form or `?`.
 
 ### Security
 - **`config-deploy` refuses unsafe and malformed modes.** `--dir-mode -1` passed the unbounded

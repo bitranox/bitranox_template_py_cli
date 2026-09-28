@@ -31,6 +31,7 @@ Contents
 
 from __future__ import annotations
 
+import codecs
 import sys
 from typing import IO, Any, Final, TextIO
 
@@ -60,8 +61,24 @@ ASCII_FALLBACKS: Final[dict[str, str]] = {
     "…": "...",
 }
 
-#: Encodings that represent every code point, so the check can be skipped.
-_UNIVERSAL_ENCODINGS: Final[frozenset[str]] = frozenset({"utf-8", "utf8", "utf-16", "utf16", "utf-32", "utf32"})
+#: The codec error handler :func:`ascii_fallback` encodes with. A codec calls it only for
+#: the characters it cannot encode, so everything the stream can print stays as written.
+_FALLBACK_ERROR_HANDLER: Final[str] = "bitranox_template_py_cli.safe_console.ascii_fallback"
+
+
+def _replace_unencodable(error: UnicodeError) -> tuple[str, int]:
+    """Codec error handler: the ASCII form of each character the codec rejected, else ``?``.
+
+    A lone surrogate (a non-UTF-8 filename byte decoded with ``surrogateescape``) reaches
+    here from every codec, utf-8/16/32 included, and becomes ``?`` like any unmapped glyph.
+    """
+    if not isinstance(error, UnicodeEncodeError):
+        raise error
+    rejected = error.object[error.start : error.end]
+    return "".join(ASCII_FALLBACKS.get(character, "?") for character in rejected), error.end
+
+
+codecs.register_error(_FALLBACK_ERROR_HANDLER, _replace_unencodable)
 
 
 def _stream_encoding(file: IO[Any] | None, *, err: bool = False) -> str | None:
@@ -84,9 +101,10 @@ def _stream_encoding(file: IO[Any] | None, *, err: bool = False) -> str | None:
 def ascii_fallback(text: str, encoding: str) -> str:
     """Rewrite `text` so it survives `encoding`.
 
-    Known glyphs become their ASCII equivalent from :data:`ASCII_FALLBACKS`;
-    anything else the codec still cannot represent becomes ``?``. Text the
-    encoding already accepts is returned unchanged.
+    Only the characters `encoding` cannot represent are replaced: a known glyph
+    by its ASCII equivalent from :data:`ASCII_FALLBACKS`, anything else by
+    ``?``. Every other character is kept, so a glyph the stream can print is
+    never rewritten because another one in the same text could not be.
 
     Parameters
     ----------
@@ -100,8 +118,7 @@ def ascii_fallback(text: str, encoding: str) -> str:
     str
         A string that :meth:`str.encode` accepts for `encoding`.
     """
-    mapped = "".join(ASCII_FALLBACKS.get(character, character) for character in text)
-    return mapped.encode(encoding, errors="replace").decode(encoding)
+    return text.encode(encoding, errors=_FALLBACK_ERROR_HANDLER).decode(encoding)
 
 
 def encode_safe(text: str, encoding: str | None) -> str:
@@ -109,9 +126,10 @@ def encode_safe(text: str, encoding: str | None) -> str:
 
     The check runs BEFORE the write on purpose. Writing first and catching
     ``UnicodeEncodeError`` would leave the already-encoded prefix on the stream,
-    so the retry would duplicate it.
+    so the retry would duplicate it. No encoding is exempt from the check: a
+    lone surrogate encodes in none of them, utf-8 included.
     """
-    if encoding is None or encoding.lower() in _UNIVERSAL_ENCODINGS:
+    if encoding is None:
         return text
     try:
         text.encode(encoding)
