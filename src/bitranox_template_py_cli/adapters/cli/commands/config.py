@@ -244,10 +244,6 @@ def cli_config_deploy(
 
     extra = {"command": "config-deploy", "targets": target_values, "force": force, "profile": effective_profile}
     with lib_log_rich.runtime.bind(job_id="cli-config-deploy", extra=extra):
-        logger.info(
-            "Deploying configuration",
-            extra={"targets": target_values, "force": force, "profile": effective_profile},
-        )
         _execute_deploy(
             cli_ctx,
             targets=deploy_targets,
@@ -287,6 +283,11 @@ def _execute_deploy(
     """
     irrelevant = set_permissions is False or (dir_mode is not None and file_mode is not None)
     perm_defaults = _permission_defaults(cli_ctx, permissions_irrelevant=irrelevant)
+    # Announced only now: a refusal above deploys nothing, and the log must not say it did.
+    logger.info(
+        "Deploying configuration",
+        extra={"targets": tuple(t.value for t in targets), "force": force, "profile": profile},
+    )
 
     # CLI --permissions/--no-permissions overrides config enabled setting
     effective_set_permissions = set_permissions if set_permissions is not None else perm_defaults.enabled
@@ -324,7 +325,9 @@ def _execute_deploy(
 
 
 #: How to deploy when the permission settings cannot be read: make them irrelevant.
-_DEPLOY_ANYWAY_HINT = "to deploy without them, pass --no-permissions, or both --dir-mode and --file-mode"
+_DEPLOY_ANYWAY_HINT = (
+    "to deploy without reading the permission settings, pass --no-permissions, or both --dir-mode and --file-mode"
+)
 
 
 def _permission_defaults(cli_ctx: CLIContext, *, permissions_irrelevant: bool) -> PermissionDefaults:

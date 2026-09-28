@@ -235,6 +235,9 @@ def test_an_invalid_section_still_blocks_a_deploy_it_decides_a_mode_for(
 
     assert result.exit_code == 78, result.output
     assert calls == []
+    assert result.stderr.rstrip().endswith(
+        "(to deploy without reading the permission settings, pass --no-permissions, or both --dir-mode and --file-mode)"
+    ), result.stderr
 
 
 @pytest.mark.os_agnostic
@@ -249,7 +252,7 @@ def test_a_non_boolean_enabled_is_not_reported_as_a_mode(
     )
 
     # The line ends with a hint naming --dir-mode/--file-mode; the reason is what precedes it.
-    reason = result.stderr.split(" (to deploy without them", 1)[0]
+    reason = result.stderr.split(" (to deploy without reading", 1)[0]
     assert "enabled" in reason
     assert "mode" not in reason.lower()
     assert "errors.pydantic.dev" not in result.stderr

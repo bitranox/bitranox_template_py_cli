@@ -283,7 +283,7 @@ Any violation stops `config-deploy` before it writes anything, with exit 78 and 
 the key, for example:
 
 ```text
-Error: Invalid configuration: lib_layered_config.default_permissions.user_file: a bare integer is read as decimal (400 = 0o620); write the mode as an octal string such as "0o640" instead (to deploy without them, pass --no-permissions, or both --dir-mode and --file-mode)
+Error: Invalid configuration: lib_layered_config.default_permissions.user_file: a bare integer is read as decimal (400 = 0o620); write the mode as an octal string such as "0o640" instead (to deploy without reading the permission settings, pass --no-permissions, or both --dir-mode and --file-mode)
 ```
 
 The same refusal applies when the configuration cannot be loaded at all: `config-deploy` never

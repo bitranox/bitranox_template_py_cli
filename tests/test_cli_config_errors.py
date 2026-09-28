@@ -20,6 +20,7 @@ than deploying with library defaults that may be wider than what an administrato
 from __future__ import annotations
 
 import dataclasses
+import logging
 import os
 import subprocess
 import sys
@@ -150,8 +151,28 @@ def test_config_deploy_refuses_when_the_unloaded_config_decides_a_mode(
     assert result.exit_code == 78, result.output
     assert len(error_lines) == 1, result.stderr
     assert BROKEN_TOML in error_lines[0]
-    assert all(flag in error_lines[0] for flag in ("--no-permissions", "--dir-mode", "--file-mode"))
+    assert error_lines[0].endswith(
+        "(to deploy without reading the permission settings, pass --no-permissions, or both --dir-mode and --file-mode)"
+    )
     assert calls == []
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    ("options", "deploys"), [([], False), (["--no-permissions"], True)], ids=["refused", "deploys"]
+)
+def test_config_deploy_announces_a_deploy_only_when_it_goes_ahead(
+    cli_runner: CliRunner, caplog: pytest.LogCaptureFixture, options: list[str], deploys: bool
+) -> None:
+    """An INFO "Deploying configuration" line before a refusal told the log a deploy happened."""
+    _calls, factory = _recording_failing_config(ConfigError(BROKEN_TOML))
+
+    with caplog.at_level(logging.INFO):
+        result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", *options], obj=factory)
+
+    announced = [record for record in caplog.records if record.getMessage() == "Deploying configuration"]
+    assert result.exit_code == (0 if deploys else 78), result.output
+    assert len(announced) == (1 if deploys else 0)
 
 
 @pytest.mark.os_agnostic
