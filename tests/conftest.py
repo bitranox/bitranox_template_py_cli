@@ -9,6 +9,7 @@ Centralizes test infrastructure following clean architecture principles:
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import re
 import tempfile
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import lib_cli_exit_tools
+import lib_log_rich.runtime
 import pytest
 from click.testing import CliRunner
 from lib_layered_config import Config
@@ -120,6 +122,44 @@ def cli_runner() -> CliRunner:
             assert result.exit_code == 0
     """
     return CliRunner()
+
+
+def _restore_logging_state(handlers: list[logging.Handler], level: int, propagate: bool) -> None:
+    """Shut down a live lib_log_rich runtime and put the root logger back as it was.
+
+    ``runtime.shutdown()`` alone is not enough: production ``init_logging`` also attaches a
+    stdlib handler to the root logger and raises its level, and shutting the runtime down
+    undoes neither, so a later test's stdlib warnings would be swallowed.
+    """
+    if lib_log_rich.runtime.is_initialised():
+        lib_log_rich.runtime.shutdown()
+    root = logging.getLogger()
+    root.handlers[:] = handlers
+    root.setLevel(level)
+    root.propagate = propagate
+
+
+@pytest.fixture(autouse=True)
+def isolated_logging_state() -> Iterator[Callable[[], None]]:
+    """Reset the process-global logging state after every test.
+
+    The lib_log_rich runtime and the stdlib root logger are process-global. Once a command
+    (under the production or the testing composition) starts a runtime, it would otherwise
+    stay live for every later test, so a test would pass or fail by what ran before it rather
+    than by its own setup. The root logger is snapshotted before the test and restored after,
+    together with shutting the runtime down.
+
+    Yields:
+        The same restore step, so a test can apply it mid-test and assert its effect.
+    """
+    root = logging.getLogger()
+    handlers, level, propagate = list(root.handlers), root.level, root.propagate
+
+    def _restore() -> None:
+        _restore_logging_state(handlers, level, propagate)
+
+    yield _restore
+    _restore()
 
 
 @pytest.fixture

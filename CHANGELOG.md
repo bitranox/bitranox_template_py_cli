@@ -6,6 +6,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+- **`build_testing()` can run a command.** The in-memory logging initializer was a no-op while every
+  command binds job context onto the lib_log_rich runtime, so any command under the testing
+  composition raised `RuntimeError('lib_log_rich.init() must be called before using the logging
+  API')`. It now starts a quiet runtime (no journald, event log, Graylog or queue; console at ERROR;
+  no `.env` loading).
+- **Tests no longer pass or fail by order.** An autouse fixture shuts the lib_log_rich runtime down
+  and restores the root logger's handlers, level and propagate flag after every test; production
+  `init_logging` attaches a stdlib handler and raises the root level, which `runtime.shutdown()`
+  does not undo.
+
 ## [1.7.2] 2026-09-12 02:11:47
 
 ### Fixed
