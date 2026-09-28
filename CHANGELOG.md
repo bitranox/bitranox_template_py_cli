@@ -70,6 +70,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `commands/config.py`) but only had it through rich-click. `permissions.py` no longer imports
   `pydantic_core`, which was never declared either; its validators raise `ValueError`. A new test
   fails when a runtime import is missing from `[project].dependencies`.
+- **For derived repos: tests under `build_testing()` now see ERROR log lines on stderr.** The
+  testing composition starts a quiet lib_log_rich runtime (console at ERROR) instead of a no-op,
+  so a `logger.error` in a command, e.g. "Failed to deploy configuration", now precedes its
+  `Error:` line in CliRunner's stderr. A test asserting exact or line-counted stderr under
+  `build_testing()` has to allow for it. The conftest fixtures that build services
+  (`inject_config`, `inject_config_with_profile_capture`, `inject_deploy_with_profile_capture`,
+  `inject_deploy_configuration`, `email_cli_context`, `config_cli_context`) now use that quiet
+  runtime too: the production one queues INFO lines that raced into stderr by timing.
 
 ### Removed
 - `adapters.config.permissions.parse_mode`, whose silent fall-back to the default is what the

@@ -354,6 +354,7 @@ def inject_config(
             result = cli_runner.invoke(cli, ["config"], obj=factory)
             assert "key" in result.output
     """
+    from bitranox_template_py_cli.adapters.memory import init_logging_in_memory
     from bitranox_template_py_cli.composition import AppServices, build_production
 
     def _inject(config: Config) -> Callable[[], AppServices]:
@@ -369,7 +370,9 @@ def inject_config(
             send_email=prod.send_email,
             send_notification=prod.send_notification,
             load_email_config_from_dict=prod.load_email_config_from_dict,
-            init_logging=prod.init_logging,
+            # The quiet runtime: production init_logging queues INFO lines that race into
+            # CliRunner's stderr, so a stderr assertion would depend on timing.
+            init_logging=init_logging_in_memory,
         )
         return lambda: test_services
 
@@ -405,6 +408,7 @@ def inject_config_with_profile_capture(
             cli_runner.invoke(cli, ["--profile", "staging", "config"], obj=factory)
             assert captured == ["staging"]
     """
+    from bitranox_template_py_cli.adapters.memory import init_logging_in_memory
     from bitranox_template_py_cli.composition import AppServices, build_production
 
     def _inject(config: Config, captured_profiles: list[str | None]) -> Callable[[], AppServices]:
@@ -421,7 +425,9 @@ def inject_config_with_profile_capture(
             send_email=prod.send_email,
             send_notification=prod.send_notification,
             load_email_config_from_dict=prod.load_email_config_from_dict,
-            init_logging=prod.init_logging,
+            # The quiet runtime: production init_logging queues INFO lines that race into
+            # CliRunner's stderr, so a stderr assertion would depend on timing.
+            init_logging=init_logging_in_memory,
         )
         return lambda: test_services
 
@@ -457,6 +463,7 @@ def inject_deploy_with_profile_capture(
             cli_runner.invoke(cli, ["--profile", "prod", "config-deploy", ...], obj=factory)
             assert captured == ["prod"]
     """
+    from bitranox_template_py_cli.adapters.memory import init_logging_in_memory
     from bitranox_template_py_cli.composition import AppServices, build_production
 
     def _inject(deployed_path: Path, captured_profiles: list[str | None]) -> Callable[[], AppServices]:
@@ -481,7 +488,9 @@ def inject_deploy_with_profile_capture(
             send_email=prod.send_email,
             send_notification=prod.send_notification,
             load_email_config_from_dict=prod.load_email_config_from_dict,
-            init_logging=prod.init_logging,
+            # The quiet runtime: production init_logging queues INFO lines that race into
+            # CliRunner's stderr, so a stderr assertion would depend on timing.
+            init_logging=init_logging_in_memory,
         )
         return lambda: test_services
 
@@ -513,6 +522,7 @@ def inject_deploy_configuration() -> Callable[[Callable[..., list[Path]]], Calla
             cli_runner.invoke(cli, ["config-deploy", "--target", "user"], obj=factory)
             assert len(calls) == 1
     """
+    from bitranox_template_py_cli.adapters.memory import init_logging_in_memory
     from bitranox_template_py_cli.composition import AppServices, build_production
 
     def _inject(deploy_fn: Callable[..., list[Path]]) -> Callable[[], AppServices]:
@@ -525,7 +535,9 @@ def inject_deploy_configuration() -> Callable[[Callable[..., list[Path]]], Calla
             send_email=prod.send_email,
             send_notification=prod.send_notification,
             load_email_config_from_dict=prod.load_email_config_from_dict,
-            init_logging=prod.init_logging,
+            # The quiet runtime: production init_logging queues INFO lines that race into
+            # CliRunner's stderr, so a stderr assertion would depend on timing.
+            init_logging=init_logging_in_memory,
         )
         return lambda: test_services
 
@@ -610,7 +622,7 @@ def email_cli_context(
             assert result.exit_code == 0
             assert ctx.spy.sent_notifications[0].subject == "Hi"
     """
-    from bitranox_template_py_cli.adapters.memory import load_email_config_from_dict_in_memory
+    from bitranox_template_py_cli.adapters.memory import init_logging_in_memory, load_email_config_from_dict_in_memory
     from bitranox_template_py_cli.adapters.memory.email import EmailSpy as EmailSpyImpl
     from bitranox_template_py_cli.composition import AppServices, build_production
 
@@ -630,7 +642,9 @@ def email_cli_context(
             send_email=spy.send_email,
             send_notification=spy.send_notification,
             load_email_config_from_dict=load_email_config_from_dict_in_memory,
-            init_logging=prod.init_logging,
+            # The quiet runtime: production init_logging queues INFO lines that race into
+            # CliRunner's stderr, so a stderr assertion would depend on timing.
+            init_logging=init_logging_in_memory,
         )
         return EmailCliContext(factory=lambda: test_services, spy=spy)
 
@@ -662,6 +676,7 @@ def config_cli_context(
             result = cli_runner.invoke(cli, ["config"], obj=factory)
             assert "key" in result.output
     """
+    from bitranox_template_py_cli.adapters.memory import init_logging_in_memory
     from bitranox_template_py_cli.composition import AppServices, build_production
 
     def _create(config_data: dict[str, Any]) -> Callable[[], AppServices]:
@@ -679,7 +694,9 @@ def config_cli_context(
             send_email=prod.send_email,
             send_notification=prod.send_notification,
             load_email_config_from_dict=prod.load_email_config_from_dict,
-            init_logging=prod.init_logging,
+            # The quiet runtime: production init_logging queues INFO lines that race into
+            # CliRunner's stderr, so a stderr assertion would depend on timing.
+            init_logging=init_logging_in_memory,
         )
         return lambda: test_services
 

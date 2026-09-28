@@ -11,7 +11,8 @@ reset within one test instead of relying on test order.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import lib_log_rich.runtime
 import pytest
@@ -25,6 +26,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from click.testing import CliRunner
+
+    from bitranox_template_py_cli.composition import AppServices
 
 
 @pytest.mark.os_agnostic
@@ -66,3 +69,28 @@ def test_the_reset_restores_the_root_logger_a_production_init_changed(
     isolated_logging_state()
 
     assert (list(root.handlers), root.level, root.propagate) == before
+
+
+def _deploy_nothing(**_kwargs: Any) -> list[Path]:
+    return []
+
+
+#: Each services-building fixture, with how to get one AppServices out of it.
+_SERVICE_FIXTURES: dict[str, Callable[[Any], AppServices]] = {
+    "inject_config": lambda make: make(Config({}, {}))(),
+    "inject_config_with_profile_capture": lambda make: make(Config({}, {}), [])(),
+    "inject_deploy_with_profile_capture": lambda make: make(Path("config.toml"), [])(),
+    "inject_deploy_configuration": lambda make: make(_deploy_nothing)(),
+    "email_cli_context": lambda make: make({}).factory(),
+    "config_cli_context": lambda make: make({})(),
+}
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("fixture_name", _SERVICE_FIXTURES)
+def test_the_service_fixtures_log_through_the_quiet_runtime(request: pytest.FixtureRequest, fixture_name: str) -> None:
+    """Production ``init_logging`` queues INFO lines that race into CliRunner's stderr, so a
+    test asserting on stderr would pass or fail by timing; the fixtures use the testing one."""
+    services = _SERVICE_FIXTURES[fixture_name](request.getfixturevalue(fixture_name))
+
+    assert services.init_logging is build_testing().init_logging
