@@ -12,7 +12,7 @@ from typing import Any, cast
 
 from btx_lib_mail import validate_email_address, validate_smtp_host
 from btx_lib_mail.lib_mail import ConfMail
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 
 class EmailConfig(BaseModel):
@@ -33,7 +33,9 @@ class EmailConfig(BaseModel):
     from_address: str | None = None
     recipients: list[str] = Field(default_factory=list)
     smtp_username: str | None = None
-    smtp_password: str | None = None
+    # SecretStr so str(), repr(), format() and model_dump_json() show '**********'; the value is
+    # unwrapped only where it is handed to the SMTP login (transport._build_credentials).
+    smtp_password: SecretStr | None = None
     use_starttls: bool = True
     timeout: float = 30.0
     raise_on_missing_attachments: bool = True
@@ -72,7 +74,7 @@ class EmailConfig(BaseModel):
 
     @field_validator("from_address", "smtp_username", "smtp_password", mode="before")
     @classmethod
-    def _coerce_empty_string_to_none(cls, v: str | None) -> str | None:
+    def _coerce_empty_string_to_none(cls, v: object) -> object:
         """Coerce empty or whitespace-only strings to None.
 
         Treats empty strings from config files as "not configured" rather than
@@ -81,7 +83,8 @@ class EmailConfig(BaseModel):
 
         Applies to: from_address, smtp_username, smtp_password.
         """
-        if isinstance(v, str) and not v.strip():
+        text = v.get_secret_value() if isinstance(v, SecretStr) else v
+        if isinstance(text, str) and not text.strip():
             return None
         return v
 

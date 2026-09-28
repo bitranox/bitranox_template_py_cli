@@ -13,8 +13,10 @@ from typing import IO, TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+from pydantic import SecretStr
 from pydantic import ValidationError as PydanticValidationError
 
+from bitranox_template_py_cli.adapters.cli.commands.email._common import apply_validated_overrides
 from bitranox_template_py_cli.adapters.email.sender import (
     EmailConfig,
     load_email_config_from_dict,
@@ -24,7 +26,7 @@ from bitranox_template_py_cli.adapters.email.sender import (
 from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryError
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
     from pathlib import Path
 
     from btx_lib_mail.lib_mail import DeliveryOptions
@@ -144,7 +146,7 @@ def test_email_config_accepts_custom_values() -> None:
         from_address="test@example.com",
         recipients=["admin@example.com", "ops@example.com"],
         smtp_username="user",
-        smtp_password="pass",
+        smtp_password=SecretStr("pass"),
         use_starttls=False,
         timeout=60.0,
     )
@@ -153,7 +155,8 @@ def test_email_config_accepts_custom_values() -> None:
     assert config.from_address == "test@example.com"
     assert config.recipients == ["admin@example.com", "ops@example.com"]
     assert config.smtp_username == "user"
-    assert config.smtp_password == "pass"
+    assert config.smtp_password is not None
+    assert config.smtp_password.get_secret_value() == "pass"
     assert config.use_starttls is False
     assert config.timeout == 60.0
 
@@ -369,13 +372,64 @@ def test_to_conf_mail_maps_smtp_hosts() -> None:
 @pytest.mark.os_agnostic
 def test_to_conf_mail_maps_credentials() -> None:
     """to_conf_mail maps username and password to ConfMail fields."""
-    config = EmailConfig(smtp_username="user", smtp_password="pass")
+    config = EmailConfig(smtp_username="user", smtp_password=SecretStr("pass"))
     conf = config.to_conf_mail()
 
     assert conf.smtp_username == "user"
     # btx_lib_mail wraps the password in a SecretStr, so unwrap before comparing
     assert conf.smtp_password is not None
     assert conf.smtp_password.get_secret_value() == "pass"
+
+
+_PASSWORD = "s3cr3t-value"
+
+
+def _dumped_json(config: EmailConfig) -> str:
+    return config.model_dump_json()
+
+
+def _dumped_python(config: EmailConfig) -> str:
+    return str(config.model_dump())
+
+
+def _instance_vars(config: EmailConfig) -> str:
+    return str(vars(config))
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    "render",
+    [str, repr, format, _dumped_json, _dumped_python, _instance_vars],
+    ids=["str", "repr", "format", "model_dump_json", "model_dump", "vars"],
+)
+def test_no_rendering_of_the_email_config_shows_the_password(render: Callable[[EmailConfig], str]) -> None:
+    """A config reaching a log line, an error message or a JSON dump must not carry the password.
+
+    Loaded the way a config file supplies it: a plain string.
+    """
+    config = load_email_config_from_dict(
+        {"email": {"smtp_hosts": ["smtp.example.com:587"], "smtp_username": "user", "smtp_password": _PASSWORD}}
+    )
+
+    assert _PASSWORD not in render(config)
+
+
+@pytest.mark.os_agnostic
+def test_the_password_is_unwrapped_only_for_the_login() -> None:
+    config = EmailConfig(smtp_username="user", smtp_password=SecretStr(_PASSWORD))
+
+    assert config.smtp_password is not None
+    assert config.smtp_password.get_secret_value() == _PASSWORD
+
+
+@pytest.mark.os_agnostic
+def test_an_override_keeps_the_configured_password() -> None:
+    config = EmailConfig(smtp_hosts=["smtp.example.com:587"], smtp_username="user", smtp_password=SecretStr(_PASSWORD))
+
+    overridden = apply_validated_overrides(config, {"timeout": 5.0})
+
+    assert overridden.smtp_password is not None
+    assert overridden.smtp_password.get_secret_value() == _PASSWORD
 
 
 @pytest.mark.os_agnostic
@@ -424,7 +478,8 @@ def test_load_config_extracts_values_from_email_section() -> None:
     assert config.smtp_hosts == ["smtp.test.com:587"]
     assert config.from_address == "alerts@test.com"
     assert config.smtp_username == "testuser"
-    assert config.smtp_password == "testpass"
+    assert config.smtp_password is not None
+    assert config.smtp_password.get_secret_value() == "testpass"
     assert config.use_starttls is False
     assert config.timeout == 120.0
 
@@ -670,7 +725,7 @@ def test_send_email_uses_credentials_when_provided() -> None:
         smtp_hosts=["smtp.test.com:587"],
         from_address="sender@test.com",
         smtp_username="testuser",
-        smtp_password="testpass",
+        smtp_password=SecretStr("testpass"),
     )
 
     transport = RecordingTransport()
@@ -833,7 +888,7 @@ def test_send_email_raises_when_authentication_fails() -> None:
         smtp_hosts=["smtp.test.com:587"],
         from_address="sender@test.com",
         smtp_username="user@test.com",
-        smtp_password="wrong_password",
+        smtp_password=SecretStr("wrong_password"),
     )
     transport = RecordingTransport(
         failing_hosts=["smtp.test.com:587"],

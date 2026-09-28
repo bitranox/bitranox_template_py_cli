@@ -67,9 +67,12 @@ def _sanitize_exception_message(exc: Exception) -> str:
 
 
 def _build_credentials(config: EmailConfig) -> tuple[str, str] | None:
-    """Return (username, password) tuple when both are set, else None."""
+    """Return (username, password) tuple when both are set, else None.
+
+    The one place the password leaves its SecretStr: the SMTP login needs the plain value.
+    """
     if config.smtp_username is not None and config.smtp_password is not None:
-        return (config.smtp_username, config.smtp_password)
+        return (config.smtp_username, config.smtp_password.get_secret_value())
     return None
 
 

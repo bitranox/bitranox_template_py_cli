@@ -50,6 +50,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   literal in `0`..`0o7777`, and refuse the setuid/setgid/sticky bits, world write, a directory
   without owner `rwx` and a file without owner `rw`, naming each offending bit (exit 2, nothing
   written).
+- **The SMTP password no longer prints.** `EmailConfig.smtp_password` was a plain `str`: the
+  custom `__repr__` hid it, but `str()`, `format()` and `model_dump()`/`model_dump_json()` printed it.
+  It is now a pydantic `SecretStr`, unwrapped only where the SMTP login receives it.
 
 ## [1.7.2] 2026-09-12 02:11:47
 

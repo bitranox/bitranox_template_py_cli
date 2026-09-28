@@ -477,7 +477,9 @@ def test_when_send_email_receives_credential_overrides_it_uses_them(
 
     assert result.exit_code == 0
     assert ctx.spy.sent_emails[0].config.smtp_username == "myuser"
-    assert ctx.spy.sent_emails[0].config.smtp_password == "mypass"
+    password = ctx.spy.sent_emails[0].config.smtp_password
+    assert password is not None
+    assert password.get_secret_value() == "mypass"
 
 
 @pytest.mark.os_agnostic
