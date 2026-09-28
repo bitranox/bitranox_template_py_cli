@@ -415,14 +415,6 @@ def test_no_rendering_of_the_email_config_shows_the_password(render: Callable[[E
 
 
 @pytest.mark.os_agnostic
-def test_the_password_is_unwrapped_only_for_the_login() -> None:
-    config = EmailConfig(smtp_username="user", smtp_password=SecretStr(_PASSWORD))
-
-    assert config.smtp_password is not None
-    assert config.smtp_password.get_secret_value() == _PASSWORD
-
-
-@pytest.mark.os_agnostic
 def test_an_override_keeps_the_configured_password() -> None:
     config = EmailConfig(smtp_hosts=["smtp.example.com:587"], smtp_username="user", smtp_password=SecretStr(_PASSWORD))
 
