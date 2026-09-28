@@ -30,6 +30,7 @@ Complete (v1.1.2+)
   - `exit_codes.py`  -  POSIX exit codes (ExitCode IntEnum)
   - `traceback.py`  -  Traceback state management
   - `context.py`  -  Click context helpers
+  - `config_load.py`  -  Configuration load for the CLI; records a load failure, `require_config` refuses with exit 78
   - `root.py`  -  Root command group
   - `main.py`  -  Entry point
   - `commands/info.py`  -  info, hello, fail commands
@@ -62,6 +63,7 @@ Complete (v1.1.2+)
 - `tests/test_cache_effectiveness.py`  -  LRU cache behavior tests
 - `tests/test_cli.py`  -  CLI command tests
 - `tests/test_cli_main_exit.py`  -  Exit codes and stderr through the real `main()` entry point
+- `tests/test_cli_config_errors.py`  -  Which commands refuse and which still run when the configuration cannot be loaded
 - `tests/test_config_overrides.py`  -  `--set` parsing tests
 - `tests/test_safe_console.py`  -  Legacy-codepage output tests, plus the guard forbidding direct `click.echo`
 - `tests/test_display.py`  -  Config display formatting tests

@@ -34,6 +34,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   including ones the stream could print. The fallback is now a registered codec error handler: the
   codec calls it for exactly the characters it rejects, which become their ASCII form or `?`.
 
+- **A broken configuration file no longer disables every command.** The root group loaded the
+  configuration before any subcommand option was parsed and let a load error escape, so a
+  malformed `config.toml` made every command, `--help` and `config-deploy` (the command that
+  replaces the file) exit 1 with empty stdout. The root now records the failure
+  (`adapters/cli/config_load.py`); `config`, `send-email` and `send-notification` refuse with exit
+  78 and one line naming it, while `config-deploy` (with a warning), `config-generate-examples`,
+  `info`, `hello` and help still run. An invalid profile and an unreadable file take the same path.
+  `config --profile X` reloads with the root's `--env-file` instead of searching for another `.env`.
+
 ### Security
 - **`config-deploy` refuses unsafe and malformed modes.** `--dir-mode -1` passed the unbounded
   octal parser and chmodded the config directory to `0o7777` (setuid, sticky, world-writable); a
