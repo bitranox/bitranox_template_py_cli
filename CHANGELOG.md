@@ -16,6 +16,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   and restores the root logger's handlers, level and propagate flag after every test; production
   `init_logging` attaches a stdlib handler and raises the root level, which `runtime.shutdown()`
   does not undo.
+- **No more `SystemExit: N` on stderr.** The email and config commands raised a bare `SystemExit`,
+  which `main()`'s catch-all branch printed as `SystemExit: 78` after the real error message. They
+  now exit through click's context (`ctx.exit`), and `main()` returns the exit code rich_click's
+  `main()` hands back instead of discarding it and returning 0. `typed_click` gains a typed
+  `get_current_context` wrapper for the helpers that have no `ctx` parameter.
+- **A failed send is reported once.** click's `Exit` subclasses `RuntimeError`, so the send-result
+  exit raised inside the delivery `try` was caught again by the `DeliveryError`/`RuntimeError`
+  branch, adding "SMTP delivery failed" / "Failed to send email" to the correct "sending failed".
+  The send result is handled in the `try`'s `else`, and `config-deploy` re-raises an `Exit` before
+  its catch-all.
 
 ## [1.7.2] 2026-09-12 02:11:47
 
