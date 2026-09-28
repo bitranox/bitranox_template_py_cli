@@ -58,8 +58,8 @@ def test_get_permission_defaults_reads_from_config(
         {
             "lib_layered_config": {
                 "default_permissions": {
-                    "user_directory": 0o750,
-                    "user_file": 0o640,
+                    "user_directory": "0o750",
+                    "user_file": "0o640",
                     "enabled": False,
                 }
             }
@@ -84,8 +84,8 @@ def test_get_modes_for_target_returns_config_defaults(
         {
             "lib_layered_config": {
                 "default_permissions": {
-                    "user_directory": 0o750,
-                    "user_file": 0o640,
+                    "user_directory": "0o750",
+                    "user_file": "0o640",
                 }
             }
         }
@@ -106,8 +106,8 @@ def test_get_modes_for_target_cli_override_takes_precedence(
         {
             "lib_layered_config": {
                 "default_permissions": {
-                    "user_directory": 0o750,
-                    "user_file": 0o640,
+                    "user_directory": "0o750",
+                    "user_file": "0o640",
                 }
             }
         }
@@ -143,10 +143,22 @@ def test_get_modes_for_target_returns_library_defaults_for_app_layer(
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize(
     ("raw", "expected"),
-    [(493, 0o755), (0o750, 0o750), ("0o755", 0o755), ("0o700", 0o700), ("755", 0o755), ("700", 0o700)],
+    [("0o755", 0o755), ("0o700", 0o700), ("755", 0o755), ("700", 0o700)],
 )
-def test_a_mode_is_an_integer_or_a_plain_octal_string(raw: object, expected: int) -> None:
+def test_a_mode_is_a_plain_octal_string(raw: str, expected: int) -> None:
     assert PermissionDefaults.model_validate({"user_directory": raw}).user_directory == expected
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("raw", [493, 0o750, 416, 400, 0])
+def test_a_bare_integer_mode_is_refused_with_a_hint_rather_than_read_as_decimal(
+    config_factory: Callable[[dict[str, Any]], Config], raw: int
+) -> None:
+    """``493`` would be 0o755 and ``400`` 0o620: no integer is reinterpreted, every one is refused."""
+    config = config_factory({"lib_layered_config": {"default_permissions": {"user_file": raw}}})
+
+    with pytest.raises(ConfigurationError, match=r'user_file: a bare integer is read as decimal .*"0o640"'):
+        get_permission_defaults(config)
 
 
 @pytest.mark.os_agnostic

@@ -2,9 +2,13 @@
 
 ``[lib_layered_config.default_permissions]`` documents a directory and a file mode per
 layer. They are read through one pydantic model, so a value the model refuses (a malformed
-or out-of-range mode, string or integer alike, an unsafe mode, a non-boolean ``enabled``, a
-section that is not a table, an unknown key) ends the command with exit 78 and one line
-naming the key, before anything is deployed, instead of silently falling back to a default.
+or out-of-range mode, a bare integer, an unsafe mode, a non-boolean ``enabled``, a section
+that is not a table, an unknown key) ends the command with exit 78 and one line naming the
+key, before anything is deployed, instead of silently falling back to a default.
+
+A bare integer is refused because it is DECIMAL: TOML ``user_file = 400``, ``--set ...=400``
+and an environment value ``400`` all arrive as the integer 400, which is ``0o620``
+(group-writable), not the owner-read-only mode the digits suggest.
 """
 
 from __future__ import annotations
@@ -82,8 +86,8 @@ def test_every_target_gets_its_own_configured_modes(
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize(
     "setting",
-    [f"{_SECTION}.user_directory=488", f'{_SECTION}.user_directory="0o750"', f'{_SECTION}.user_directory="750"'],
-    ids=["decimal-int", "0o-string", "bare-string"],
+    [f'{_SECTION}.user_directory="0o750"', f'{_SECTION}.user_directory="750"'],
+    ids=["0o-string", "bare-string"],
 )
 def test_a_configured_mode_reaches_the_deploy(
     cli_runner: CliRunner,
@@ -96,6 +100,20 @@ def test_a_configured_mode_reaches_the_deploy(
 
     assert result.exit_code == 0, result.output
     assert _modes(calls) == [("user", 0o750, 0o600)]
+
+
+@pytest.mark.os_agnostic
+def test_an_octal_string_file_mode_reaches_the_deploy_unchanged(
+    cli_runner: CliRunner,
+    recorded_deploys: Callable[[dict[str, Any]], tuple[list[dict[str, Any]], Callable[[], AppServices]]],
+) -> None:
+    """The string form of the mode a decimal 400 was meant to be read as, and 0o640, both work."""
+    calls, factory = recorded_deploys({"lib_layered_config": {"default_permissions": {"user_file": "0o640"}}})
+
+    result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=factory)
+
+    assert result.exit_code == 0, result.output
+    assert _modes(calls) == [("user", 0o700, 0o640)]
 
 
 @pytest.mark.os_agnostic
@@ -130,11 +148,16 @@ _REFUSED = [
     (f'{_SECTION}.user_directory="-1"', "user_directory: Invalid octal mode '-1': not a plain octal literal"),
     (f'{_SECTION}.user_directory="7_5_0"', "user_directory: Invalid octal mode '7_5_0': not a plain octal literal"),
     (f'{_SECTION}.user_directory="rwx"', "user_directory: Invalid octal mode 'rwx': not a plain octal literal"),
-    (f"{_SECTION}.user_directory=-1", "user_directory: Invalid mode -1: must be between"),
-    (f"{_SECTION}.user_directory=10000", "user_directory: Invalid mode 10000: must be between"),
-    (f"{_SECTION}.user_directory=1.5", "user_directory: expected an octal string or an integer, got float"),
-    (f"{_SECTION}.user_directory=true", "user_directory: expected an octal string or an integer, got bool"),
-    (f"{_SECTION}.user_directory=511", "user_directory: unsafe mode 0o777: world-write"),
+    (f"{_SECTION}.user_file=400", "user_file: a bare integer is read as decimal (400 = 0o620)"),
+    (f"{_SECTION}.user_file=444", "user_file: a bare integer is read as decimal (444 = 0o674)"),
+    (f"{_SECTION}.user_directory=448", 'write the mode as an octal string such as "0o640"'),
+    (f"{_SECTION}.user_directory=-1", "user_directory: a bare integer is read as decimal"),
+    (f"{_SECTION}.user_directory=1.5", "user_directory: expected an octal string, got float"),
+    (f"{_SECTION}.user_directory=true", "user_directory: expected an octal string, got bool"),
+    (f'{_SECTION}.user_directory="0o777"', "user_directory: unsafe mode 0o777: group-write (0o20); world-write"),
+    (f'{_SECTION}.user_directory="0o770"', "user_directory: unsafe mode 0o770: group-write"),
+    (f'{_SECTION}.user_file="0o620"', "user_file: unsafe mode 0o620: group-write"),
+    (f'{_SECTION}.app_file="0o754"', "app_file: unsafe mode 0o754: execute on a file (0o110)"),
     (f'{_SECTION}.user_file="0o4600"', "user_file: unsafe mode 0o4600: the setuid bit"),
     (f'{_SECTION}.app_file="0o400"', "app_file: unsafe mode 0o400: no owner rw"),
     (f'{_SECTION}.enabled="maybe"', "default_permissions.enabled: Input should be a valid boolean"),
@@ -194,7 +217,7 @@ def test_a_real_deploy_applies_the_configured_user_modes(tmp_path: Path) -> None
             "-m",
             "bitranox_template_py_cli",
             "--set",
-            "lib_layered_config.default_permissions.user_directory=488",
+            'lib_layered_config.default_permissions.user_directory="0o750"',
             "--set",
             'lib_layered_config.default_permissions.user_file="0o640"',
             "config-deploy",
@@ -210,3 +233,42 @@ def test_a_real_deploy_applies_the_configured_user_modes(tmp_path: Path) -> None
     deployed = tmp_path / __init__conf__.LAYEREDCONF_SLUG
     assert stat.S_IMODE(deployed.stat().st_mode) == 0o750
     assert stat.S_IMODE((deployed / "config.toml").stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="XDG_CONFIG_HOME locates the user layer on Linux")
+def test_a_decimal_mode_from_the_environment_is_refused_and_nothing_is_written(tmp_path: Path) -> None:
+    """End to end: the environment turns ``444`` into an integer, which used to deploy 0o674."""
+    prefix = __init__conf__.LAYEREDCONF_SLUG.upper().replace("-", "_")
+    variable = f"{prefix}___LIB_LAYERED_CONFIG__DEFAULT_PERMISSIONS__USER_FILE"
+    completed = subprocess.run(
+        [sys.executable, "-m", "bitranox_template_py_cli", "config-deploy", "--target", "user"],
+        capture_output=True,
+        check=False,
+        env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path), variable: "444"},
+    )
+
+    stderr = completed.stderr.decode("utf-8", "replace")
+    assert completed.returncode == 78, stderr
+    assert "user_file: a bare integer is read as decimal (444 = 0o674)" in stderr
+    assert not (tmp_path / __init__conf__.LAYEREDCONF_SLUG / "config.toml").exists()
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="XDG_CONFIG_HOME locates the user layer on Linux")
+def test_a_decimal_mode_in_the_user_config_file_is_refused(tmp_path: Path) -> None:
+    """End to end: TOML ``user_file = 400`` is the integer 400, i.e. 0o620, so it is refused."""
+    config_dir = tmp_path / __init__conf__.LAYEREDCONF_SLUG
+    config_dir.mkdir()
+    original = "[lib_layered_config.default_permissions]\nuser_file = 400\n"
+    (config_dir / "config.toml").write_text(original, encoding="utf-8")
+
+    completed = subprocess.run(
+        [sys.executable, "-m", "bitranox_template_py_cli", "config-deploy", "--target", "user", "--force"],
+        capture_output=True,
+        check=False,
+        env={**os.environ, "XDG_CONFIG_HOME": str(tmp_path)},
+    )
+
+    stderr = completed.stderr.decode("utf-8", "replace")
+    assert completed.returncode == 78, stderr
+    assert "user_file: a bare integer is read as decimal (400 = 0o620)" in stderr
+    assert (config_dir / "config.toml").read_text(encoding="utf-8") == original

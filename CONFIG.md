@@ -241,9 +241,11 @@ bitranox-template-py-cli config-deploy --target user --dir-mode 0o750
 
 A mode must be a plain octal literal (`750` or `0o750`; no sign, whitespace, `_` or other base)
 within `0`..`0o7777`. Because the deployed files can hold credentials, a mode is also refused when
-it sets the setuid, setgid or sticky bit, grants world write, or takes the owner's access away
-(a directory needs owner `rwx`, a file owner `rw`). A refused mode is a usage error (exit 2) that
-names the offending bits, and nothing is written.
+it sets the setuid, setgid or sticky bit, grants group or world write, puts an execute bit on a
+file, or takes the owner's access away (a directory needs owner `rwx`, a file owner `rw`). Group
+write is refused like world write because a group can hold every local account (on macOS all of
+them share `staff`), and a configuration file never needs `x`. A refused mode is a usage error
+(exit 2) that names the offending bits, and nothing is written.
 
 **Configurable defaults:**
 
@@ -251,7 +253,7 @@ Permission defaults can be customized in `[lib_layered_config.default_permission
 
 ```toml
 [lib_layered_config.default_permissions]
-# Values: octal strings ("0o755", "755") or decimal integers (493)
+# Values: octal strings ("0o755", "755"); a bare integer is refused (see below)
 app_directory = "0o755"
 app_file = "0o644"
 host_directory = "0o755"
@@ -268,14 +270,17 @@ mode. `--dir-mode`/`--file-mode` override them for every target, and a key left 
 the layer default in the table above. `enabled = false` behaves like `--no-permissions` unless
 `--permissions` is given.
 
-A configured mode follows the same rules as `--dir-mode`/`--file-mode`: a plain octal string
-(`"0o750"`, `"750"`) or an integer in `0`..`0o7777`, and never setuid/setgid/sticky, world write, or
-a directory without owner `rwx` / a file without owner `rw`. `enabled` must be a boolean, and an
-unknown key in the section is refused rather than ignored. Any violation stops `config-deploy`
-before it writes anything, with exit 78 and one line naming the key, for example:
+A configured mode follows the same rules as `--dir-mode`/`--file-mode`: a plain octal STRING
+(`"0o750"`, `"750"`), never setuid/setgid/sticky, group or world write, an execute bit on a file,
+or a directory without owner `rwx` / a file without owner `rw`. A bare integer is refused rather
+than reinterpreted: TOML `user_file = 400`, `--set ...user_file=400` and an environment value `400`
+all arrive as the DECIMAL integer 400, which is `0o620`, not the owner-read-only mode the digits
+suggest. Quote it in TOML (`user_file = "640"`); in an environment variable or `--set`, use the
+`0o` prefix (`0o640`), which is never read as a number. `enabled` must be a boolean, and an unknown key in the section is refused rather than ignored. Any violation stops
+`config-deploy` before it writes anything, with exit 78 and one line naming the key, for example:
 
 ```text
-Error: Invalid configuration: lib_layered_config.default_permissions.user_directory: unsafe mode 0o777: world-write (0o2)
+Error: Invalid configuration: lib_layered_config.default_permissions.user_file: a bare integer is read as decimal (400 = 0o620); write the mode as an octal string such as "0o640" instead
 ```
 
 ### Generate Example Configuration Files

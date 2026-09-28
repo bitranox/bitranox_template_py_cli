@@ -47,7 +47,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `--set lib_layered_config.default_permissions.user_directory=488` still produced a `0o700`
   directory. `config-deploy` now deploys each target with its configured directory and file mode
   (CLI `--dir-mode`/`--file-mode` still win). The section is validated through the
-  `PermissionDefaults` pydantic model: a malformed or out-of-range mode (string or integer), an
+  `PermissionDefaults` pydantic model: a malformed or out-of-range mode, a bare integer, an
   unsafe mode, a non-boolean `enabled`, a section that is not a table or an unknown key stops the
   command with exit 78 and one line naming the key, where it used to fall back to the default,
   crash with `AttributeError`, or print pydantic's multi-line error.
@@ -72,6 +72,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **The SMTP password no longer prints.** `EmailConfig.smtp_password` was a plain `str`: the
   custom `__repr__` hid it, but `str()`, `format()` and `model_dump()`/`model_dump_json()` printed it.
   It is now a pydantic `SecretStr`, unwrapped only where the SMTP login receives it.
+- **No group-writable or executable configuration, and no decimal integer read as a mode.** A
+  configured mode given as a bare integer was read as DECIMAL (TOML `user_file = 444`, `--set`, or
+  the environment value `444`), and several such values passed the safety rule: `444` deployed
+  `config.toml`, the file holding the SMTP password, at `0o674`, and `400` meant as owner-read-only
+  became `0o620`. A bare integer is now refused with a hint to write an octal string (`"0o640"`),
+  and every mode, from the CLI or the configuration, is also refused when it grants group write
+  (on macOS every local account shares the group `staff`) or, for a file, sets any execute bit.
+  `--dir-mode 770` and `--file-mode 660`, accepted before, are refused. Migration: quote configured
+  modes (`user_file = "640"`), and use the `0o` prefix in environment variables and `--set`.
 
 ## [1.7.2] 2026-09-12 02:11:47
 

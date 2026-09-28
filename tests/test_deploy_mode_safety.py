@@ -2,10 +2,11 @@
 
 The deployed configuration can hold SMTP credentials, so a mode reaches ``chmod`` only when
 it is a plain octal literal inside 0..0o7777 and is safe for such a file: no setuid, setgid
-or sticky bit, no world write, and the owner keeps the access it needs (rwx on a directory,
-rw on a file). ``--dir-mode -1`` used to reach ``chmod(-1)`` and leave the directory at
-0o7777. Every refusal is a click usage error (exit 2) raised before ``deploy_configuration``
-is called.
+or sticky bit, no group or world write, no execute bit on a file, and the owner keeps the
+access it needs (rwx on a directory, rw on a file). Group write matters as much as world
+write: on macOS every local account shares the group ``staff``. ``--dir-mode -1`` used to
+reach ``chmod(-1)`` and leave the directory at 0o7777. Every refusal is a click usage error
+(exit 2) raised before ``deploy_configuration`` is called.
 """
 
 from __future__ import annotations
@@ -52,16 +53,25 @@ _UNSAFE_DIR_MODES = (
     ("2750", "setgid"),
     ("1750", "sticky"),
     ("777", "world-write"),
+    ("770", "group-write"),
+    ("775", "group-write"),
+    ("0o730", "group-write"),
     ("0", "owner rwx"),
     ("650", "owner rwx"),
 )
 _UNSAFE_FILE_MODES = (
     ("4640", "setuid"),
     ("666", "world-write"),
+    ("660", "group-write"),
+    ("620", "group-write"),
+    ("700", "execute"),
+    ("740", "execute"),
+    ("641", "execute"),
+    ("0o674", "group-write"),
     ("0", "owner rw"),
     ("440", "owner rw"),
 )
-_SAFE_DIR_MODES = (("750", 0o750), ("0o750", 0o750), ("700", 0o700), ("0o770", 0o770), ("755", 0o755))
+_SAFE_DIR_MODES = (("750", 0o750), ("0o750", 0o750), ("700", 0o700), ("0o710", 0o710), ("755", 0o755))
 _SAFE_FILE_MODES = (("640", 0o640), ("600", 0o600), ("0o644", 0o644))
 
 

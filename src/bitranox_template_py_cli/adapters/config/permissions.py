@@ -37,7 +37,10 @@ _OCTAL_MODE_PATTERN: Final[re.Pattern[str]] = re.compile(r"(?:0o)?[0-7]+")
 
 #: The special bits no deployed configuration directory or file may carry.
 _SPECIAL_BITS: Final[tuple[tuple[int, str], ...]] = ((0o4000, "setuid"), (0o2000, "setgid"), (0o1000, "sticky"))
+_GROUP_WRITE: Final[int] = 0o020
 _WORLD_WRITE: Final[int] = 0o002
+#: Execute for owner, group and other: a configuration file is never run.
+_ANY_EXECUTE: Final[int] = 0o111
 _OWNER_DIRECTORY: Final[int] = 0o700
 _OWNER_FILE: Final[int] = 0o600
 
@@ -76,10 +79,13 @@ def parse_octal_mode_string(value: str) -> int:
 def check_deploy_mode(mode: int, *, is_directory: bool) -> None:
     """Refuse a mode that is unsafe for configuration that can hold secrets.
 
-    The deployed directory and files can hold SMTP credentials, so a mode may widen access
-    beyond the layer defaults (755/644 for app and host, 700/600 for user) but may not add a
-    special bit, grant the world write access, or lock the owner out: a directory needs
-    owner rwx to be entered and redeployed into, a file owner rw to be read and rewritten.
+    The deployed directory and files can hold SMTP credentials, so a mode may widen READ
+    access beyond the layer defaults (755/644 for app and host, 700/600 for user) but may
+    not add a special bit, grant the group or the world write access, put an execute bit
+    on a file, or lock the owner out: a directory needs owner rwx to be entered and
+    redeployed into, a file owner rw to be read and rewritten. Group write counts like
+    world write because a group can be every local account (``staff`` on macOS), and a
+    file never needs x, so an x bit on one is the typical sign of a mistyped mode.
 
     Args:
         mode: A mode in 0..0o7777.
@@ -96,8 +102,12 @@ def check_deploy_mode(mode: int, *, is_directory: bool) -> None:
         ValueError: unsafe mode 0o4750: the setuid bit (0o4000)
     """
     problems = [f"the {name} bit ({oct(bit)})" for bit, name in _SPECIAL_BITS if mode & bit]
+    if mode & _GROUP_WRITE:
+        problems.append(f"group-write ({oct(_GROUP_WRITE)})")
     if mode & _WORLD_WRITE:
         problems.append(f"world-write ({oct(_WORLD_WRITE)})")
+    if not is_directory and mode & _ANY_EXECUTE:
+        problems.append(f"execute on a file ({oct(mode & _ANY_EXECUTE)})")
     owner = _OWNER_DIRECTORY if is_directory else _OWNER_FILE
     if mode & owner != owner:
         problems.append(f"no owner {'rwx' if is_directory else 'rw'} ({oct(owner)} is required)")
@@ -106,20 +116,27 @@ def check_deploy_mode(mode: int, *, is_directory: bool) -> None:
 
 
 def _to_mode(value: object) -> int:
-    """Pydantic before-validator: an integer or a plain octal string, as a mode in 0..0o7777.
+    """Pydantic before-validator: a plain octal string, as a mode in 0..0o7777.
 
-    A malformed or out-of-range string is refused like an out-of-range integer; a silent
-    fallback to the layer default would hide a typo in a setting that guards credentials.
-    Every refusal is a ``ValueError``, which pydantic reports as a ``value_error`` carrying
-    it; :func:`_describe` prints its message.
+    An integer is refused, never reinterpreted: TOML ``user_file = 400``, ``--set ...=400``
+    and an environment value ``400`` all arrive as the DECIMAL integer 400, which is
+    ``0o620`` (group-writable) and not the owner-read-only mode the digits suggest. Reading
+    it as octal instead would make the same digits mean different modes in a string and an
+    integer, so the only unambiguous form is the string, and the refusal says so.
+
+    A malformed or out-of-range string is refused too; a silent fallback to the layer
+    default would hide a typo in a setting that guards credentials. Every refusal is a
+    ``ValueError``, which pydantic reports as a ``value_error`` carrying it;
+    :func:`_describe` prints its message.
     """
-    if isinstance(value, bool) or not isinstance(value, (int, str)):
-        raise ValueError(f"expected an octal string or an integer, got {type(value).__name__}")
     if isinstance(value, str):
         return parse_octal_mode_string(value)
-    if not 0 <= value <= MAX_PERMISSION_MODE:
-        raise ValueError(f"Invalid mode {value}: must be between 0 and {oct(MAX_PERMISSION_MODE)}")
-    return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        raise ValueError(
+            f"a bare integer is read as decimal ({value} = {oct(value)}); "
+            'write the mode as an octal string such as "0o640" instead'
+        )
+    raise ValueError(f"expected an octal string, got {type(value).__name__}")
 
 
 def _safe_directory_mode(mode: int) -> int:
