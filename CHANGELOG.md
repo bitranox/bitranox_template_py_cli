@@ -43,12 +43,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   replaces the file) exit 1 with empty stdout. The root now records the failure
   (`adapters/cli/config_load.py`); `config`, `send-email` and `send-notification` refuse with exit
   78 and one line naming it, while `config-generate-examples`, `info`, `hello` and help still run.
-  `config-deploy` runs (with a warning) when its permission settings cannot matter, i.e. with
-  `--no-permissions` or both `--dir-mode` and `--file-mode`, and otherwise exits 78 with a hint
-  naming those options instead of deploying with library defaults that may be wider than the
-  configured modes (it logs "Deploying configuration" only once it goes ahead). An unreadable
-  file takes the same path, and so does an `--env-file` that is not UTF-8 (lib_layered_config's
-  `.env` parser lets that `UnicodeDecodeError` escape unwrapped; the line names the file).
+  `config-deploy` runs too: it reads nothing from that configuration (see the next entry), so
+  `config-deploy --force` replaces the broken file. An unreadable file takes the same path, and
+  so does an `--env-file` that is not UTF-8 (the line names the file).
   `--traceback` prints the loader's chained traceback before the line. What the command line
   gets wrong is checked BEFORE loading, so a broken file cannot hide it: a malformed `--set` or
   an invalid `--profile` name is a usage error (exit 2) for every command, `info` and `hello`
@@ -58,23 +55,39 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   other exception from the loader is a bug and propagates as one instead of being reported as a
   configuration error.
   `config --profile X` reloads with the root's `--env-file` instead of searching for another `.env`.
-- **`[lib_layered_config.default_permissions]` now takes effect.** The per-layer modes were read,
-  but only `enabled` was ever used: `get_modes_for_target` had no production caller, so
-  `--set lib_layered_config.default_permissions.user_directory=488` still produced a `0o700`
-  directory. `config-deploy` now deploys each target with its configured directory and file mode
-  (CLI `--dir-mode`/`--file-mode` still win). The section is validated through the
-  `PermissionDefaults` pydantic model: a malformed or out-of-range mode, a bare integer, an
-  unsafe mode, a non-boolean `enabled` (strictly: `"no"`, `"off"`, `0` and `1` are refused, not
-  read as a boolean), a section that is not a table or an unknown key stops the
-  command with exit 78 and one line naming the key and the options that deploy anyway
-  (`--no-permissions`, or both `--dir-mode` and `--file-mode`, with which it only warns), where it used to fall back to the default,
-  crash with `AttributeError`, or print pydantic's multi-line error.
+- **`[lib_layered_config.default_permissions]` now takes effect, and only the configuration
+  files decide it.** The per-layer modes were read, but only `enabled` was ever used, so
+  `--set lib_layered_config.default_permissions.user_directory='"0o750"'` still produced a `0o700`
+  directory. `config-deploy` now hands its options and any `--set` of the section to
+  lib_layered_config (6.0.0 or later), which deploys each target with its configured directory
+  and file mode (`--dir-mode`/`--file-mode` still win) and reads the section itself: from the
+  bundled defaults, the configuration files the deploy does not overwrite and the environment,
+  never from `.env` (nor `--env-file`). So a `.env` in the working directory can neither change
+  a deployed mode nor block a deploy (`sudo myapp config-deploy --target app` run from a
+  directory holding one used to be decided or refused by it), and `config-deploy --force`
+  replaces a deployed file that does not parse or holds a bad value without further options.
+  A malformed or out-of-range mode, a bare integer (TOML `user_file = 400` is decimal 400, i.e.
+  `0o620`), an unsafe mode, a non-boolean `enabled` (`"no"`, `"off"`, `0` and `1` are refused,
+  not read as a boolean), a section that is not a table or an unknown key stops the command with
+  exit 78 before anything is written: one `Error:` line per problem naming the key and where it
+  was set (`(source: override)` for a `--set`), then, for a configured value, a hint that both
+  `--dir-mode` and `--file-mode` deploy anyway. It used to fall back to the default, crash with
+  `AttributeError`, or print pydantic's multi-line error. `--no-permissions` together with
+  `--dir-mode` or `--file-mode` is a usage error (exit 2).
 - **An invalid `[email]` section is a configuration error.** `send-email` and `send-notification`
   let the `ValidationError` escape to `main()`'s catch-all, which exited 22 with pydantic's
   multi-line report and documentation URL. They now exit 78 with one line per problem,
   `Error: Invalid configuration: email.<key>: <reason>` (an `[email.attachments]` setting is
   named by its nested key). An invalid option value (`--timeout -5`) still exits 22, now in the
   same one-line form (`Error: Invalid option value: ...`).
+- **The documented `.env` and environment syntax for lists and tables works.** `.env.example`,
+  `defaultconfig.d/50-mail.toml`, `defaultconfig.d/90-logging.toml` and the README showed
+  comma-separated lists (`EMAIL__SMTP_HOSTS=a:587,b:587`) and `LEVEL=style` / `field=regex`
+  pairs, but a comma-separated value arrives as ONE string in both layers: one bogus SMTP host, an
+  attachment whitelist that was silently ignored, or a logging table that was refused. They now
+  show a JSON array or object (unquoted in `.env`, shell-quoted in the environment) or one key
+  per entry (`EMAIL__SMTP_HOSTS__0=...`). They also no longer claim that `.env` has booleans:
+  every `.env` value is text, and the setting's own validation reads `true`/`false`.
 
 ### Changed
 - **Breaking: an invalid `--profile` name exits 2, no longer 78.** A name such as `../x` is now
@@ -84,6 +97,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   configuration"), and `info` and `hello` ignored it and exited 0. A script that tells a bad
   profile name from a broken configuration file by exit code 78 has to test for 2. A profile
   FILE that does not load is still 78.
+- **Requires lib_layered_config 6.0.0 or later.** `config-deploy` leaves every permission
+  decision to its `deploy_config` (see Fixed). The deploy port (`DeployConfiguration`) takes
+  `set_permissions: bool | None` (None, the default, follows the configured `enabled`) and
+  `permission_overrides`; a derived repo's own deploy double needs both. Refusals of
+  `--dir-mode`/`--file-mode` use the library's wording ("unsafe directory mode 0o777: group
+  write (0o020); world write (0o002)"), and a zero-padded mode such as `0000750` is accepted
+  as `0o750`.
 - **Breaking: `EmailConfig.smtp_password` is a pydantic `SecretStr`, no longer a `str`** (see
   Security below for why). Code that reads the password now gets a `SecretStr`, so
   `config.smtp_password == "app-password"` is silently `False`, and under pyright strict
@@ -92,9 +112,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `config.smtp_password.get_secret_value()`, and construct with
   `EmailConfig(smtp_password=SecretStr("app-password"))` (`from pydantic import SecretStr`).
 - **`click` is a declared dependency.** The package imports it directly (`adapters/cli/main.py`,
-  `commands/config.py`) but only had it through rich-click. `permissions.py` no longer imports
-  `pydantic_core`, which was never declared either; its validators raise `ValueError`. A new test
-  fails when a runtime import is missing from `[project].dependencies`.
+  `commands/config.py`) but only had it through rich-click. A new test fails when a runtime
+  import is missing from `[project].dependencies`.
 - **For derived repos: tests under `build_testing()` now see ERROR log lines on stderr.** The
   testing composition starts a quiet lib_log_rich runtime (console at ERROR) instead of a no-op,
   so a `logger.error` in a command, e.g. "Failed to deploy configuration", now precedes its
@@ -105,16 +124,19 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   runtime too: the production one queues INFO lines that raced into stderr by timing.
 
 ### Removed
-- `adapters.config.permissions.parse_mode`, whose silent fall-back to the default is what the
-  model validation above replaces.
+- `adapters.config.permissions` as a whole: `parse_mode` (whose silent fall-back to the default
+  was the bug), `get_permission_defaults`, `get_modes_for_target` and the `PermissionDefaults`
+  model. lib_layered_config reads and validates the section now; a caller that wants the
+  settings uses its `deploy_permissions_from_config`.
 
 ### Security
 - **`config-deploy` refuses unsafe and malformed modes.** `--dir-mode -1` passed the unbounded
   octal parser and chmodded the config directory to `0o7777` (setuid, sticky, world-writable); a
   20-digit value raised `OverflowError`. `--dir-mode`/`--file-mode` now accept only a plain octal
-  literal in `0`..`0o7777`, and refuse the setuid/setgid/sticky bits, world write, a directory
-  without owner `rwx` and a file without owner `rw`, naming each offending bit (exit 2, nothing
-  written).
+  literal in `0`..`0o7777`, and refuse the setuid/setgid/sticky bits, group and world write, an
+  execute bit on a file, a directory without owner `rwx` and a file without owner `rw`, naming
+  each offending bit (exit 2, nothing written). The rule is lib_layered_config's, the same one it
+  applies to configured modes.
 - **The SMTP password no longer prints.** `EmailConfig.smtp_password` was a plain `str`: the
   custom `__repr__` hid it, but `str()`, `format()` and `model_dump()`/`model_dump_json()` printed it.
   It is now a pydantic `SecretStr`, unwrapped only where the SMTP login receives it.
