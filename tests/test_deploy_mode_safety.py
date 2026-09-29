@@ -6,7 +6,8 @@ or sticky bit, no group or world write, no execute bit on a file, and the owner 
 access it needs (rwx on a directory, rw on a file). Group write matters as much as world
 write: on macOS every local account shares the group ``staff``. ``--dir-mode -1`` used to
 reach ``chmod(-1)`` and leave the directory at 0o7777. Every refusal is a click usage error
-(exit 2) raised before ``deploy_configuration`` is called.
+(exit 2) raised before ``deploy_configuration`` is called. The rule is lib_layered_config's
+``DeployMode``, the one the library applies to configured modes too.
 """
 
 from __future__ import annotations
@@ -33,11 +34,9 @@ _ONLY_THE_LITERAL_CHECK_CATCHES = (
     "\uff17\uff15\uff10",  # fullwidth "750"
     "\u0667\u0665\u0660",  # Arabic-Indic "750"
 )
-_MALFORMED_OR_OUT_OF_RANGE = (
+_MALFORMED = (
     "-1",
     "+7",
-    "10000",
-    "77777777777777777777",
     "0x1ff",
     "0O750",
     "",
@@ -46,32 +45,46 @@ _MALFORMED_OR_OUT_OF_RANGE = (
     "9",
     *_ONLY_THE_LITERAL_CHECK_CATCHES,
 )
+_OUT_OF_RANGE = ("10000", "77777777777777777777")
+#: Each malformed or out-of-range literal, and the reason lib_layered_config gives for it.
+_REFUSED_LITERALS = (
+    *((mode, "is not a plain octal literal") for mode in _MALFORMED),
+    *((mode, "is outside 0..0o7777") for mode in _OUT_OF_RANGE),
+)
 #: Parse cleanly but are unsafe, each with the phrase the refusal must name.
 _UNSAFE_DIR_MODES = (
     ("7777", "setuid"),
     ("4750", "setuid"),
     ("2750", "setgid"),
     ("1750", "sticky"),
-    ("777", "world-write"),
-    ("770", "group-write"),
-    ("775", "group-write"),
-    ("0o730", "group-write"),
+    ("777", "world write"),
+    ("770", "group write"),
+    ("775", "group write"),
+    ("0o730", "group write"),
     ("0", "owner rwx"),
     ("650", "owner rwx"),
 )
 _UNSAFE_FILE_MODES = (
     ("4640", "setuid"),
-    ("666", "world-write"),
-    ("660", "group-write"),
-    ("620", "group-write"),
+    ("666", "world write"),
+    ("660", "group write"),
+    ("620", "group write"),
     ("700", "execute"),
     ("740", "execute"),
     ("641", "execute"),
-    ("0o674", "group-write"),
+    ("0o674", "group write"),
     ("0", "owner rw"),
     ("440", "owner rw"),
 )
-_SAFE_DIR_MODES = (("750", 0o750), ("0o750", 0o750), ("700", 0o700), ("0o710", 0o710), ("755", 0o755))
+#: Leading zeros are dropped before the range check, so "0000750" is 0o750.
+_SAFE_DIR_MODES = (
+    ("750", 0o750),
+    ("0o750", 0o750),
+    ("700", 0o700),
+    ("0o710", 0o710),
+    ("755", 0o755),
+    ("0000750", 0o750),
+)
 _SAFE_FILE_MODES = (("640", 0o640), ("600", 0o600), ("0o644", 0o644))
 
 
@@ -95,19 +108,20 @@ def _deploy(cli_runner: CliRunner, factory: Callable[[], AppServices], *options:
 
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize("option", ["--dir-mode", "--file-mode"])
-@pytest.mark.parametrize("mode", _MALFORMED_OR_OUT_OF_RANGE)
+@pytest.mark.parametrize(("mode", "reason"), _REFUSED_LITERALS)
 def test_a_malformed_or_out_of_range_mode_is_a_usage_error(
     cli_runner: CliRunner,
     recorded_deploys: tuple[list[dict[str, Any]], Callable[[], AppServices]],
     option: str,
     mode: str,
+    reason: str,
 ) -> None:
     calls, factory = recorded_deploys
 
     result = _deploy(cli_runner, factory, option, mode)
 
     assert result.exit_code == 2, result.output
-    assert "Invalid octal mode" in result.output
+    assert reason in result.output
     assert calls == []
 
 

@@ -11,10 +11,12 @@ an invalid ``--profile`` name - is a usage error (exit 2) for every command, che
 loading, so a load failure cannot hide it. Any other exception from the loader is a bug and is
 not dressed up as a configuration error.
 
-``config-deploy`` reads one thing from the configuration: the permission settings. It runs
-without them only when they cannot matter - ``--no-permissions``, or both ``--dir-mode`` and
-``--file-mode`` - and otherwise refuses with exit 78 and a hint naming those options, rather
-than deploying with library defaults that may be wider than what an administrator configured.
+``config-deploy`` reads nothing from the configuration the root loaded: it hands its command
+line to lib_layered_config, which reads the permission settings itself, without ``.env`` and
+without the files the deploy overwrites. A configuration that did not load therefore never
+blocks it, whatever its options; a permission setting the library refuses exits 78 with one
+``Error:`` line per problem and, when the command line can get past it, a hint in the CLI's own
+spelling.
 """
 
 from __future__ import annotations
@@ -22,12 +24,13 @@ from __future__ import annotations
 import dataclasses
 import logging
 import os
+import stat
 import subprocess
 import sys
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from lib_layered_config import Config, ConfigError
+from lib_layered_config import Config, ConfigError, DeployPermissionsError, PermissionProblem
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod
@@ -52,7 +55,7 @@ NEEDS_CONFIG: dict[str, list[str]] = {
     "send-notification": ["send-notification", "--to", "a@example.com", "--subject", "s", "--message", "m"],
 }
 RUNS_WITHOUT_CONFIG: dict[str, list[str]] = {
-    "config-deploy": ["config-deploy", "--target", "user", "--no-permissions"],
+    "config-deploy": ["config-deploy", "--target", "user"],
     "hello": ["hello"],
     "info": ["info"],
 }
@@ -116,63 +119,81 @@ def _recording_failing_config(error: Exception) -> tuple[list[dict[str, Any]], C
 @pytest.mark.parametrize(
     ("options", "expected"),
     [
-        (["--no-permissions"], (False, 0o700, 0o600)),
-        (["--dir-mode", "750", "--file-mode", "640"], (True, 0o750, 0o640)),
+        ([], (None, None, None)),
+        (["--permissions"], (True, None, None)),
+        (["--no-permissions"], (False, None, None)),
+        (["--dir-mode", "750"], (None, 0o750, None)),
+        (["--dir-mode", "750", "--file-mode", "640"], (None, 0o750, 0o640)),
     ],
-    ids=["no-permissions", "both-modes"],
+    ids=["no-options", "permissions-on", "no-permissions", "dir-mode-only", "both-modes"],
 )
-def test_config_deploy_runs_without_the_config_when_its_permissions_cannot_matter(
-    cli_runner: CliRunner, options: list[str], expected: tuple[bool, int, int]
+def test_config_deploy_runs_whatever_its_options_when_the_config_did_not_load(
+    cli_runner: CliRunner, options: list[str], expected: tuple[bool | None, int | None, int | None]
 ) -> None:
+    """The library reads the permission settings itself; the root's failed load is not its business."""
     calls, factory = _recording_failing_config(ConfigError(BROKEN_TOML))
 
     result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", *options], obj=factory)
 
     assert result.exit_code == 0, result.output
-    assert BROKEN_TOML in result.stderr
+    assert BROKEN_TOML not in result.stderr
     assert [(call["set_permissions"], call["dir_mode"], call["file_mode"]) for call in calls] == [expected]
 
 
-@pytest.mark.os_agnostic
-@pytest.mark.parametrize(
-    "options",
-    [[], ["--permissions"], ["--dir-mode", "750"], ["--file-mode", "640"]],
-    ids=["no-options", "permissions-on", "dir-mode-only", "file-mode-only"],
+def _refusing_deploy(error: DeployPermissionsError) -> Callable[[], AppServices]:
+    def deploy(**_kwargs: Any) -> list[Path]:
+        raise error
+
+    return lambda: dataclasses.replace(build_testing(), deploy_configuration=deploy)
+
+
+_PROBLEMS = (
+    PermissionProblem("lib_layered_config.default_permissions.user_file", "a bare integer", "/etc/xdg/app/config.toml"),
+    PermissionProblem("lib_layered_config.default_permissions.enabled", "must be true or false, got str 'no'", "env"),
 )
-def test_config_deploy_refuses_when_the_unloaded_config_decides_a_mode(
-    cli_runner: CliRunner, options: list[str]
-) -> None:
-    """No silent fall-back to the library's layer defaults, which can be wider than configured."""
-    calls, factory = _recording_failing_config(ConfigError(BROKEN_TOML))
 
-    result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", *options], obj=factory)
 
-    error_lines = [line for line in result.stderr.splitlines() if line.strip()]
+@pytest.mark.os_agnostic
+def test_a_library_refusal_is_one_error_line_per_problem_then_the_cli_hint(cli_runner: CliRunner) -> None:
+    """The library's hint names its Python parameters (dir_mode); the CLI replaces it with its options."""
+    error = DeployPermissionsError(_PROBLEMS, hint="to deploy anyway, give both modes (dir_mode and file_mode)")
+
+    result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=_refusing_deploy(error))
+
+    lines = [line for line in result.stderr.splitlines() if line.strip()]
     assert result.exit_code == 78, result.output
-    assert len(error_lines) == 1, result.stderr
-    assert BROKEN_TOML in error_lines[0]
-    assert error_lines[0].endswith(
-        "(to deploy without reading the permission settings, pass --no-permissions, or both --dir-mode and --file-mode)"
-    )
-    assert calls == []
+    assert lines[:2] == [f"Error: {problem}" for problem in _PROBLEMS]
+    assert len(lines) == 3, result.stderr
+    assert lines[2].startswith("Hint: to deploy anyway, pass both --dir-mode and --file-mode")
+    assert "--no-permissions also deploys, but leaves every mode to the umask" in lines[2]
+    assert "dir_mode" not in result.stderr
 
 
 @pytest.mark.os_agnostic
-@pytest.mark.parametrize(
-    ("options", "deploys"), [([], False), (["--no-permissions"], True)], ids=["refused", "deploys"]
-)
-def test_config_deploy_announces_a_deploy_only_when_it_goes_ahead(
-    cli_runner: CliRunner, caplog: pytest.LogCaptureFixture, options: list[str], deploys: bool
+def test_a_library_refusal_without_a_hint_offers_none(cli_runner: CliRunner) -> None:
+    """A refused --set has no way around it on the command line, so the library gives no hint."""
+    error = DeployPermissionsError(_PROBLEMS[:1])
+
+    result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=_refusing_deploy(error))
+
+    assert result.exit_code == 78, result.output
+    assert [line for line in result.stderr.splitlines() if line.strip()] == [f"Error: {_PROBLEMS[0]}"]
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("refused", [True, False], ids=["refused", "deploys"])
+def test_config_deploy_logs_a_deploy_only_after_it_happened(
+    cli_runner: CliRunner, caplog: pytest.LogCaptureFixture, refused: bool
 ) -> None:
-    """An INFO "Deploying configuration" line before a refusal told the log a deploy happened."""
-    _calls, factory = _recording_failing_config(ConfigError(BROKEN_TOML))
+    """An INFO line before the call would tell the log a deploy happened that the library refused."""
+    factory = _refusing_deploy(DeployPermissionsError(_PROBLEMS[:1])) if refused else build_testing
 
     with caplog.at_level(logging.INFO):
-        result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", *options], obj=factory)
+        result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=factory)
 
-    announced = [record for record in caplog.records if record.getMessage() == "Deploying configuration"]
-    assert result.exit_code == (0 if deploys else 78), result.output
-    assert len(announced) == (1 if deploys else 0)
+    announced = [record for record in caplog.records if record.getMessage() == "Deployed configuration"]
+    assert result.exit_code == (78 if refused else 0), result.output
+    assert len(announced) == (0 if refused else 1)
 
 
 @pytest.mark.os_agnostic
@@ -297,10 +318,7 @@ def test_a_non_utf8_env_file_is_a_configuration_error_naming_the_file(
 
 
 @pytest.mark.os_agnostic
-@pytest.mark.parametrize("args", [["config"], ["config-deploy", "--target", "user"]], ids=["config", "config-deploy"])
-def test_traceback_shows_why_the_config_did_not_load(
-    cli_runner: CliRunner, managed_traceback_state: None, args: list[str]
-) -> None:
+def test_traceback_shows_why_the_config_did_not_load(cli_runner: CliRunner, managed_traceback_state: None) -> None:
     def get_config(**_kwargs: Any) -> Config:
         try:
             raise OSError("the underlying cause")
@@ -308,7 +326,7 @@ def test_traceback_shows_why_the_config_did_not_load(
             raise ConfigError(BROKEN_TOML) from cause
 
     services = dataclasses.replace(build_testing(), get_config=get_config)
-    result = cli_runner.invoke(cli_mod.cli, ["--traceback", *args], obj=lambda: services)
+    result = cli_runner.invoke(cli_mod.cli, ["--traceback", "config"], obj=lambda: services)
 
     assert result.exit_code == 78, result.output
     assert "Traceback" in result.stderr
@@ -394,7 +412,7 @@ def test_a_real_non_utf8_env_file_refuses_config_with_78(tmp_path: Path, non_utf
 
     stderr = _stderr_of(completed)
     assert completed.returncode == 78, stderr
-    assert "latin1.env: not valid UTF-8" in stderr
+    assert "latin1.env is not valid UTF-8" in stderr
 
 
 @_LINUX_ONLY
@@ -410,7 +428,6 @@ def test_a_real_non_utf8_env_file_does_not_stop_config_deploy(tmp_path: Path, no
             "config-deploy",
             "--target",
             "user",
-            "--no-permissions",
         ],
         capture_output=True,
         check=False,
@@ -448,13 +465,16 @@ def test_a_real_broken_user_config_refuses_config_with_78(broken_user_config_env
 
     stderr = completed.stderr.decode("utf-8", "replace")
     assert completed.returncode == 78, stderr
-    assert "Invalid TOML" in stderr
+    assert "config.toml is not valid TOML" in stderr
     assert "Traceback" not in stderr
 
 
 @_LINUX_ONLY
-def test_a_real_invalid_permission_section_is_replaced_by_a_forced_deploy_without_permissions(tmp_path: Path) -> None:
-    """End to end: the command that replaces a bad file is not blocked by the value it replaces."""
+def test_a_real_invalid_permission_section_is_replaced_by_a_forced_deploy(tmp_path: Path) -> None:
+    """End to end: the command that replaces a bad file is not blocked by the value it replaces.
+
+    The library never reads the files a deploy writes, so ``--force`` alone gets past the value.
+    """
     config_dir = tmp_path / __init__conf__.LAYEREDCONF_SLUG
     config_dir.mkdir()
     bad = '[lib_layered_config.default_permissions]\nuser_directory = "0o777"\n'
@@ -468,11 +488,6 @@ def test_a_real_invalid_permission_section_is_replaced_by_a_forced_deploy_withou
             "--target",
             "user",
             "--force",
-            "--no-permissions",
-            "--dir-mode",
-            "700",
-            "--file-mode",
-            "600",
         ],
         capture_output=True,
         check=False,
@@ -481,6 +496,7 @@ def test_a_real_invalid_permission_section_is_replaced_by_a_forced_deploy_withou
 
     assert completed.returncode == 0, completed.stderr.decode("utf-8", "replace")
     assert (config_dir / "config.toml").read_text(encoding="utf-8") != bad
+    assert stat.S_IMODE(config_dir.stat().st_mode) == 0o700
 
 
 @_LINUX_ONLY
