@@ -20,7 +20,6 @@ Complete (v1.1.2+)
 - `src/bitranox_template_py_cli/adapters/config/deploy.py`  -  Configuration deployment
 - `src/bitranox_template_py_cli/adapters/config/display.py`  -  Configuration display (TOML/JSON output, redaction)
 - `src/bitranox_template_py_cli/adapters/config/overrides.py`  -  CLI `--set` override parsing and deep-merge
-- `src/bitranox_template_py_cli/adapters/config/permissions.py`  -  Deploy mode rules and the `PermissionDefaults` model for `[lib_layered_config.default_permissions]`
 - `src/bitranox_template_py_cli/adapters/email/sender.py`  -  SMTP email with EmailConfig (Pydantic)
 - `src/bitranox_template_py_cli/adapters/email/validation.py`  -  Email recipient validation
 - `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization
@@ -73,7 +72,7 @@ Complete (v1.1.2+)
 - `tests/test_mail.py`  -  Email configuration and sending tests
 - `tests/test_cli_email_config_errors.py`  -  An invalid `[email]` section or option value: one `Error:` line per problem
 - `tests/test_email_password_secrecy.py`  -  The SMTP password never reaches an error message, the console or the log
-- `tests/test_permission_defaults.py`  -  Configured per-layer permission defaults reach `config-deploy`; invalid ones exit 78
+- `tests/test_permission_defaults.py`  -  `config-deploy` hands permissions to lib_layered_config: `--set` overrides, `.env` and deployed destinations never decide a mode, refusals exit 78
 - `tests/test_memory_logging.py`  -  Testing-composition logging runtime and the per-test logging reset
 - `tests/test_metadata.py`  -  Package metadata tests
 - `tests/test_module_entry.py`  -  `python -m` entry tests
@@ -183,7 +182,7 @@ Deploy default configuration to system or user directories.
 | `--dir-mode MODE`                  | Directory mode for every target (octal)                          |
 | `--file-mode MODE`                 | File mode for every target (octal)                               |
 
-**Exit codes:** 0, 1, 2 (usage error, including a refused `--dir-mode`/`--file-mode` or `--profile` name), 13 (permission denied), 78 (configuration not loadable or its permission settings invalid, unless `--no-permissions` or both `--dir-mode` and `--file-mode` are given)
+**Exit codes:** 0, 1, 2 (usage error, including a refused `--dir-mode`/`--file-mode` or `--profile` name, and `--no-permissions` together with a mode), 13 (permission denied), 78 (lib_layered_config refused the permission settings: a configured one, which both `--dir-mode` and `--file-mode` or `--no-permissions` deploy past, or a `--set` of `lib_layered_config.default_permissions`)
 
 ### config-generate-examples
 
@@ -363,4 +362,4 @@ Use `composition.build_testing()` to wire all in-memory adapters.
 
 ---
 
-**Last Updated:** 2026-09-28 (exit codes, permission settings, SecretStr password)
+**Last Updated:** 2026-09-29 (config-deploy leaves permissions to lib_layered_config)
