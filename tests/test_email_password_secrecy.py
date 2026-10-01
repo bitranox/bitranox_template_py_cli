@@ -6,10 +6,10 @@ model-level one. ``EmailConfig`` therefore hides its input in errors, and its pa
 validator refuses without naming the value. Every password below is a planted dummy; the
 check looks for any 4-character piece of it, so a truncated echo counts as a leak.
 
-Two shapes a real password takes are accepted, not refused: an all-digit password, which
-lib_layered_config's environment layer turns into an integer, and a ``SecretStr``. A
-non-ASCII password (or user name) is refused at validation: smtplib encodes the AUTH exchange
-as ASCII, so it could never log in, and its UnicodeEncodeError would reach the delivery log.
+Three shapes a real password takes are accepted, not refused: an all-digit password, which
+lib_layered_config's environment layer turns into an integer, a ``SecretStr``, and a non-ASCII
+password, which btx_lib_mail sends with UTF-8 AUTH PLAIN. A password typed under a key the
+section does not know is refused as an unknown key, and its value is never shown.
 """
 
 from __future__ import annotations
@@ -127,16 +127,28 @@ def test_a_model_level_error_does_not_show_the_password(password: object, dummy:
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize(
     "fields",
-    [{"smtp_password": NON_ASCII}, {"smtp_password": SecretStr(NON_ASCII)}, {"smtp_username": NON_ASCII}],
-    ids=["password", "secretstr-password", "username"],
+    [{"smtp_password": NON_ASCII}, {"smtp_username": NON_ASCII}],
+    ids=["password", "username"],
 )
-def test_a_non_ascii_credential_is_refused_without_its_value(fields: dict[str, object]) -> None:
-    with pytest.raises(ValidationError) as caught:
-        EmailConfig.model_validate({**VALID, **fields})
+def test_a_non_ascii_credential_is_accepted_as_written(fields: dict[str, object]) -> None:
+    """btx_lib_mail logs in with UTF-8 AUTH PLAIN, so a non-ASCII credential is valid."""
+    config = load_email_config_from_dict({"email": {**VALID, **fields}})
 
-    text = f"{caught.value}\n{caught.value!r}"
-    assert "ASCII" in text
-    assert _leaked(NON_ASCII, text) == []
+    password = config.smtp_password.get_secret_value() if config.smtp_password else None
+    assert NON_ASCII in (password, config.smtp_username)
+
+
+@pytest.mark.os_agnostic
+def test_a_non_ascii_password_from_the_file_reaches_the_send(cli_runner: CliRunner) -> None:
+    spy = EmailSpy()
+    result = cli_runner.invoke(
+        cli_mod.cli, SEND_EMAIL, obj=_services({**VALID, "smtp_username": "u", "smtp_password": NON_ASCII}, spy)
+    )
+
+    assert result.exit_code == 0, result.output
+    sent = spy.sent_emails[0].config.smtp_password
+    assert sent is not None
+    assert sent.get_secret_value() == NON_ASCII
 
 
 @pytest.mark.os_agnostic
@@ -178,12 +190,11 @@ REFUSED_IN_FILE: dict[str, Refusal] = {
     "integer-in-file": Refusal({**VALID, "smtp_password": int(DIGITS), "timeout": -5}, [], DIGITS),
     "list-in-file": Refusal({**VALID, "smtp_password": [DUMMY]}, [], DUMMY),
     "string-in-file-invalid-sibling": Refusal({"smtp_password": DUMMY, "smtp_hosts": ["bad host:x"]}, [], DUMMY),
-    "non-ascii-in-file": Refusal({**VALID, "smtp_password": NON_ASCII}, [], NON_ASCII),
+    "password-under-an-unknown-key": Refusal({**VALID, "smtp_pasword": DUMMY}, [], DUMMY),
 }
 #: Refused while applying the command-line options.
 REFUSED_BY_OPTION: dict[str, Refusal] = {
     "option-invalid-sibling": Refusal(VALID, ["--smtp-password", DUMMY, "--timeout", "-5"], DUMMY),
-    "non-ascii-option": Refusal(VALID, ["--smtp-password", NON_ASCII], NON_ASCII),
 }
 REFUSED = {**REFUSED_IN_FILE, **REFUSED_BY_OPTION}
 
