@@ -128,6 +128,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   was the bug), `get_permission_defaults`, `get_modes_for_target` and the `PermissionDefaults`
   model. lib_layered_config reads and validates the section now; a caller that wants the
   settings uses its `deploy_permissions_from_config`.
+- `config_load._not_utf8` and the `UnicodeError` branch of `load_config`: lib_layered_config
+  6.0.0, the declared floor, reports a `.env` or TOML file that is not UTF-8 as its own
+  `ConfigError` naming the file, so the branch was unreachable. The tests for that case now drive
+  the real loader instead of injecting the error the library no longer raises.
 
 ### Security
 - **`config-deploy` refuses unsafe and malformed modes.** `--dir-mode -1` passed the unbounded

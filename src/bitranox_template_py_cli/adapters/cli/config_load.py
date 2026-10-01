@@ -39,25 +39,10 @@ if TYPE_CHECKING:
     from .context import CLIContext
 
 #: Every way loading a configuration can fail: a broken or invalid file (ConfigError, which
-#: lib_layered_config's own validation error subclasses) and a file the running user cannot
-#: read (OSError). A file that is not UTF-8 is one more (see :func:`_not_utf8`). Anything
-#: else the loader raises is a bug and propagates as one.
+#: lib_layered_config's own validation error subclasses, and which since 6.0.0 also covers a
+#: TOML or ``.env`` file that is not UTF-8) and a file the running user cannot read (OSError).
+#: Anything else the loader raises is a bug and propagates as one.
 _LOAD_ERRORS = (ConfigError, OSError)
-
-
-def _not_utf8(error: UnicodeError, env_file: str | None) -> ConfigError:
-    """Name the file behind a decode error the loader let escape, as a ConfigError.
-
-    lib_layered_config wraps a TOML file that is not UTF-8 in ConfigError, but its ``.env``
-    parser lets the UnicodeDecodeError escape. That is a broken file like any other, not a
-    bug: recorded like one, it leaves ``info`` and ``config-deploy`` (the command that
-    replaces a broken file) running. The ``.env`` parser is the only reader that lets it
-    escape, so the explicit ``--env-file`` is the file to name.
-    """
-    source = env_file if env_file is not None else "the .env file"
-    wrapped = ConfigError(f"{source}: not valid UTF-8 ({error})")
-    wrapped.__cause__ = error
-    return wrapped
 
 
 def _check_command_line(profile: str | None, set_overrides: tuple[str, ...]) -> None:
@@ -102,8 +87,6 @@ def load_config(
         config = services.get_config(profile=profile, dotenv_path=env_file)
     except _LOAD_ERRORS as exc:
         return Config({}, {}), exc
-    except UnicodeError as exc:
-        return Config({}, {}), _not_utf8(exc, env_file)
     return apply_overrides(config, set_overrides), None
 
 

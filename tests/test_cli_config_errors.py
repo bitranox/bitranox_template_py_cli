@@ -34,7 +34,7 @@ from lib_layered_config import Config, ConfigError, DeployPermissionsError, Perm
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod
-from bitranox_template_py_cli.composition import AppServices, build_testing
+from bitranox_template_py_cli.composition import AppServices, build_production, build_testing
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -279,12 +279,6 @@ def test_a_bug_in_the_loader_is_not_reported_as_a_configuration_error(cli_runner
     assert isinstance(result.exception, ValueError)
 
 
-#: What lib_layered_config's ``.env`` parser raises for a file that is not UTF-8. The same
-#: failure in a TOML file arrives wrapped in ConfigError; this one escapes unwrapped, and it
-#: is a subclass of ValueError, so "anything else is a bug" would crash every command on it.
-NOT_UTF8 = UnicodeDecodeError("utf-8", b"A=\xff\n", 2, 3, "invalid start byte")
-
-
 @pytest.fixture
 def non_utf8_env_file(tmp_path: Path) -> Path:
     env_file = tmp_path / "latin1.env"
@@ -292,13 +286,24 @@ def non_utf8_env_file(tmp_path: Path) -> Path:
     return env_file
 
 
+@pytest.fixture
+def real_loader(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, clear_config_cache: None) -> Callable[[], AppServices]:
+    """The testing composition over the production loader, with an empty user layer.
+
+    A ``.env`` file that is not UTF-8 is lib_layered_config's to report: it raises its own
+    ConfigError naming the file, so the CLI records it like any other broken file.
+    """
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    return lambda: dataclasses.replace(build_testing(), get_config=build_production().get_config)
+
+
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize("args", RUNS_WITHOUT_CONFIG.values(), ids=RUNS_WITHOUT_CONFIG.keys())
 def test_a_command_that_does_not_read_the_config_runs_past_a_non_utf8_env_file(
-    cli_runner: CliRunner, non_utf8_env_file: Path, args: list[str]
+    cli_runner: CliRunner, real_loader: Callable[[], AppServices], non_utf8_env_file: Path, args: list[str]
 ) -> None:
     argv = ["--env-file", str(non_utf8_env_file), *args]
-    result = cli_runner.invoke(cli_mod.cli, argv, obj=_failing_config(NOT_UTF8))
+    result = cli_runner.invoke(cli_mod.cli, argv, obj=real_loader)
 
     assert result.exit_code == 0, result.output
 
@@ -306,15 +311,15 @@ def test_a_command_that_does_not_read_the_config_runs_past_a_non_utf8_env_file(
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize("args", NEEDS_CONFIG.values(), ids=NEEDS_CONFIG.keys())
 def test_a_non_utf8_env_file_is_a_configuration_error_naming_the_file(
-    cli_runner: CliRunner, non_utf8_env_file: Path, args: list[str]
+    cli_runner: CliRunner, real_loader: Callable[[], AppServices], non_utf8_env_file: Path, args: list[str]
 ) -> None:
     argv = ["--env-file", str(non_utf8_env_file), *args]
-    result = cli_runner.invoke(cli_mod.cli, argv, obj=_failing_config(NOT_UTF8))
+    result = cli_runner.invoke(cli_mod.cli, argv, obj=real_loader)
 
     error_lines = [line for line in result.stderr.splitlines() if line.strip()]
     assert result.exit_code == 78, result.output
     assert len(error_lines) == 1, result.stderr
-    assert f"{non_utf8_env_file}: not valid UTF-8" in error_lines[0]
+    assert f"{non_utf8_env_file} is not valid UTF-8" in error_lines[0]
 
 
 @pytest.mark.os_agnostic
@@ -388,7 +393,7 @@ def _stderr_of(completed: subprocess.CompletedProcess[bytes]) -> str:
 
 @_LINUX_ONLY
 def test_a_real_non_utf8_env_file_does_not_stop_info(tmp_path: Path, non_utf8_env_file: Path) -> None:
-    """End to end through the real loader, whose ``.env`` parser raises an unwrapped UnicodeDecodeError."""
+    """End to end, in a process of its own, through the real loader."""
     completed = subprocess.run(
         [sys.executable, "-m", "bitranox_template_py_cli", "--env-file", "latin1.env", "info"],
         capture_output=True,
