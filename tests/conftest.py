@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 import lib_cli_exit_tools
 import lib_log_rich.runtime
 import pytest
+import rich_click.rich_click
 from click.testing import CliRunner
 from lib_layered_config import Config
 
@@ -160,6 +161,28 @@ def isolated_logging_state() -> Iterator[Callable[[], None]]:
 
     yield _restore
     _restore()
+
+
+@pytest.fixture(autouse=True)
+def uncoloured_cli_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give every test the same uncoloured CLI output, on a developer machine and in CI.
+
+    Two readers decide whether output is coloured, at two different times:
+
+    - rich-click decides once, when it is imported: it reads FORCE_COLOR, PY_COLORS and
+      GITHUB_ACTIONS into ``rich_click.rich_click.FORCE_TERMINAL``, and GitHub sets GITHUB_ACTIONS
+      on every runner. Each command reads that global again when it formats an error, so it is
+      reset here; an environment variable changed per test arrives after the import.
+    - rich reads FORCE_COLOR whenever a ``Console`` is built, which happens per command, so
+      removing the variable for the test reaches it.
+
+    Without both, a plain-text assertion passes on one machine and fails on another: on every CI
+    cell for the first, under a developer's exported FORCE_COLOR for the second. A console built
+    at import time is out of reach of both: lib_layered_config's default display console is one,
+    so the ``display_config`` tests still see colour when FORCE_COLOR is exported for the run.
+    """
+    monkeypatch.setattr(rich_click.rich_click, "FORCE_TERMINAL", None)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
 
 
 @pytest.fixture
