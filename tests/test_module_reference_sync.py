@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
@@ -31,7 +32,9 @@ def _documented_types() -> dict[str, str]:
 
 def _spelled(annotation: object) -> str:
     """The annotation as the table spells it: bare class names, no module paths."""
-    text = annotation.__name__ if isinstance(annotation, type) else str(annotation)
+    # get_args first: on Python 3.10 a parametrised builtin such as list[str] passes
+    # isinstance(..., type), so its __name__ would spell it as plain "list".
+    text = annotation.__name__ if isinstance(annotation, type) and not get_args(annotation) else str(annotation)
     return re.sub(r"\b(?:[a-z_]\w*\.)+(\w+)", r"\1", text)
 
 

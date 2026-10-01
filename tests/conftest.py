@@ -163,25 +163,32 @@ def isolated_logging_state() -> Iterator[Callable[[], None]]:
     _restore()
 
 
+#: The width every test's CLI output is rendered at. Wider than the 80 columns the assertions were
+#: written against, so a message that fits one line there cannot wrap on a narrower runner.
+_CLI_OUTPUT_WIDTH = 120
+
+
 @pytest.fixture(autouse=True)
-def uncoloured_cli_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Give every test the same uncoloured CLI output, on a developer machine and in CI.
+def deterministic_cli_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give every test the same uncoloured, fixed-width CLI output, on any machine and in CI.
 
-    Two readers decide whether output is coloured, at two different times:
+    rich-click decides colour and width once, when it is imported, into module globals that each
+    command reads again when it formats an error; an environment variable changed per test arrives
+    after that import and changes nothing, so the globals are reset here:
 
-    - rich-click decides once, when it is imported: it reads FORCE_COLOR, PY_COLORS and
-      GITHUB_ACTIONS into ``rich_click.rich_click.FORCE_TERMINAL``, and GitHub sets GITHUB_ACTIONS
-      on every runner. Each command reads that global again when it formats an error, so it is
-      reset here; an environment variable changed per test arrives after the import.
-    - rich reads FORCE_COLOR whenever a ``Console`` is built, which happens per command, so
-      removing the variable for the test reaches it.
+    - ``FORCE_TERMINAL`` comes from FORCE_COLOR, PY_COLORS or GITHUB_ACTIONS, and GitHub sets
+      GITHUB_ACTIONS on every runner, so CI output was coloured and local output was not.
+    - ``WIDTH`` and ``MAX_WIDTH`` come from the terminal, which is 79 columns on the Windows
+      runners and 80 elsewhere, so an error box wrapped its message on Windows only.
 
-    Without both, a plain-text assertion passes on one machine and fails on another: on every CI
-    cell for the first, under a developer's exported FORCE_COLOR for the second. A console built
-    at import time is out of reach of both: lib_layered_config's default display console is one,
-    so the ``display_config`` tests still see colour when FORCE_COLOR is exported for the run.
+    rich itself reads FORCE_COLOR whenever a ``Console`` is built, which happens per command, so
+    removing the variable for the test reaches it. A console built at import time is out of reach
+    of all of this: lib_layered_config's default display console is one, so the
+    ``display_config`` tests still see colour when FORCE_COLOR is exported for the whole run.
     """
     monkeypatch.setattr(rich_click.rich_click, "FORCE_TERMINAL", None)
+    monkeypatch.setattr(rich_click.rich_click, "WIDTH", _CLI_OUTPUT_WIDTH)
+    monkeypatch.setattr(rich_click.rich_click, "MAX_WIDTH", _CLI_OUTPUT_WIDTH)
     monkeypatch.delenv("FORCE_COLOR", raising=False)
 
 
