@@ -376,7 +376,7 @@ def test_when_send_email_receives_smtp_host_override_it_uses_it(
     )
 
     assert result.exit_code == 0
-    assert ctx.spy.sent_emails[0].config.smtp_hosts == ["smtp.override.com:465"]
+    assert ctx.spy.sent_emails[0].config.smtphosts == ["smtp.override.com:465"]
 
 
 @pytest.mark.os_agnostic
@@ -409,7 +409,7 @@ def test_when_send_email_receives_timeout_override_it_uses_it(
     )
 
     assert result.exit_code == 0
-    assert ctx.spy.sent_emails[0].config.timeout == 60.0
+    assert ctx.spy.sent_emails[0].config.smtp_timeout == 60.0
 
 
 @pytest.mark.os_agnostic
@@ -441,7 +441,7 @@ def test_when_send_email_receives_no_use_starttls_override_it_applies_it(
     )
 
     assert result.exit_code == 0
-    assert ctx.spy.sent_emails[0].config.use_starttls is False
+    assert ctx.spy.sent_emails[0].config.smtp_use_starttls is False
 
 
 @pytest.mark.os_agnostic
@@ -545,7 +545,7 @@ def test_when_send_notification_receives_smtp_host_override_it_uses_it(
     )
 
     assert result.exit_code == 0
-    assert ctx.spy.sent_notifications[0].config.smtp_hosts == ["smtp.override.com:465"]
+    assert ctx.spy.sent_notifications[0].config.smtphosts == ["smtp.override.com:465"]
 
 
 # ======================== Attachment path validation ========================

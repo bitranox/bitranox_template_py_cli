@@ -130,7 +130,7 @@ def load_and_validate_email_config(config: Config, loader: LoadEmailConfigFromDi
     except ValidationError as exc:
         _refuse_email_config(exc, "Invalid configuration", exit_code=ExitCode.CONFIG_ERROR)
 
-    if not email_config.smtp_hosts:
+    if not email_config.smtphosts:
         logger.error("No SMTP hosts configured")
         safe_console.echo(
             "\nError: No SMTP hosts configured. Please configure email.smtp_hosts in your config file.", err=True

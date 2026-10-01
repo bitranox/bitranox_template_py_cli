@@ -71,11 +71,11 @@ def cli_send_notification(
     with lib_log_rich.runtime.bind(job_id="cli-send-notification", extra=extra):
         email_config = load_and_validate_email_config(config, cli_ctx.services.load_email_config_from_dict)
         overrides = filter_sentinels(
-            smtp_hosts=smtp_hosts,
+            smtphosts=smtp_hosts,
             smtp_username=smtp_username,
             smtp_password=smtp_password,
-            use_starttls=use_starttls,
-            timeout=timeout,
+            smtp_use_starttls=use_starttls,
+            smtp_timeout=timeout,
             raise_on_missing_attachments=raise_on_missing_attachments,
             raise_on_invalid_recipient=raise_on_invalid_recipient,
         )

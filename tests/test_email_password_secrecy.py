@@ -100,7 +100,7 @@ def test_an_all_digit_password_from_the_environment_loads(
 )
 def test_a_password_of_another_type_is_refused_without_its_value(value: object) -> None:
     with pytest.raises(ValidationError) as caught:
-        EmailConfig.model_validate({**VALID, "smtp_password": value})
+        load_email_config_from_dict({"email": {**VALID, "smtp_password": value}})
 
     text = f"{caught.value}\n{caught.value!r}"
     assert "smtp_password" in text
@@ -114,12 +114,13 @@ def test_a_password_of_another_type_is_refused_without_its_value(value: object) 
     ids=["string", "integer", "secretstr"],
 )
 def test_a_model_level_error_does_not_show_the_password(password: object, dummy: str) -> None:
-    """A short input mapping is printed whole; the model-level validator fails on timeout."""
+    """A short input mapping is printed whole; validation fails on the timeout, not the password."""
     with pytest.raises(ValidationError) as caught:
-        EmailConfig.model_validate({"smtp_password": password, "timeout": -5})
+        load_email_config_from_dict({"email": {"smtp_password": password, "timeout": -5}})
 
     text = f"{caught.value}\n{caught.value!r}"
-    assert "timeout must be positive" in text
+    # The raw pydantic text names the field; only describe_validation_error rewrites it.
+    assert "smtp_timeout must be positive" in text
     assert _leaked(dummy, text) == []
 
 

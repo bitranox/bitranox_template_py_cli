@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from btx_lib_mail import ConfMail
 from lib_layered_config import Config
 from pydantic import ValidationError
 
@@ -92,7 +93,7 @@ def test_an_empty_value_means_not_configured(setting: str, value: object) -> Non
     """Like an empty TOML array, an empty environment value leaves the library defaults."""
     config = load_email_config_from_dict({"email": {**VALID, "attachments": {setting: value}}})
 
-    assert getattr(config, _field(setting)) is None
+    assert getattr(config, _field(setting)) == getattr(ConfMail(), _field(setting))
 
 
 @pytest.mark.os_agnostic
@@ -113,20 +114,22 @@ def test_a_list_tuple_or_set_is_read_as_a_frozenset() -> None:
 
 
 @pytest.mark.os_agnostic
-def test_an_empty_set_still_disables_the_list() -> None:
-    """A set is an explicit choice from Python code, so an empty one is kept, not defaulted."""
-    config = EmailConfig.model_validate(
-        {"attachment_blocked_extensions": set(), "attachment_blocked_directories": set()}
-    )
+def test_an_empty_blocked_set_needs_the_opt_in() -> None:
+    """From Python an empty set is kept, not defaulted, so ConfMail asks for the opt-in that blocks nothing."""
+    empty: dict[str, set[str]] = {"attachment_blocked_extensions": set(), "attachment_blocked_directories": set()}
+
+    with pytest.raises(ValidationError):
+        EmailConfig.model_validate(empty)
+    config = EmailConfig.model_validate({**empty, "attachment_allow_empty_blocklists": True})
 
     assert config.attachment_blocked_extensions == frozenset()
     assert config.attachment_blocked_directories == frozenset()
 
 
 @pytest.mark.os_agnostic
-@pytest.mark.parametrize("field", ["smtp_hosts", "recipients"])
+@pytest.mark.parametrize("field", ["smtphosts", "recipients"])
 def test_a_tuple_of_hosts_or_recipients_is_kept(field: str) -> None:
-    value = ("smtp.example.com:587",) if field == "smtp_hosts" else ("a@example.com",)
+    value = ("smtp.example.com:587",) if field == "smtphosts" else ("a@example.com",)
 
     assert getattr(EmailConfig.model_validate({field: value}), field) == list(value)
 
@@ -135,9 +138,11 @@ def test_a_tuple_of_hosts_or_recipients_is_kept(field: str) -> None:
 @pytest.mark.parametrize("field", ["smtp_hosts", "recipients"])
 def test_a_host_or_recipient_list_of_another_type_is_refused(field: str) -> None:
     with pytest.raises(ValidationError) as caught:
-        EmailConfig.model_validate({field: 587})
+        load_email_config_from_dict({"email": {field: 587}})
 
-    assert [line.split(": ")[0] for line in describe_validation_error(caught.value)] == [f"email.{field}"]
+    lines = describe_validation_error(caught.value)
+    assert [line.split(": ")[0] for line in lines] == [f"email.{field}"]
+    assert not lines[0].endswith(": unknown key"), lines
 
 
 # ----------------------------------------------------------------------- the real loader

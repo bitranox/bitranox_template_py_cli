@@ -653,7 +653,8 @@ def email_cli_context(
             assert result.exit_code == 0
             assert ctx.spy.sent_notifications[0].subject == "Hi"
     """
-    from bitranox_template_py_cli.adapters.memory import init_logging_in_memory, load_email_config_from_dict_in_memory
+    from bitranox_template_py_cli.adapters.email.config import load_email_config_from_dict
+    from bitranox_template_py_cli.adapters.memory import init_logging_in_memory
     from bitranox_template_py_cli.adapters.memory.email import EmailSpy as EmailSpyImpl
     from bitranox_template_py_cli.composition import AppServices, build_production
 
@@ -672,7 +673,7 @@ def email_cli_context(
             display_config=prod.display_config,
             send_email=spy.send_email,
             send_notification=spy.send_notification,
-            load_email_config_from_dict=load_email_config_from_dict_in_memory,
+            load_email_config_from_dict=load_email_config_from_dict,
             # The quiet runtime: production init_logging queues INFO lines that race into
             # CliRunner's stderr, so a stderr assertion would depend on timing.
             init_logging=init_logging_in_memory,

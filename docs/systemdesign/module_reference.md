@@ -20,7 +20,7 @@ Complete (v1.1.2+)
 - `src/bitranox_template_py_cli/adapters/config/deploy.py`  -  Configuration deployment
 - `src/bitranox_template_py_cli/adapters/config/display.py`  -  Configuration display (TOML/JSON output, redaction)
 - `src/bitranox_template_py_cli/adapters/config/overrides.py`  -  CLI `--set` override parsing and deep-merge
-- `src/bitranox_template_py_cli/adapters/email/sender.py`  -  SMTP email with EmailConfig (Pydantic)
+- `src/bitranox_template_py_cli/adapters/email/sender.py`  -  SMTP email with EmailConfig (a btx_lib_mail ConfMail)
 - `src/bitranox_template_py_cli/adapters/email/validation.py`  -  Email recipient validation
 - `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization
 - `src/bitranox_template_py_cli/adapters/cli/`  -  CLI adapter package:
@@ -285,52 +285,56 @@ Raises `ValueError` with descriptive message on invalid input.
 
 ### EmailConfig Fields
 
-The `EmailConfig` Pydantic model (`adapters/email/sender.py`) provides validated, immutable email configuration:
+`EmailConfig` (`adapters/email/config.py`, re-exported by `adapters/email/sender.py`) subclasses
+btx_lib_mail's `ConfMail`: frozen, a name that is not a field is refused, the password is a
+`SecretStr`, and a validation error never shows its input. It adds `from_address` and
+`recipients`, and checks every SMTP host's syntax (port range, IPv6 brackets) when it loads. In
+Python the fields use the library's names; the configuration file keeps its own keys (third
+column).
 
-| Field                          | Type                | Default | Description                                                                                                   |
-|--------------------------------|---------------------|---------|---------------------------------------------------------------------------------------------------------------|
-| `smtp_hosts`                   | `list[str]`         | `[]`    | SMTP servers in `host[:port]` format                                                                          |
-| `from_address`                 | `str \| None`       | `None`  | Default sender address                                                                                        |
-| `recipients`                   | `list[str]`         | `[]`    | Default recipient addresses                                                                                   |
-| `smtp_username`                | `str \| None`       | `None`  | SMTP authentication username; ASCII only                                                                      |
-| `smtp_password`                | `SecretStr \| None` | `None`  | SMTP authentication password; unwrap with `.get_secret_value()`; ASCII only, an integer is read as its digits |
-| `use_starttls`                 | `bool`              | `True`  | Enable STARTTLS negotiation                                                                                   |
-| `timeout`                      | `float`             | `30.0`  | Socket timeout in seconds                                                                                     |
-| `raise_on_missing_attachments` | `bool`              | `True`  | Raise on missing attachment files                                                                             |
-| `raise_on_invalid_recipient`   | `bool`              | `True`  | Raise on invalid recipient addresses                                                                          |
+| Field                          | Type                | Default | File key (`[email]`)           | Description                                                      |
+|--------------------------------|---------------------|---------|--------------------------------|------------------------------------------------------------------|
+| `smtphosts`                    | `list[str]`         | `[]`    | `smtp_hosts`                   | SMTP servers in `host[:port]` format                             |
+| `from_address`                 | `str \| None`       | `None`  | `from_address`                 | Default sender address                                           |
+| `recipients`                   | `list[str]`         | `[]`    | `recipients`                   | Default recipient addresses                                      |
+| `smtp_username`                | `str \| None`       | `None`  | `smtp_username`                | SMTP authentication username; an integer is read as its digits   |
+| `smtp_password`                | `SecretStr \| None` | `None`  | `smtp_password`                | SMTP authentication password; unwrap with `.get_secret_value()`  |
+| `smtp_use_starttls`            | `bool`              | `True`  | `use_starttls`                 | Enable STARTTLS negotiation                                      |
+| `smtp_starttls_verify`         | `bool`              | `True`  | `starttls_verify`              | Verify the server certificate after STARTTLS                     |
+| `smtp_timeout`                 | `float`             | `30.0`  | `timeout`                      | Socket timeout in seconds                                        |
+| `smtp_local_hostname`          | `str \| None`       | `None`  | `local_hostname`               | Host name announced in EHLO; `None` looks it up once per process |
+| `raise_on_missing_attachments` | `bool`              | `True`  | `raise_on_missing_attachments` | Raise on missing attachment files                                |
+| `raise_on_invalid_recipient`   | `bool`              | `True`  | `raise_on_invalid_recipient`   | Raise on invalid recipient addresses                             |
 
 ### Attachment Security Fields
 
-| Field                                    | Type                      | Default      | Description                                   |
-|------------------------------------------|---------------------------|--------------|-----------------------------------------------|
-| `attachment_allowed_extensions`          | `frozenset[str] \| None`  | `None`       | Whitelist of allowed extensions               |
-| `attachment_blocked_extensions`          | `frozenset[str] \| None`  | `None`       | Blacklist of blocked extensions               |
-| `attachment_allowed_directories`         | `frozenset[Path] \| None` | `None`       | Whitelist of allowed source directories       |
-| `attachment_blocked_directories`         | `frozenset[Path] \| None` | `None`       | Blacklist of blocked directories              |
-| `attachment_max_size_bytes`              | `int \| None`             | `26_214_400` | Maximum file size (25 MiB), `None` to disable |
-| `attachment_allow_symlinks`              | `bool`                    | `False`      | Whether symlinks are permitted                |
-| `attachment_raise_on_security_violation` | `bool`                    | `True`       | Raise or skip on security violation           |
-
-**Notes:**
-- `None` values use `btx_lib_mail`'s OS-specific defaults (blocked extensions/directories)
-- Empty arrays `[]` in TOML configuration are coerced to `None`
-- `max_size_bytes = 0` is coerced to `None` (disable size checking)
-- String paths are converted to `Path` objects during validation
+| Field                                    | Type                      | Default      | File key (`[email.attachments]`) | Description                                             |
+|------------------------------------------|---------------------------|--------------|----------------------------------|---------------------------------------------------------|
+| `attachment_allowed_extensions`          | `frozenset[str] \| None`  | `None`       | `allowed_extensions`             | Whitelist of allowed extensions                         |
+| `attachment_blocked_extensions`          | `frozenset[str]`          | OS defaults  | `blocked_extensions`             | Blacklist of blocked extensions                         |
+| `attachment_allowed_directories`         | `frozenset[Path] \| None` | `None`       | `allowed_directories`            | Whitelist of allowed source directories                 |
+| `attachment_blocked_directories`         | `frozenset[Path]`         | OS defaults  | `blocked_directories`            | Blacklist of blocked directories                        |
+| `attachment_max_size_bytes`              | `int \| None`             | `26_214_400` | `max_size_bytes`                 | Maximum file size (25 MiB), `None` to disable           |
+| `attachment_allow_symlinks`              | `bool`                    | `False`      | `allow_symlinks`                 | Whether symlinks are permitted                          |
+| `attachment_raise_on_security_violation` | `bool`                    | `True`       | `raise_on_security_violation`    | Raise or skip on security violation                     |
+| `attachment_allow_empty_blocklists`      | `bool`                    | `False`      | not exposed                      | Allow an empty blocked set (blocks nothing) from Python |
 
 ### Configuration Loading
 
-`load_email_config_from_dict()` handles the nested `[email.attachments]` TOML section:
+lib_layered_config is the only reader of configuration: it merges every layer (the shipped
+defaults, the app, host and user files, `.env`, the environment, `--set`) into one mapping.
+`load_email_config_from_dict()` turns that mapping's `[email]` section into an `EmailConfig`:
 
-```python
-# TOML structure:
-# [email]
-# smtp_hosts = ["smtp.example.com:587"]
-# [email.attachments]
-# max_size_bytes = 10485760
+- the five keys in the third column that differ from the field names are mapped;
+- `[email.attachments]` keys become `attachment_<key>`;
+- a key that is not listed is refused (exit 78, `email.<key>: unknown key`), whatever layer it came from;
+- blank text means "not configured"; a single host or address string is a one-entry list;
+- an empty attachment list (`[]` or a blank string) means the library's defaults, and any other
+  value that is not a list, such as a comma-separated string, is refused;
+- `max_size_bytes = 0` means no size limit.
 
-config = load_email_config_from_dict(config_dict)
-# Flattens to: attachment_max_size_bytes = 10485760
-```
+`describe_validation_error()` renders a refusal as one `email.<file key>: <reason>` line per
+problem, never with the refused value.
 
 ---
 
@@ -343,10 +347,11 @@ The `adapters/memory/` package provides lightweight implementations for testing:
 | Module              | Protocols Satisfied                                                         |
 |---------------------|-----------------------------------------------------------------------------|
 | `memory/config.py`  | `GetConfig`, `GetDefaultConfigPath`, `DeployConfiguration`, `DisplayConfig` |
-| `memory/email.py`   | `SendEmail`, `SendNotification`, `LoadEmailConfigFromDict`                  |
+| `memory/email.py`   | `SendEmail`, `SendNotification`                                             |
 | `memory/logging.py` | `InitLogging`                                                               |
 
-Use `composition.build_testing()` to wire all in-memory adapters.
+Use `composition.build_testing()` to wire all in-memory adapters. It wires the real
+`load_email_config_from_dict`, so CLI tests run through the same translation as production.
 
 ### Test Fixtures (conftest.py)
 

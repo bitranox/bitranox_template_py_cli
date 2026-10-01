@@ -1,400 +1,295 @@
-"""Email configuration model and loader.
+"""Email configuration: the merged ``[email]`` section as a btx_lib_mail ``ConfMail``.
 
-Provides the EmailConfig Pydantic model for validated, immutable email settings
-and the loader function to create it from configuration dictionaries.
+lib_layered_config is the only reader of configuration. It merges every layer (the shipped
+defaults, the app, host and user files, ``.env``, the environment and ``--set``) into one
+mapping, and :func:`load_email_config_from_dict` turns that mapping's ``[email]`` section into
+:class:`EmailConfig`. Operators keep writing the file keys they always wrote; five of them
+differ from the field names code reads (``FILE_KEY_TO_FIELD``). A key that is not a file key
+is refused, so a typo cannot leave a setting silently at its default.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from btx_lib_mail import validate_email_address, validate_smtp_host
-from btx_lib_mail.lib_mail import ConfMail
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
+from btx_lib_mail import ConfMail, validate_email_address, validate_smtp_host
+from pydantic import ConfigDict, Field, ValidationError, field_validator
 
+if TYPE_CHECKING:
+    from pydantic_core import ErrorDetails, InitErrorDetails
 
-def _credential_text(value: object) -> str | None:
-    """Return a user name or password as text, refusing a type that cannot be one.
+#: The configuration section EmailConfig is read from.
+_SECTION = "email"
+#: The nested table that holds the attachment settings.
+_ATTACHMENTS = "attachments"
+#: The field-name prefix that stands for that table.
+_ATTACHMENT_PREFIX = "attachment_"
 
-    The environment layer of lib_layered_config reads an all-digit value as an integer, so
-    an all-digit password arrives as an ``int``: it is read back as its digits (a leading
-    zero is already gone by then). Any other type is refused, and the message names only the
-    type: this runs for the password, whose value must never reach an error message.
+#: File key -> EmailConfig field, for the keys whose names differ.
+FILE_KEY_TO_FIELD: dict[str, str] = {
+    "smtp_hosts": "smtphosts",
+    "use_starttls": "smtp_use_starttls",
+    "timeout": "smtp_timeout",
+    "starttls_verify": "smtp_starttls_verify",
+    "local_hostname": "smtp_local_hostname",
+}
+_FIELD_TO_FILE_KEY: dict[str, str] = {field: key for key, field in FILE_KEY_TO_FIELD.items()}
 
-    Examples:
-        >>> _credential_text(98979695)
-        '98979695'
-        >>> _credential_text(SecretStr("abc"))
-        'abc'
-        >>> _credential_text(True)
-        Traceback (most recent call last):
-        ...
-        ValueError: expected a string, got bool
-    """
-    if value is None or isinstance(value, str):
-        return value
-    if isinstance(value, SecretStr):
-        return value.get_secret_value()
-    if isinstance(value, int) and not isinstance(value, bool):
-        return str(value)
-    # A float is refused rather than printed: str(1.50) is "1.5" and str(1e3) is "1000.0",
-    # so the text would silently differ from what was written.
-    raise ValueError(f"expected a string, got {type(value).__name__}")
-
-
-#: The form an attachment list must take, named by the refusal of any other form.
+#: Every key ``[email]`` accepts.
+SECTION_KEYS = frozenset(
+    {
+        *FILE_KEY_TO_FIELD,
+        "from_address",
+        "recipients",
+        "smtp_username",
+        "smtp_password",
+        "raise_on_missing_attachments",
+        "raise_on_invalid_recipient",
+        _ATTACHMENTS,
+    }
+)
+#: Every key ``[email.attachments]`` accepts; each names the field ``attachment_<key>``.
+#: ``allow_empty_blocklists`` is deliberately absent: an empty blocked list means the defaults.
+ATTACHMENT_KEYS = frozenset(
+    {
+        "allowed_extensions",
+        "blocked_extensions",
+        "allowed_directories",
+        "blocked_directories",
+        "max_size_bytes",
+        "allow_symlinks",
+        "raise_on_security_violation",
+    }
+)
+#: Keys whose blank text means "not configured": the shipped defaults write "" for them, and the
+#: model would otherwise keep it (an empty host, a login attempt with an empty password).
+_BLANK_TEXT_MEANS_UNSET = frozenset(
+    {"smtp_hosts", "recipients", "from_address", "smtp_username", "smtp_password", "local_hostname"}
+)
+#: Attachment lists whose empty value means "the library's defaults". For ConfMail an empty
+#: allowed list allows nothing and an empty blocked list blocks nothing, so passing [] through
+#: would refuse every attachment or switch the protection off.
+_EMPTY_LIST_MEANS_DEFAULT = frozenset(
+    {"allowed_extensions", "blocked_extensions", "allowed_directories", "blocked_directories"}
+)
+#: The form an attachment list must take, named by the refusal of any other form. A
+#: comma-separated environment value stays one string; read as "not configured" it would swap
+#: the configured list for the library's defaults without a word, so it is refused instead.
 _LIST_FORM = 'a list: a TOML array, or in an environment variable a JSON array such as [".pdf", ".txt"]'
+#: Lists the environment can only deliver as one string when they hold one entry.
+_ONE_OR_MANY = frozenset({"smtp_hosts", "recipients"})
+#: What pydantic puts in front of the message of a ValueError a validator raised.
+_VALUE_ERROR_PREFIX = "Value error, "
+#: A field name inside a library message, rewritten so the reader sees the key they wrote.
+_FIELD_NAME_IN_TEXT = re.compile(
+    r"\b(?:" + "|".join(map(re.escape, _FIELD_TO_FILE_KEY)) + "|" + _ATTACHMENT_PREFIX + r"\w+)\b"
+)
 
 
-def _attachment_list(value: object) -> object:
-    """Read an attachment allow or block list as its items, or None when it is not configured.
+class EmailConfig(ConfMail):
+    """btx_lib_mail's ``ConfMail`` plus the sender and the default recipients.
 
-    These lists are security settings, and None hands the decision to btx_lib_mail's own
-    defaults, so only a value that means "not configured" becomes None: an empty list or
-    tuple (TOML cannot leave a key out of a shipped file, so ``[]`` stands for "not set"), an
-    empty or whitespace-only string (an environment variable set to nothing), or None. A set
-    is an explicit choice from Python code and is kept as given, an empty one included, which
-    disables the list. Any other value is refused: a comma-separated environment value stays
-    a string, and reading it as "not configured" would swap the configured list for the
-    defaults without a word.
-
-    Raises:
-        ValueError: When the value is neither a list, tuple or set nor empty.
-
-    Examples:
-        >>> _attachment_list((".pdf", ".txt"))
-        ['.pdf', '.txt']
-        >>> _attachment_list(frozenset())
-        frozenset()
-        >>> _attachment_list("  ") is None
-        True
-        >>> _attachment_list(".pdf,.txt")  # doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-        ...
-        ValueError: expected a list: a TOML array, or ... a JSON array ...; got str
-    """
-    if value is None:
-        return None
-    if isinstance(value, (set, frozenset)):
-        return cast("set[object] | frozenset[object]", value)
-    if isinstance(value, (list, tuple)):
-        items = list(cast("list[object] | tuple[object, ...]", value))
-        return items or None
-    if isinstance(value, str) and not value.strip():
-        return None
-    raise ValueError(f"expected {_LIST_FORM}; got {type(value).__name__}")
-
-
-class EmailConfig(BaseModel):
-    """Validated, immutable email configuration.
+    Inherits the ``SecretStr`` password, the host, timeout and EHLO-name validation, the
+    attachment policy and validation errors that never show their input. Frozen, and a name
+    that is not a field is refused rather than ignored.
 
     Example:
-        >>> config = EmailConfig(
-        ...     smtp_hosts=["smtp.example.com:587"],
-        ...     from_address="noreply@example.com"
-        ... )
-        >>> config.smtp_hosts
+        >>> config = EmailConfig(smtphosts=["smtp.example.com:587"], from_address="noreply@example.com")
+        >>> config.smtphosts
         ['smtp.example.com:587']
     """
 
-    # hide_input_in_errors: pydantic otherwise prints the input it refused, the offending
-    # value for a field error and the whole input mapping for a model-level one, and that
-    # input holds the SMTP password.
-    model_config = ConfigDict(frozen=True, hide_input_in_errors=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
-    smtp_hosts: list[str] = Field(default_factory=list)
     from_address: str | None = None
     recipients: list[str] = Field(default_factory=list)
-    smtp_username: str | None = None
-    # SecretStr so str(), repr(), format() and model_dump_json() show '**********'; the value is
-    # unwrapped only where it is handed to the SMTP login (transport._build_credentials).
-    smtp_password: SecretStr | None = None
-    use_starttls: bool = True
-    timeout: float = 30.0
-    raise_on_missing_attachments: bool = True
-    raise_on_invalid_recipient: bool = True
 
-    # Attachment security settings (None = use btx_lib_mail defaults)
-    attachment_allowed_extensions: frozenset[str] | None = None
-    attachment_blocked_extensions: frozenset[str] | None = None
-    attachment_allowed_directories: frozenset[Path] | None = None
-    attachment_blocked_directories: frozenset[Path] | None = None
-    attachment_max_size_bytes: int | None = 26_214_400  # 25 MiB
-    attachment_allow_symlinks: bool = False
-    attachment_raise_on_security_violation: bool = True
-
-    @field_validator("smtp_hosts", "recipients", mode="before")
+    @field_validator("smtphosts")
     @classmethod
-    def _coerce_string_to_list(cls, v: object) -> object:
-        """Coerce single strings to single-element lists.
-
-        Handles environment variables and .env files that provide single strings
-        instead of TOML arrays. Empty strings become empty lists. Any other value is
-        left for pydantic to read (a tuple) or refuse (a number), never emptied: an
-        emptied list would read as "not configured" instead of as a mistake.
-
-        Examples:
-            >>> EmailConfig._coerce_string_to_list("smtp.example.com:587")
-            ['smtp.example.com:587']
-            >>> EmailConfig._coerce_string_to_list(["a@example.com", "b@example.com"])
-            ['a@example.com', 'b@example.com']
-            >>> EmailConfig._coerce_string_to_list("")
-            []
-        """
-        if isinstance(v, str):
-            return [v] if v.strip() else []
-        return v
-
-    @field_validator("from_address", mode="before")
-    @classmethod
-    def _coerce_empty_string_to_none(cls, v: object) -> object:
-        """Coerce an empty or whitespace-only string to None ("not configured")."""
-        if isinstance(v, str) and not v.strip():
-            return None
-        return v
-
-    @field_validator("smtp_username", "smtp_password", mode="before")
-    @classmethod
-    def _read_credential(cls, v: object) -> object:
-        """Read the SMTP login's user name or password, or None when it is not configured.
-
-        An empty or whitespace-only value means "not configured", so no login is attempted
-        with empty credentials. An all-digit value from the environment arrives as an
-        integer and is read as its digits (see :func:`_credential_text`). A non-ASCII value
-        is refused: smtplib encodes the AUTH exchange as ASCII, so the login could never
-        succeed, and its UnicodeEncodeError would carry the attempt into the delivery log.
-        No message names the value.
-
-        Examples:
-            >>> EmailConfig._read_credential("   ") is None
-            True
-            >>> EmailConfig._read_credential(1234)
-            '1234'
-        """
-        text = _credential_text(v)
-        if text is None or not text.strip():
-            return None
-        if not text.isascii():
-            raise ValueError("must be ASCII: smtplib sends the SMTP login as ASCII, so it could never log in")
-        return v if isinstance(v, SecretStr) else text
-
-    @field_validator(
-        "attachment_allowed_extensions",
-        "attachment_blocked_extensions",
-        "attachment_allowed_directories",
-        "attachment_blocked_directories",
-        mode="before",
-    )
-    @classmethod
-    def _read_attachment_list(cls, v: object) -> object:
-        """Read an attachment allow or block list, refusing a value that is not a list.
-
-        See :func:`_attachment_list`; pydantic then turns the items into the field's frozenset,
-        so an item of the wrong type is refused there with its position.
-
-        Examples:
-            >>> EmailConfig._read_attachment_list([".pdf"])
-            ['.pdf']
-            >>> EmailConfig._read_attachment_list([]) is None
-            True
-        """
-        return _attachment_list(v)
-
-    @field_validator("attachment_max_size_bytes", mode="before")
-    @classmethod
-    def _coerce_max_size_zero_to_none(cls, v: Any) -> int | None:
-        """Convert 0 to None (disable size checking)."""
-        if v == 0:
-            return None
-        return v
-
-    @model_validator(mode="after")
-    def _validate_config(self) -> EmailConfig:
-        """Validate configuration values.
-
-        Catch common configuration mistakes early with clear error messages
-        rather than allowing invalid values to cause obscure failures later.
-
-        Raises:
-            ValueError: When configuration values are invalid.
-
-        Example:
-            >>> EmailConfig(timeout=-5.0)  # doctest: +IGNORE_EXCEPTION_DETAIL
-            Traceback (most recent call last):
-            ...
-            ValidationError: ...
-
-            >>> EmailConfig(from_address="not-an-email")  # doctest: +IGNORE_EXCEPTION_DETAIL
-            Traceback (most recent call last):
-            ...
-            ValidationError: ...
-        """
-        if self.timeout <= 0:
-            raise ValueError(f"timeout must be positive, got {self.timeout}")
-
-        if self.from_address is not None:
-            validate_email_address(self.from_address)
-
-        for recipient in self.recipients:
-            validate_email_address(recipient)
-
-        for host in self.smtp_hosts:
+    def _check_hosts(cls, value: list[str]) -> list[str]:
+        # ConfMail refuses userinfo, a path and control characters; the port range and the
+        # IPv6 brackets are checked only by validate_smtp_host, so a typo surfaces at load
+        # time rather than at the first delivery.
+        for host in value:
             validate_smtp_host(host)
+        return value
 
-        return self
+    @field_validator("from_address")
+    @classmethod
+    def _check_from_address(cls, value: str | None) -> str | None:
+        if value is not None:
+            validate_email_address(value)
+        return value
 
-    def __repr__(self) -> str:
-        """Return string representation with smtp_password redacted.
-
-        Prevents accidental credential exposure in logs, error messages,
-        and debugging output. The password is shown as '[REDACTED]' when set.
-
-        Example:
-            >>> config = EmailConfig(
-            ...     smtp_hosts=["smtp.example.com:587"],
-            ...     smtp_password="secret123"
-            ... )
-            >>> "secret123" in repr(config)
-            False
-            >>> "[REDACTED]" in repr(config)
-            True
-        """
-        fields: list[str] = []
-        for name, value in self:
-            if name == "smtp_password" and value is not None:
-                fields.append(f"{name}='[REDACTED]'")
-            else:
-                fields.append(f"{name}={value!r}")
-        return f"EmailConfig({', '.join(fields)})"
-
-    def to_conf_mail(self) -> ConfMail:
-        """Convert to btx_lib_mail ConfMail object.
-
-        Isolates the adapter dependency on btx_lib_mail types from the
-        rest of the application.
-
-        Returns:
-            ConfMail instance configured with current settings.
-
-        Example:
-            >>> config = EmailConfig(smtp_hosts=["smtp.example.com"])
-            >>> conf = config.to_conf_mail()
-            >>> conf.smtphosts
-            ['smtp.example.com']
-        """
-        # Build kwargs, omitting None values to use library defaults
-        kwargs: dict[str, Any] = {
-            "smtphosts": self.smtp_hosts,
-            "smtp_username": self.smtp_username,
-            "smtp_password": self.smtp_password,
-            "smtp_use_starttls": self.use_starttls,
-            "smtp_timeout": self.timeout,
-            "raise_on_missing_attachments": self.raise_on_missing_attachments,
-            "raise_on_invalid_recipient": self.raise_on_invalid_recipient,
-            "attachment_allow_symlinks": self.attachment_allow_symlinks,
-            "attachment_raise_on_security_violation": self.attachment_raise_on_security_violation,
-        }
-
-        # Only pass attachment security settings when explicitly configured
-        # (None = use btx_lib_mail's OS-specific defaults)
-        if self.attachment_allowed_extensions is not None:
-            kwargs["attachment_allowed_extensions"] = self.attachment_allowed_extensions
-        if self.attachment_blocked_extensions is not None:
-            kwargs["attachment_blocked_extensions"] = self.attachment_blocked_extensions
-        if self.attachment_allowed_directories is not None:
-            kwargs["attachment_allowed_directories"] = self.attachment_allowed_directories
-        if self.attachment_blocked_directories is not None:
-            kwargs["attachment_blocked_directories"] = self.attachment_blocked_directories
-        if self.attachment_max_size_bytes is not None:
-            kwargs["attachment_max_size_bytes"] = self.attachment_max_size_bytes
-
-        return ConfMail(**kwargs)
+    @field_validator("recipients")
+    @classmethod
+    def _check_recipients(cls, value: list[str]) -> list[str]:
+        for recipient in value:
+            validate_email_address(recipient)
+        return value
 
 
 def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
-    """Load EmailConfig from a configuration dictionary.
-
-    Bridges lib_layered_config's dictionary output with the typed
-    EmailConfig Pydantic model. Single-parse validation at the boundary
-    with no intermediate conversions.
-
-    Handles the nested `[email.attachments]` TOML section by flattening
-    it with an `attachment_` prefix to match EmailConfig field names.
+    """Turn the ``[email]`` section of the merged configuration into an :class:`EmailConfig`.
 
     Args:
-        config_dict: Configuration dictionary typically from lib_layered_config.
-            Expected to have an 'email' section with email settings.
+        config_dict: The mapping lib_layered_config produced (``Config.as_dict()``).
 
     Returns:
-        Configured email settings with defaults for missing values.
+        The validated configuration; a missing section gives the defaults.
+
+    Raises:
+        ValidationError: A key that is not a file key (every one is named, before any value is
+            checked), or a value the model refuses.
 
     Example:
-        >>> config_dict = {
-        ...     "email": {
-        ...         "smtp_hosts": ["smtp.example.com:587"],
-        ...         "from_address": "test@example.com"
-        ...     }
-        ... }
-        >>> email_config = load_email_config_from_dict(config_dict)
-        >>> email_config.from_address
-        'test@example.com'
-        >>> email_config.use_starttls
-        True
-
-        >>> config_dict_with_attachments = {
-        ...     "email": {
-        ...         "smtp_hosts": ["smtp.example.com:587"],
-        ...         "attachments": {
-        ...             "max_size_bytes": 10485760,
-        ...             "allow_symlinks": True,
-        ...         }
-        ...     }
-        ... }
-        >>> config = load_email_config_from_dict(config_dict_with_attachments)
-        >>> config.attachment_max_size_bytes
-        10485760
-        >>> config.attachment_allow_symlinks
-        True
+        >>> load_email_config_from_dict({"email": {"smtp_hosts": ["smtp.example.com:587"]}}).smtphosts
+        ['smtp.example.com:587']
+        >>> load_email_config_from_dict({"email": {"timeout": 10}}).smtp_timeout
+        10.0
     """
-    email_section: Any = config_dict.get("email", {})
-
-    # Handle non-dict email section (e.g. "email": "invalid")
-    if not isinstance(email_section, Mapping):
-        return EmailConfig.model_validate(email_section)
-
-    email_raw: dict[str, Any] = dict(cast("Mapping[str, Any]", email_section))
-
-    # Flatten nested [email.attachments] section with prefix
-    attachments_raw: dict[str, Any] = email_raw.pop("attachments", {})
-    for key, value in attachments_raw.items():
-        email_raw[f"attachment_{key}"] = value
-
-    return EmailConfig.model_validate(email_raw if email_raw else {})
+    section: object = config_dict.get(_SECTION, {})
+    if not isinstance(section, Mapping):
+        return EmailConfig.model_validate(section)
+    return EmailConfig.model_validate(_translate(cast("Mapping[str, Any]", section)))
 
 
-#: The configuration section EmailConfig is read from, and the field prefix that stands for
-#: its nested ``[email.attachments]`` table (see :func:`load_email_config_from_dict`).
-_SECTION = "email"
-_ATTACHMENT_PREFIX = "attachment_"
+def _translate(section: Mapping[str, Any]) -> dict[str, Any]:
+    """Map file keys onto field names and drop the values that mean "not configured"."""
+    refused = _refused_keys(section)
+    if refused:
+        raise ValidationError.from_exception_data(EmailConfig.__name__, refused, hide_input=True)
+    fields: dict[str, Any] = {}
+    for key, value in section.items():
+        if key == _ATTACHMENTS:
+            fields.update(_attachment_fields(cast("Mapping[str, Any]", value)))
+        elif not _means_unset(key, value):
+            fields[FILE_KEY_TO_FIELD.get(key, key)] = _field_value(key, value)
+    return fields
+
+
+def _attachment_fields(table: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        f"{_ATTACHMENT_PREFIX}{key}": _field_value(key, value)
+        for key, value in table.items()
+        if not _means_unset(key, value)
+    }
+
+
+def _refused_keys(section: Mapping[str, Any]) -> list[InitErrorDetails]:
+    """Every key the section does not accept, and an ``attachments`` value that is not a table."""
+    refused = [_problem("extra_forbidden", (key,)) for key in section if key not in SECTION_KEYS]
+    attachments: object = section.get(_ATTACHMENTS, {})
+    if not isinstance(attachments, Mapping):
+        return [*refused, _problem("dict_type", (_ATTACHMENTS,))]
+    table = cast("Mapping[str, Any]", attachments)
+    unknown_in_table = (key for key in table if key not in ATTACHMENT_KEYS)
+    wrong_form = (key for key in _EMPTY_LIST_MEANS_DEFAULT if key in table and not _is_list_form(table[key]))
+    return [
+        *refused,
+        *(_problem("extra_forbidden", (_ATTACHMENTS, key)) for key in unknown_in_table),
+        *(_problem("value_error", (_ATTACHMENTS, key), _wrong_list_form(table[key])) for key in wrong_form),
+    ]
+
+
+def _is_list_form(value: object) -> bool:
+    """A list, tuple or set, None, or blank text (an environment variable set to nothing)."""
+    if value is None or isinstance(value, (list, tuple, set, frozenset)):
+        return True
+    return isinstance(value, str) and not value.strip()
+
+
+def _wrong_list_form(value: object) -> ValueError:
+    return ValueError(f"expected {_LIST_FORM}; got {type(value).__name__}")
+
+
+def _problem(kind: str, loc: tuple[str, ...], error: ValueError | None = None) -> InitErrorDetails:
+    # No input: the value under an unknown key can be a password typed under a wrong name.
+    if error is None:
+        return {"type": kind, "loc": loc, "input": None}
+    return {"type": kind, "loc": loc, "input": None, "ctx": {"error": error}}
+
+
+def _means_unset(key: str, value: object) -> bool:
+    if key in _EMPTY_LIST_MEANS_DEFAULT:
+        # Not an empty set: that is a deliberate choice from Python code, and ConfMail judges it.
+        return value is None or value in ([], ()) or (isinstance(value, str) and not value.strip())
+    if isinstance(value, str) and key in _BLANK_TEXT_MEANS_UNSET:
+        return not value.strip()
+    return False
+
+
+def _field_value(key: str, value: object) -> object:
+    """A lone host or address becomes a one-entry list; a size limit of 0 means no limit.
+
+    An all-digit user name arrives from the environment as an ``int`` and is read as its
+    digits; ConfMail does the same for the password.
+    """
+    if key in _ONE_OR_MANY and isinstance(value, str):
+        return [value]
+    if key == "max_size_bytes" and type(value) is int and value == 0:
+        return None
+    if key == "smtp_username" and type(value) is int:
+        return str(value)
+    return value
+
+
+def _file_key_for(field: str) -> str:
+    """The key a reader writes for a field.
+
+    Examples:
+        >>> _file_key_for("smtp_timeout")
+        'timeout'
+        >>> _file_key_for("attachment_max_size_bytes")
+        'attachments.max_size_bytes'
+        >>> _file_key_for("from_address")
+        'from_address'
+    """
+    if field.startswith(_ATTACHMENT_PREFIX):
+        return f"{_ATTACHMENTS}.{field.removeprefix(_ATTACHMENT_PREFIX)}"
+    return _FIELD_TO_FILE_KEY.get(field, field)
 
 
 def _configuration_key(loc: tuple[int | str, ...]) -> str:
-    """Spell a validation error's location as the dotted key a user writes in the file.
+    """Spell a validation error's location as the dotted key a user writes.
 
     Examples:
-        >>> _configuration_key(("timeout",))
+        >>> _configuration_key(("smtp_timeout",))
         'email.timeout'
-        >>> _configuration_key(("attachment_max_size_bytes",))
-        'email.attachments.max_size_bytes'
+        >>> _configuration_key(("attachments", "max_size"))
+        'email.attachments.max_size'
         >>> _configuration_key(())
         'email'
     """
     parts = [str(part) for part in loc]
-    if parts and parts[0].startswith(_ATTACHMENT_PREFIX):
-        parts[0:1] = ["attachments", parts[0].removeprefix(_ATTACHMENT_PREFIX)]
+    if parts:
+        parts[0] = _file_key_for(parts[0])
     return ".".join((_SECTION, *parts))
+
+
+def _line(item: ErrorDetails) -> str:
+    if item["type"] == "extra_forbidden":
+        # The location is the key as written, not a field: mapping it would turn an unknown
+        # ``smtp_timeout`` into ``email.timeout``, a key that exists and is not the problem.
+        return f"{'.'.join((_SECTION, *map(str, item['loc'])))}: unknown key"
+    return f"{_configuration_key(item['loc'])}: {_reason(item)}"
+
+
+def _reason(item: ErrorDetails) -> str:
+    # pydantic prefixes a validator's ValueError with "Value error, "; the exception it carries
+    # holds the message as written. For a credential field btx_lib_mail drops that exception
+    # (it could carry the value), so the prefix comes off the message itself. The library
+    # names its own fields; show the file key.
+    raised = item.get("ctx", {}).get("error")
+    if isinstance(raised, ValueError):
+        text = str(raised)
+    elif item["type"] == "value_error":
+        text = item["msg"].removeprefix(_VALUE_ERROR_PREFIX)
+    else:
+        text = item["msg"]
+    return _FIELD_NAME_IN_TEXT.sub(lambda match: _file_key_for(match.group(0)), text)
 
 
 def describe_validation_error(error: ValidationError) -> list[str]:
@@ -403,29 +298,30 @@ def describe_validation_error(error: ValidationError) -> list[str]:
     The refused input is never part of a line: it can be the SMTP password.
 
     Args:
-        error: The error ``EmailConfig`` validation raised.
+        error: The error loading or overriding ``EmailConfig`` raised.
 
     Returns:
         One line per problem; the key is ``email`` alone for a problem with the whole section.
 
     Example:
         >>> try:
-        ...     EmailConfig(timeout=-5.0)
+        ...     load_email_config_from_dict({"email": {"timeout": -5}})
         ... except ValidationError as exc:
         ...     describe_validation_error(exc)
-        ['email: timeout must be positive, got -5.0']
+        ['email.timeout: timeout must be positive, got -5.0']
+        >>> try:
+        ...     load_email_config_from_dict({"email": {"smtp_host": "smtp.example.com"}})
+        ... except ValidationError as exc:
+        ...     describe_validation_error(exc)
+        ['email.smtp_host: unknown key']
     """
-    lines: list[str] = []
-    for item in error.errors(include_url=False, include_input=False):
-        # pydantic prefixes the message of a ValueError raised by a validator with
-        # "Value error, "; the exception it carries holds the message as written.
-        raised = item.get("ctx", {}).get("error")
-        reason = str(raised) if isinstance(raised, ValueError) else item["msg"]
-        lines.append(f"{_configuration_key(item['loc'])}: {reason}".replace("\n", " "))
-    return lines
+    return [_line(item).replace("\n", " ") for item in error.errors(include_url=False, include_input=False)]
 
 
 __all__ = [
+    "ATTACHMENT_KEYS",
+    "FILE_KEY_TO_FIELD",
+    "SECTION_KEYS",
     "EmailConfig",
     "describe_validation_error",
     "load_email_config_from_dict",

@@ -92,7 +92,6 @@ def build_testing(*, spy: EmailSpy | None = None) -> AppServices:
         get_config_in_memory,
         get_default_config_path_in_memory,
         init_logging_in_memory,
-        load_email_config_from_dict_in_memory,
     )
 
     email_spy = spy if spy is not None else EmailSpy()
@@ -104,7 +103,8 @@ def build_testing(*, spy: EmailSpy | None = None) -> AppServices:
         display_config=display_config_in_memory,
         send_email=email_spy.send_email,
         send_notification=email_spy.send_notification,
-        load_email_config_from_dict=load_email_config_from_dict_in_memory,
+        # The real translation: an in-memory one would let every CLI test skip it.
+        load_email_config_from_dict=load_email_config_from_dict,
         init_logging=init_logging_in_memory,
     )
 

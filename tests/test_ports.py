@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 import pytest
 from lib_layered_config import Config
 
+from bitranox_template_py_cli.adapters.email.config import load_email_config_from_dict
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 from bitranox_template_py_cli.adapters.memory import (
     EmailSpy,
     get_config_in_memory,
     get_default_config_path_in_memory,
     init_logging_in_memory,
-    load_email_config_from_dict_in_memory,
 )
 
 if TYPE_CHECKING:
@@ -63,8 +63,8 @@ def send_notification_impl() -> SendNotification:
 
 @pytest.fixture
 def load_email_config_impl() -> LoadEmailConfigFromDict:
-    """Provide in-memory LoadEmailConfigFromDict implementation."""
-    return load_email_config_from_dict_in_memory
+    """Provide the LoadEmailConfigFromDict the testing composition wires: the real translation."""
+    return load_email_config_from_dict
 
 
 @pytest.fixture
@@ -92,7 +92,7 @@ def test_get_default_config_path_returns_toml_path(get_default_config_path_impl:
 @pytest.mark.os_agnostic
 def test_send_email_returns_bool_with_valid_config(send_email_impl: SendEmail) -> None:
     """SendEmail must return a bool when called with a valid EmailConfig."""
-    config = EmailConfig(smtp_hosts=["smtp.test.com:587"], from_address="a@b.com")
+    config = EmailConfig(smtphosts=["smtp.test.com:587"], from_address="a@b.com")
     result = send_email_impl(
         config=config,
         recipients=["test@example.com"],
@@ -105,7 +105,7 @@ def test_send_email_returns_bool_with_valid_config(send_email_impl: SendEmail) -
 @pytest.mark.os_agnostic
 def test_send_notification_returns_bool_with_valid_config(send_notification_impl: SendNotification) -> None:
     """SendNotification must return a bool when called with a valid EmailConfig."""
-    config = EmailConfig(smtp_hosts=["smtp.test.com:587"], from_address="a@b.com")
+    config = EmailConfig(smtphosts=["smtp.test.com:587"], from_address="a@b.com")
     result = send_notification_impl(
         config=config,
         recipients=["test@example.com"],
