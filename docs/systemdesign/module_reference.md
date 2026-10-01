@@ -287,7 +287,7 @@ Raises `ValueError` with descriptive message on invalid input.
 
 `EmailConfig` (`adapters/email/config.py`, re-exported by `adapters/email/sender.py`) subclasses
 btx_lib_mail's `ConfMail`: frozen, a name that is not a field is refused, the password is a
-`SecretStr`, and a validation error never shows its input. It adds `from_address` and
+`SecretStr`, and a validation error never shows the password or a host. It adds `from_address` and
 `recipients`, and checks every SMTP host's syntax (port range, IPv6 brackets) when it loads. In
 Python the fields use the library's names; the configuration file keeps its own keys (third
 column).
@@ -330,7 +330,7 @@ defaults, the app, host and user files, `.env`, the environment, `--set`) into o
 - a key that is not listed is refused (exit 78, `email.<key>: unknown key`), whatever layer it came from;
 - blank text means "not configured"; a single host or address string is a one-entry list;
 - an empty attachment list (`[]` or a blank string) means the library's defaults, and any other
-  value that is not a list, such as a comma-separated string, is refused;
+  value that is not a list, such as a comma-separated string, is refused, as is a blank entry;
 - `max_size_bytes = 0` means no size limit.
 
 `describe_validation_error()` renders a refusal as one `email.<file key>: <reason>` line per

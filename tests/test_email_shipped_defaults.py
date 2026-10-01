@@ -8,6 +8,8 @@ delivered, both with the shipped file read as it ships.
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
@@ -19,6 +21,8 @@ from bitranox_template_py_cli.adapters.email.config import EmailConfig, load_ema
 from bitranox_template_py_cli.adapters.email.transport import send_email
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from btx_lib_mail.lib_mail import DeliveryOptions
 
 _SHIPPED = (
@@ -68,10 +72,29 @@ def _a_file_in_a_blocked_directory() -> Path:
     raise AssertionError("no regular file directly inside any default blocked directory on this OS")
 
 
+def _is_blocked(directory: Path) -> bool:
+    resolved = directory.resolve()
+    return any(resolved.is_relative_to(blocked.resolve()) for blocked in ConfMail().attachment_blocked_directories)
+
+
+@pytest.fixture
+def unblocked_dir(tmp_path: Path) -> Iterator[Path]:
+    """A fresh directory under no default blocked directory, so only the file itself is judged.
+
+    pytest's tmp_path is under /var on macOS (/private/var/folders), which the defaults block,
+    so the first base that is not blocked is used: tmp_path, the home directory, the cwd.
+    """
+    base = next((base for base in (tmp_path, Path.home(), Path.cwd()) if not _is_blocked(base)), None)
+    assert base is not None, "no candidate directory is outside the default blocked directories"
+    directory = Path(tempfile.mkdtemp(prefix="shipped-defaults-", dir=base))
+    yield directory
+    shutil.rmtree(directory, ignore_errors=True)
+
+
 @pytest.mark.os_agnostic
-def test_a_dangerous_extension_is_refused_with_the_shipped_defaults(tmp_path: Path) -> None:
+def test_a_dangerous_extension_is_refused_with_the_shipped_defaults(unblocked_dir: Path) -> None:
     extension = sorted(ConfMail().attachment_blocked_extensions)[0]
-    attachment = tmp_path / f"payload{extension}"
+    attachment = unblocked_dir / f"payload{extension}"
     attachment.write_bytes(b"x")
     transport = _Recording()
 
@@ -99,8 +122,8 @@ def test_a_file_in_a_blocked_directory_is_refused_with_the_shipped_defaults() ->
 
 
 @pytest.mark.os_agnostic
-def test_an_ordinary_attachment_is_delivered_with_the_shipped_defaults(tmp_path: Path) -> None:
-    attachment = tmp_path / "report.txt"
+def test_an_ordinary_attachment_is_delivered_with_the_shipped_defaults(unblocked_dir: Path) -> None:
+    attachment = unblocked_dir / "report.txt"
     attachment.write_text("ok", encoding="utf-8")
     transport = _Recording()
 

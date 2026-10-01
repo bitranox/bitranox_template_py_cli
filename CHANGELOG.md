@@ -92,13 +92,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ### Changed
 - **Breaking: `EmailConfig` is a btx_lib_mail `ConfMail`.** It inherits the `SecretStr` password,
   the timeout and EHLO-name checks, the empty-blocklist refusal and validation errors that never
-  show their input, and adds `from_address` and `recipients`; every SMTP host's syntax (port
-  range, IPv6 brackets) is still checked when it loads. In Python it uses the library's names:
-  `smtphosts`, `smtp_use_starttls`, `smtp_timeout`, and from Python an empty blocked set is
-  refused unless `attachment_allow_empty_blocklists=True`. `to_conf_mail()` is gone: pass the
+  show the password or a host, and adds `from_address` and `recipients`; every SMTP host's syntax
+  (port range, IPv6 brackets) is still checked when it loads. In Python it uses the library's
+  names: `smtphosts`, `smtp_use_starttls`, `smtp_timeout`. `to_conf_mail()` is gone: pass the
   config itself (`btx_lib_mail.send(config=...)`). Configuration files and environment variables
   keep their keys (`smtp_hosts`, `use_starttls`, `timeout`); `FILE_KEY_TO_FIELD` in
   `adapters/email/config.py` maps them.
+- **Breaking, for code that builds `EmailConfig` in Python: the attachment settings follow
+  `ConfMail`.** The "empty means the defaults" and "0 means no limit" readings apply only to
+  configuration read through `load_email_config_from_dict`. From Python, an empty
+  `attachment_allowed_extensions` or `attachment_allowed_directories` now allows NOTHING (it
+  meant "no allowlist"), an empty blocked set is refused unless
+  `attachment_allow_empty_blocklists=True`, and `attachment_max_size_bytes=0` is refused (pass
+  `None` for no limit). Unchanged from Python: a blank user name, password or sender means not
+  set, one recipient string is a one-entry list, and an all-digit user name is read as its digits.
+- **A blank entry in an attachment list is refused** (`email.attachments.<key>: an entry is
+  blank; remove it`). A blank directory became `Path(".")`, which REPLACED the operating system's
+  blocked directories, so `blocked_directories = [""]` switched directory protection off.
 - **Breaking: an unknown key in `[email]` or `[email.attachments]` is refused** (exit 78,
   `Error: Invalid configuration: email.<key>: unknown key`), from any layer including `.env`, the
   environment and `--set`. A typo used to be ignored silently and leave the setting at its

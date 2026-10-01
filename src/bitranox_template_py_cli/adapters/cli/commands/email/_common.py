@@ -82,8 +82,10 @@ def apply_validated_overrides(base_config: EmailConfig, overrides: dict[str, Any
 def smtp_config_options(func: Callable[..., Any]) -> Callable[..., Any]:
     """Apply shared SMTP configuration override options to a Click command.
 
-    Adds CLI flags for all EmailConfig fields so that any TOML setting
-    can be overridden at invocation time.
+    Adds CLI flags for the SMTP connection and delivery settings (hosts, credentials,
+    STARTTLS, timeout, the two raise_on_* switches). ``starttls_verify``,
+    ``local_hostname`` and the attachment settings have no flag; set them with
+    ``--set email.<key>=...``.
     """
     options = [
         option(

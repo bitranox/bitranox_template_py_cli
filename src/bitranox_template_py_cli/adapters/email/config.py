@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 from btx_lib_mail import ConfMail, validate_email_address, validate_smtp_host
-from pydantic import ConfigDict, Field, ValidationError, field_validator
+from pydantic import ConfigDict, Field, SecretStr, ValidationError, field_validator
 
 if TYPE_CHECKING:
     from pydantic_core import ErrorDetails, InitErrorDetails
@@ -74,6 +74,8 @@ _BLANK_TEXT_MEANS_UNSET = frozenset(
 _EMPTY_LIST_MEANS_DEFAULT = frozenset(
     {"allowed_extensions", "blocked_extensions", "allowed_directories", "blocked_directories"}
 )
+#: The refusal of a blank entry in an attachment list.
+_BLANK_ENTRY = ValueError("an entry is blank; remove it")
 #: The form an attachment list must take, named by the refusal of any other form. A
 #: comma-separated environment value stays one string; read as "not configured" it would swap
 #: the configured list for the library's defaults without a word, so it is refused instead.
@@ -92,7 +94,7 @@ class EmailConfig(ConfMail):
     """btx_lib_mail's ``ConfMail`` plus the sender and the default recipients.
 
     Inherits the ``SecretStr`` password, the host, timeout and EHLO-name validation, the
-    attachment policy and validation errors that never show their input. Frozen, and a name
+    attachment policy and validation errors that never show the password or a host. Frozen, and a name
     that is not a field is refused rather than ignored.
 
     Example:
@@ -105,6 +107,41 @@ class EmailConfig(ConfMail):
 
     from_address: str | None = None
     recipients: list[str] = Field(default_factory=list)
+
+    @field_validator("smtp_username", "smtp_password", mode="before")
+    @classmethod
+    def _blank_credential_is_none(cls, value: object) -> object:
+        """A blank user name or password means no login; an all-digit user name is its digits.
+
+        ConfMail keeps blank text, and a blank user name next to a password is truthy enough to
+        attempt a login. The environment layer reads an all-digit value as an ``int``; ConfMail
+        reads the password as its digits, so the user name gets the same treatment.
+
+        Examples:
+            >>> EmailConfig._blank_credential_is_none("   ") is None
+            True
+            >>> EmailConfig._blank_credential_is_none(4711)
+            '4711'
+        """
+        text = value.get_secret_value() if isinstance(value, SecretStr) else value
+        if isinstance(text, str) and not text.strip():
+            return None
+        if type(value) is int:
+            return str(value)
+        return value
+
+    @field_validator("from_address", mode="before")
+    @classmethod
+    def _blank_sender_is_none(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("recipients", mode="before")
+    @classmethod
+    def _one_recipient_is_a_list(cls, value: object) -> object:
+        # The same reading ConfMail gives smtphosts: one address is a one-entry list.
+        if isinstance(value, str):
+            return [value] if value.strip() else []
+        return value
 
     @field_validator("smtphosts")
     @classmethod
@@ -187,10 +224,12 @@ def _refused_keys(section: Mapping[str, Any]) -> list[InitErrorDetails]:
     table = cast("Mapping[str, Any]", attachments)
     unknown_in_table = (key for key in table if key not in ATTACHMENT_KEYS)
     wrong_form = (key for key in _EMPTY_LIST_MEANS_DEFAULT if key in table and not _is_list_form(table[key]))
+    blank_entry = (key for key in _EMPTY_LIST_MEANS_DEFAULT if key in table and _has_blank_entry(table[key]))
     return [
         *refused,
         *(_problem("extra_forbidden", (_ATTACHMENTS, key)) for key in unknown_in_table),
         *(_problem("value_error", (_ATTACHMENTS, key), _wrong_list_form(table[key])) for key in wrong_form),
+        *(_problem("value_error", (_ATTACHMENTS, key), _BLANK_ENTRY) for key in blank_entry),
     ]
 
 
@@ -199,6 +238,15 @@ def _is_list_form(value: object) -> bool:
     if value is None or isinstance(value, (list, tuple, set, frozenset)):
         return True
     return isinstance(value, str) and not value.strip()
+
+
+def _has_blank_entry(value: object) -> bool:
+    # A blank directory becomes Path("."), which replaces the OS defaults and blocks nothing; a
+    # blank extension is dropped, which can leave an empty blocked list.
+    if not isinstance(value, (list, tuple)):
+        return False
+    items = cast("list[object] | tuple[object, ...]", value)
+    return any(isinstance(item, str) and not item.strip() for item in items)
 
 
 def _wrong_list_form(value: object) -> ValueError:
@@ -222,17 +270,11 @@ def _means_unset(key: str, value: object) -> bool:
 
 
 def _field_value(key: str, value: object) -> object:
-    """A lone host or address becomes a one-entry list; a size limit of 0 means no limit.
-
-    An all-digit user name arrives from the environment as an ``int`` and is read as its
-    digits; ConfMail does the same for the password.
-    """
+    """A lone host or address becomes a one-entry list; a size limit of 0 means no limit."""
     if key in _ONE_OR_MANY and isinstance(value, str):
         return [value]
-    if key == "max_size_bytes" and type(value) is int and value == 0:
+    if key == "max_size_bytes" and type(value) in (int, float) and value == 0:
         return None
-    if key == "smtp_username" and type(value) is int:
-        return str(value)
     return value
 
 
@@ -273,8 +315,18 @@ def _line(item: ErrorDetails) -> str:
     if item["type"] == "extra_forbidden":
         # The location is the key as written, not a field: mapping it would turn an unknown
         # ``smtp_timeout`` into ``email.timeout``, a key that exists and is not the problem.
-        return f"{'.'.join((_SECTION, *map(str, item['loc'])))}: unknown key"
+        return f"{'.'.join((_SECTION, *map(_escaped, item['loc'])))}: unknown key"
     return f"{_configuration_key(item['loc'])}: {_reason(item)}"
+
+
+def _escaped(part: int | str) -> str:
+    r"""A key as written, with control characters shown as escapes rather than acted on.
+
+    Examples:
+        >>> _escaped("smtp\x1b[31mhost")
+        'smtp\\x1b[31mhost'
+    """
+    return "".join(char if char.isprintable() else repr(char)[1:-1] for char in str(part))
 
 
 def _reason(item: ErrorDetails) -> str:

@@ -114,7 +114,27 @@ def test_a_password_of_another_type_is_refused_without_its_value(value: object) 
     ids=["string", "integer", "secretstr"],
 )
 def test_a_model_level_error_does_not_show_the_password(password: object, dummy: str) -> None:
-    """A short input mapping is printed whole; validation fails on the timeout, not the password."""
+    """A model-level error's input is the whole mapping, password included.
+
+    ConfMail's empty-blocklist check runs on the whole model: an empty blocked set from Python
+    with no allowlist and no opt-in. A field error (a negative timeout) would not do: its input
+    is only the field's own value.
+    """
+    with pytest.raises(ValidationError) as caught:
+        EmailConfig.model_validate({"smtp_password": password, "attachment_blocked_extensions": set()})
+
+    assert [item["loc"] for item in caught.value.errors()] == [()], "control: the error is model-level"
+    text = f"{caught.value}\n{caught.value!r}\n{caught.value.errors()}\n{caught.value.json()}"
+    assert _leaked(dummy, text) == []
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    ("password", "dummy"),
+    [(DUMMY, DUMMY), (int(DIGITS), DIGITS), (SecretStr(DUMMY), DUMMY)],
+    ids=["string", "integer", "secretstr"],
+)
+def test_a_field_error_next_to_the_password_does_not_show_it(password: object, dummy: str) -> None:
     with pytest.raises(ValidationError) as caught:
         load_email_config_from_dict({"email": {"smtp_password": password, "timeout": -5}})
 

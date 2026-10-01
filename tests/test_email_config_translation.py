@@ -212,3 +212,48 @@ def test_a_host_list_of_the_wrong_type_reads_as_the_file_key_without_a_prefix() 
 def test_an_all_digit_user_name_from_the_environment_is_read_as_text() -> None:
     """lib_layered_config reads an all-digit environment value as an int."""
     assert _load({"smtp_username": 4711}).smtp_username == "4711"
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    "setting", ["allowed_extensions", "blocked_extensions", "allowed_directories", "blocked_directories"]
+)
+@pytest.mark.parametrize("entry", ["", "   "], ids=["empty", "whitespace"])
+def test_a_blank_entry_in_an_attachment_list_is_refused(setting: str, entry: str) -> None:
+    """A blank directory became Path('.'), which REPLACED the OS defaults and blocked nothing."""
+    problems = _problems({"attachments": {setting: ["/srv/x" if "directories" in setting else ".pdf", entry]}})
+
+    assert problems == [f"email.attachments.{setting}: an entry is blank; remove it"]
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("field", ["smtp_username", "smtp_password"])
+@pytest.mark.parametrize("blank", ["", "   "], ids=["empty", "whitespace"])
+def test_a_blank_credential_from_python_means_no_login(field: str, blank: str) -> None:
+    config = EmailConfig.model_validate({"smtp_username": "u", "smtp_password": "p", field: blank})
+
+    assert getattr(config, field) is None
+    assert config.resolved_credentials() is None
+
+
+@pytest.mark.os_agnostic
+def test_python_callers_keep_the_lenient_reading_of_text_fields() -> None:
+    """Blank sender, a lone recipient string and an all-digit user name, as before ConfMail."""
+    config = EmailConfig.model_validate({"from_address": "  ", "recipients": "ops@example.com", "smtp_username": 4711})
+
+    assert config.from_address is None
+    assert config.recipients == ["ops@example.com"]
+    assert config.smtp_username == "4711"
+
+
+@pytest.mark.os_agnostic
+def test_an_unknown_key_with_control_characters_is_shown_escaped() -> None:
+    (line,) = _problems({"smtp\x1b[31mhost\rX": "h"})
+
+    assert line == "email.smtp\\x1b[31mhost\\rX: unknown key"
+    assert line.isprintable()
+
+
+@pytest.mark.os_agnostic
+def test_a_size_limit_of_zero_written_as_a_float_means_no_limit() -> None:
+    assert _load({"attachments": {"max_size_bytes": 0.0}}).attachment_max_size_bytes is None
