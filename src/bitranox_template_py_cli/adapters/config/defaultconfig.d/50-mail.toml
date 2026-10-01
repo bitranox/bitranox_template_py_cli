@@ -91,6 +91,25 @@ use_starttls = true
 # .env: EMAIL__TIMEOUT=30.0
 timeout = 30.0
 
+# Purpose: Verify the SMTP server's TLS certificate after STARTTLS
+# Type: boolean
+# Default: true
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__STARTTLS_VERIFY=true
+# .env: EMAIL__STARTTLS_VERIFY=true
+# Note: false accepts ANY certificate, so a machine in the middle can read the login. Use it
+#   only for a known internal relay with a self-signed certificate; it is still safer than
+#   use_starttls = false, which sends the password unencrypted.
+starttls_verify = true
+
+# Purpose: The host name this machine announces in the SMTP greeting (EHLO)
+# Type: string, or "" for the default
+# Default: "" (looked up once per process, the way smtplib does)
+# Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__LOCAL_HOSTNAME=mail.example.com
+# .env: EMAIL__LOCAL_HOSTNAME=mail.example.com
+# Note: Set it on hosts where the reverse-DNS lookup is slow; some relays require a fully
+#   qualified name here.
+local_hostname = ""
+
 # Purpose: Behavior when attachment files are missing
 # Type: boolean
 # Default: true (raise FileNotFoundError)

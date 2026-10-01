@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import smtplib
 from dataclasses import dataclass
+from pathlib import Path
 from typing import IO, TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+import rtoml
 from pydantic import SecretStr
 from pydantic import ValidationError as PydanticValidationError
 
@@ -27,7 +29,6 @@ from bitranox_template_py_cli.domain.errors import ConfigurationError, DeliveryE
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
-    from pathlib import Path
 
     from btx_lib_mail.lib_mail import DeliveryOptions
 
@@ -43,6 +44,8 @@ class _Delivery:
     recipient: str
     payload: bytes
     credentials: tuple[str, str] | None
+    local_hostname: str | None
+    starttls_verify: bool
 
 
 class RecordingTransport:
@@ -82,6 +85,8 @@ class RecordingTransport:
                 recipient=recipient,
                 payload=message.read(),
                 credentials=delivery.credentials,
+                local_hostname=delivery.local_hostname,
+                starttls_verify=delivery.starttls_verify,
             )
         )
 
@@ -1301,3 +1306,35 @@ def test_validate_recipients_error_includes_invalid_address() -> None:
 
     with pytest.raises(InvalidRecipientError, match="bad-address"):
         validate_recipients("bad-address")
+
+
+@pytest.mark.os_agnostic
+def test_starttls_verify_and_local_hostname_from_the_file_reach_the_transport() -> None:
+    config = load_email_config_from_dict(
+        {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
+                "from_address": "app@example.com",
+                "starttls_verify": False,
+                "local_hostname": "mail.example.com",
+            }
+        }
+    )
+    transport = RecordingTransport()
+
+    send_email(config=config, recipients="ops@example.com", subject="s", transport=transport)
+
+    assert transport.deliveries[0].local_hostname == "mail.example.com"
+    assert transport.deliveries[0].starttls_verify is False
+
+
+_SHIPPED_MAIL = (
+    Path(__file__).parent.parent / "src" / "bitranox_template_py_cli" / "adapters" / "config" / "defaultconfig.d"
+) / "50-mail.toml"
+
+
+@pytest.mark.os_agnostic
+def test_the_shipped_defaults_verify_the_certificate_and_name_no_ehlo_host() -> None:
+    shipped = rtoml.load(_SHIPPED_MAIL)["email"]
+    assert shipped["starttls_verify"] is True
+    assert shipped["local_hostname"] == ""
