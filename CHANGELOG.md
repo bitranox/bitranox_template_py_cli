@@ -90,6 +90,28 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   every `.env` value is text, and the setting's own validation reads `true`/`false`.
 
 ### Changed
+- **Breaking: `EmailConfig` is a btx_lib_mail `ConfMail`.** It inherits the `SecretStr` password,
+  the timeout and EHLO-name checks, the empty-blocklist refusal and validation errors that never
+  show their input, and adds `from_address` and `recipients`; every SMTP host's syntax (port
+  range, IPv6 brackets) is still checked when it loads. In Python it uses the library's names:
+  `smtphosts`, `smtp_use_starttls`, `smtp_timeout`, and from Python an empty blocked set is
+  refused unless `attachment_allow_empty_blocklists=True`. `to_conf_mail()` is gone: pass the
+  config itself (`btx_lib_mail.send(config=...)`). Configuration files and environment variables
+  keep their keys (`smtp_hosts`, `use_starttls`, `timeout`); `FILE_KEY_TO_FIELD` in
+  `adapters/email/config.py` maps them.
+- **Breaking: an unknown key in `[email]` or `[email.attachments]` is refused** (exit 78,
+  `Error: Invalid configuration: email.<key>: unknown key`), from any layer including `.env`, the
+  environment and `--set`. A typo used to be ignored silently and leave the setting at its
+  default.
+- **New keys `email.starttls_verify` (default true) and `email.local_hostname`** (default unset):
+  certificate verification after STARTTLS, and the host name announced in EHLO.
+- **Delivery errors carry the library's message.** The filter that replaced any message
+  mentioning `auth`, `login`, `key` and similar words with "Email delivery failed. Check SMTP
+  configuration." is removed. The message names the recipients and hosts that failed, and a host
+  or address that merely contained such a word (`smtp.keystone.example`) no longer hid it; the
+  SMTP password is never part of it.
+- **Error lines name the file key**: `email.timeout: timeout must be positive, got -5.0` (was
+  `email: timeout must be positive ...` for a check that ran on the whole model).
 - **Breaking: an invalid `--profile` name exits 2, no longer 78.** A name such as `../x` is now
   refused as a usage error for every command, before the configuration is loaded (the root's
   `--profile`, `config --profile` and `config-deploy --profile`). `config`, `send-email` and
@@ -124,6 +146,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   runtime too: the production one queues INFO lines that raced into stderr by timing.
 
 ### Removed
+- `EmailConfig.to_conf_mail()` and the custom `EmailConfig.__repr__` (the `SecretStr` password
+  already renders as `'**********'`), `transport._sanitize_exception_message`, and
+  `adapters.memory.load_email_config_from_dict_in_memory`: `build_testing()` wires the real
+  `load_email_config_from_dict`, so CLI tests run through the same translation as production.
 - `adapters.config.permissions` as a whole: `parse_mode` (whose silent fall-back to the default
   was the bug), `get_permission_defaults`, `get_modes_for_target` and the `PermissionDefaults`
   model. lib_layered_config reads and validates the section now; a caller that wants the
@@ -153,8 +179,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   environment layer reads as an integer and which was therefore refused and could never be used,
   is now read as its digits (a leading zero is lost in the environment; quote such a password
   in a TOML file). A float, boolean, list or table is refused. A non-ASCII password or user name
-  is refused at validation: smtplib sends the SMTP login as ASCII, so it could never log in,
-  and its `UnicodeEncodeError` carried the attempt into btx_lib_mail's delivery log.
+  is accepted: btx_lib_mail logs in with UTF-8 AUTH PLAIN.
 - **No group-writable or executable configuration, and no decimal integer read as a mode.** A
   configured mode given as a bare integer was read as DECIMAL (TOML `user_file = 444`, `--set`, or
   the environment value `444`), and several such values passed the safety rule: `444` deployed
@@ -172,10 +197,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   defaults: a configured whitelist was lifted, a configured blacklist replaced. Such a value, and
   a number, boolean or table, is now refused: the command exits 78 with
   `Error: Invalid configuration: email.attachments.<key>: expected a list ...`. An empty value
-  (`[]`, an empty or whitespace-only string) still means "not configured". From Python, a tuple
-  is read like a list and a set like a frozenset (an empty one still disables the list).
-  `smtp_hosts` and `recipients` no longer empty a tuple or a non-list value: a tuple is read as a
-  list, a number is refused.
+  (`[]`, an empty or whitespace-only string) still means "not configured". From Python,
+  `EmailConfig` follows `ConfMail`: a list, tuple or set is read as a frozenset, and an empty
+  blocked set is refused unless `attachment_allow_empty_blocklists=True`. `smtp_hosts` and
+  `recipients` no longer empty a tuple or a non-list value: a tuple is read as a list, a number is
+  refused.
 
 ## [1.7.2] 2026-09-12 02:11:47
 

@@ -238,8 +238,14 @@ from_address = "alerts@myapp.com"
 smtp_username = "myuser@gmail.com"
 smtp_password = "secret_password"  # Consider using environment variables for sensitive data
 use_starttls = true
+starttls_verify = true   # false accepts any certificate: only for a known internal relay
 timeout = 60.0
+# local_hostname = "mail.example.com"   # EHLO name; set it where reverse DNS is slow
 ```
+
+A key `[email]` or `[email.attachments]` does not know is refused (exit 78,
+`email.<key>: unknown key`), whichever layer it comes from, so a typo cannot leave a setting at
+its default.
 
 **`.env` File:**
 ```bash
@@ -315,14 +321,17 @@ from pydantic import SecretStr
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 from bitranox_template_py_cli.composition import send_email, send_notification
 
-# Configure email. smtp_password is a SecretStr: it prints as '**********' in logs, reprs
-# and dumps, and config.smtp_password.get_secret_value() returns the plain text.
+# Configure email. EmailConfig is a btx_lib_mail ConfMail, so in Python the fields use the
+# library's names (smtphosts, smtp_use_starttls, smtp_timeout); configuration files keep their
+# keys (smtp_hosts, use_starttls, timeout). smtp_password is a SecretStr: it prints as
+# '**********' in logs, reprs and dumps, and config.smtp_password.get_secret_value() returns
+# the plain text.
 config = EmailConfig(
-    smtp_hosts=["smtp.gmail.com:587"],
+    smtphosts=["smtp.gmail.com:587"],
     from_address="alerts@myapp.com",
     smtp_username="myuser@gmail.com",
     smtp_password=SecretStr("app-password"),
-    timeout=60.0,
+    smtp_timeout=60.0,
 )
 
 # Send simple email

@@ -854,6 +854,24 @@ def test_send_email_raises_when_recipient_validation_fails() -> None:
 
 
 @pytest.mark.os_agnostic
+def test_a_delivery_error_keeps_the_library_message_even_when_it_contains_a_keyword() -> None:
+    """No keyword filter rewrites the message: a host named like ``key`` used to hide it."""
+    host = "smtp.keystone.example:587"
+    config = EmailConfig(smtphosts=[host], from_address="sender@test.com")
+
+    with pytest.raises(DeliveryError) as failed:
+        send_email(
+            config=config,
+            recipients="login@test.com",
+            subject="Test",
+            transport=RecordingTransport(failing_hosts=[host]),
+        )
+
+    assert "following recipients failed" in str(failed.value)
+    assert host in str(failed.value)
+
+
+@pytest.mark.os_agnostic
 def test_send_email_raises_when_attachment_missing(tmp_path: Path) -> None:
     """Missing attachment raises FileNotFoundError when configured."""
     nonexistent = tmp_path / "nonexistent.txt"
