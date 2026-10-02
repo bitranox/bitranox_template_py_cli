@@ -6,6 +6,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+- **Requires lib_layered_config 7.0.1.** An unquoted `.env` value now converts like the
+  environment layer, so `ENABLED=false` arrives as the boolean `false`; the permission-defaults
+  test reads it that way. A `.env` setting still never reaches a deploy.
+
 ### Fixed
 - **`email.recipients` set to nothing means no default recipients.** A bare YAML key or an
   environment `null` was refused as "Input should be a valid list", while the same value for
