@@ -138,7 +138,10 @@ class EmailConfig(ConfMail):
     @field_validator("recipients", mode="before")
     @classmethod
     def _one_recipient_is_a_list(cls, value: object) -> object:
-        # The same reading ConfMail gives smtphosts: one address is a one-entry list.
+        # The same reading ConfMail gives smtphosts: one address is a one-entry list, and None
+        # (a bare YAML key, an environment null) means no default recipients.
+        if value is None:
+            return []
         if isinstance(value, str):
             return [value] if value.strip() else []
         return value

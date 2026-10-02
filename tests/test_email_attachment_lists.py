@@ -25,6 +25,7 @@ from pydantic import ValidationError
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.cli.main import main
 from bitranox_template_py_cli.adapters.email.config import (
+    FILE_KEY_TO_FIELD,
     EmailConfig,
     describe_validation_error,
     load_email_config_from_dict,
@@ -132,6 +133,19 @@ def test_a_tuple_of_hosts_or_recipients_is_kept(field: str) -> None:
     value = ("smtp.example.com:587",) if field == "smtphosts" else ("a@example.com",)
 
     assert getattr(EmailConfig.model_validate({field: value}), field) == list(value)
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("field", ["smtp_hosts", "recipients"])
+@pytest.mark.parametrize("source", ["loader", "model"])
+def test_a_host_or_recipient_list_set_to_none_means_not_configured(field: str, source: str) -> None:
+    """A bare YAML key or an environment ``null`` clears the list instead of aborting the load."""
+    if source == "loader":
+        config = load_email_config_from_dict({"email": {field: None}})
+    else:
+        config = EmailConfig.model_validate({FILE_KEY_TO_FIELD.get(field, field): None})
+
+    assert getattr(config, FILE_KEY_TO_FIELD.get(field, field)) == []
 
 
 @pytest.mark.os_agnostic

@@ -7,6 +7,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ## [Unreleased]
 
 ### Fixed
+- **`email.recipients` set to nothing means no default recipients.** A bare YAML key or an
+  environment `null` was refused as "Input should be a valid list", while the same value for
+  `email.smtp_hosts` already meant an empty list. Both now read `None` as not configured.
 - **`build_testing()` can run a command.** The in-memory logging initializer was a no-op while every
   command binds job context onto the lib_log_rich runtime, so any command under the testing
   composition raised `RuntimeError('lib_log_rich.init() must be called before using the logging
