@@ -26,7 +26,7 @@ moves or removes a module, a CLI option or a public name.
 - `src/bitranox_template_py_cli/adapters/email/transport.py`  -  `send_email` / `send_notification` over btx_lib_mail
 - `src/bitranox_template_py_cli/adapters/email/sender.py`  -  Re-exports of `config.py` and `transport.py`
 - `src/bitranox_template_py_cli/adapters/email/validation.py`  -  Email recipient validation
-- `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization; takes only the `LOG_*` lines of a `.env`, and raises `InvalidLoggingConfigError` for a refused `[lib_log_rich]` value or `LOG_*` variable, after starting logging with its defaults and no `LOG_*` variable
+- `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization; takes only the `LOG_*` lines of a `.env`, and raises `InvalidLoggingConfigError` for a refused `[lib_log_rich]` value or `LOG_*` variable, after starting logging with its defaults (and without the `LOG_*` variables only when one of them is refused)
 - `src/bitranox_template_py_cli/adapters/cli/`  -  CLI adapter package:
   - `__init__.py`  -  Public facade
   - `constants.py`  -  Shared constants

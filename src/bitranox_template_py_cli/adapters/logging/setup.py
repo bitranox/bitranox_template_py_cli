@@ -5,8 +5,10 @@ eliminating duplication between module entry (__main__.py) and console script
 (cli.py) while ensuring initialization happens exactly once.
 
 Contents:
-    * :func:`init_logging` - idempotent logging initialization with layered config.
-    * :class:`InvalidLoggingConfigError` - the ``[lib_log_rich]`` section cannot configure logging.
+    * :func:`init_logging` - idempotent logging initialization from the ``[lib_log_rich]``
+      section and the ``LOG_*`` variables (the environment, plus the ``LOG_*`` lines of a ``.env``).
+    * :class:`InvalidLoggingConfigError` - the ``[lib_log_rich]`` section or a ``LOG_*`` variable
+      cannot configure logging.
     * :func:`_build_runtime_config` - constructs RuntimeConfig from layered sources.
 
 System Role:
@@ -96,8 +98,11 @@ def _build_runtime_config(config: Config) -> lib_log_rich.runtime.RuntimeConfig:
 class InvalidLoggingConfigError(ConfigurationError):
     """lib_log_rich refuses its settings: one ``<key>: <reason>`` in :attr:`problems` per problem.
 
-    The settings are the ``[lib_log_rich]`` section plus any ``LOG_*`` variable. A problem names
-    the key and never repeats the refused value.
+    The settings are the ``[lib_log_rich]`` section plus any ``LOG_*`` variable. A problem the
+    type check of the section finds names the key and never repeats the refused value. A value
+    only lib_log_rich itself refuses, such as an unknown level in ``LOG_CONSOLE_LEVEL``, is
+    reported in lib_log_rich's own words (``lib_log_rich: Unknown log level: 'bogus'``), which
+    name neither the variable nor where it was set.
 
     Attributes:
         problems: One line per refused setting.
@@ -127,8 +132,8 @@ def _problems(error: BaseException) -> list[str]:
     while cause is not None and not isinstance(cause, ValidationError):
         cause = cause.__cause__ or cause.__context__
     if cause is None:
-        # Not a pydantic error (e.g. an unknown level name): its own first line, which names
-        # the setting.
+        # Not a pydantic error (e.g. an unknown level name in a LOG_* variable): lib_log_rich's
+        # own first line, which may name neither the variable nor where it was set.
         return [f"lib_log_rich: {str(error).splitlines()[0]}"]
     return [f"lib_log_rich.{'.'.join(str(part) for part in item['loc'])}: {item['msg']}" for item in cause.errors()]
 
@@ -204,13 +209,18 @@ def _log_variables_hidden() -> Generator[None]:
 
 
 def _start_default_logging() -> None:
-    """Start lib_log_rich with the package defaults and no ``LOG_*`` variable.
+    """Start lib_log_rich with the package defaults; without the ``LOG_*`` variables only if needed.
 
-    lib_log_rich reads the ``LOG_*`` variables from the environment on every init, so when one
-    of them is the refused setting, a retry with an empty configuration alone is refused again.
+    lib_log_rich reads the ``LOG_*`` variables from the environment on every init. When the
+    refused setting came from the ``[lib_log_rich]`` section, the defaults start with them and
+    a valid ``LOG_CONSOLE_LEVEL`` still applies. When one of them is the refused setting, that
+    start is refused again, and only then do the defaults start with every ``LOG_*`` hidden.
     """
-    with _log_variables_hidden():
+    try:
         lib_log_rich.runtime.init(_build_runtime_config(Config({}, {})))
+    except (ValidationError, ValueError):
+        with _log_variables_hidden():
+            lib_log_rich.runtime.init(_build_runtime_config(Config({}, {})))
 
 
 def init_logging(config: Config, *, dotenv_path: str | None = None) -> None:
@@ -232,8 +242,10 @@ def init_logging(config: Config, *, dotenv_path: str | None = None) -> None:
     Raises:
         InvalidLoggingConfigError: The ``[lib_log_rich]`` section or a ``LOG_*`` variable holds
             a value lib_log_rich refuses. Logging is started anyway, with the package defaults
-            and every ``LOG_*`` variable ignored, so the caller can record the failure and run
-            the commands that do not read the configuration.
+            and the ``LOG_*`` variables (every one of them ignored if the defaults are refused
+            with them too), so the caller can record the failure and run the commands that do
+            not read the configuration. Only the first call can raise: logging is running after
+            it, so a later call returns at once, also with the same refused configuration.
 
     Side Effects:
         Copies the ``LOG_*`` lines of that ``.env`` into the process environment on first

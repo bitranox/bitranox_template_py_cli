@@ -15,7 +15,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   reads the `LOG_*` variables on every start and refused the same variable again. Logging now
   falls back to its defaults with every `LOG_*` variable hidden for that start (and put back
   afterwards), so only the commands that read the configuration (`config`, `send-email`,
-  `send-notification`) exit 78 naming the setting, and the others run with exit 0.
+  `send-notification`) exit 78, and the others run with exit 0. The 78 carries lib_log_rich's
+  own message, `Error: lib_log_rich: Unknown log level: 'bogus'`, which names neither the
+  variable nor where it was set. A refused `[lib_log_rich]` value still leaves every valid
+  `LOG_*` variable in force for the fallback, as in 2.0.1: only a refused variable hides them.
 
 ## [2.1.0] 2026-10-06 15:37:27
 
