@@ -6,6 +6,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+- **A refused `LOG_*` variable no longer disables every command (exit code change).** A value
+  lib_log_rich refuses in a `LOG_*` variable, set in the environment or in the `.env` logging
+  reads (`LOG_CONSOLE_LEVEL=bogus` in the `--env-file`), made every command, `info` and
+  `config-deploy` included, exit 1 with `InvalidLoggingConfigError: lib_log_rich: Unknown log
+  level: 'bogus'`: the fallback restarted logging with an empty configuration, but lib_log_rich
+  reads the `LOG_*` variables on every start and refused the same variable again. Logging now
+  falls back to its defaults with every `LOG_*` variable hidden for that start (and put back
+  afterwards), so only the commands that read the configuration (`config`, `send-email`,
+  `send-notification`) exit 78 naming the setting, and the others run with exit 0.
+
 ## [2.1.0] 2026-10-06 15:37:27
 
 ### Added

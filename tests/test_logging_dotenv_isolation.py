@@ -5,7 +5,8 @@ reach the process environment: a later configuration load (``config --profile``,
 permission read) would take an app-prefixed line for the environment layer. With ``--env-file``,
 that file is the only ``.env`` read. An invalid ``[lib_log_rich]`` section is a configuration
 failure like a broken file: the commands that read the configuration refuse with exit 78, the
-others still run.
+others still run. A refused ``LOG_*`` variable, from the environment or the ``.env``, is the same
+failure: logging still starts, with its defaults and without any ``LOG_*`` variable.
 
 The end-to-end tests run the real CLI in a subprocess with every configuration location under
 ``tmp_path``.
@@ -23,7 +24,7 @@ import pytest
 from lib_layered_config import Config
 
 from bitranox_template_py_cli import __init__conf__
-from bitranox_template_py_cli.adapters.logging.setup import init_logging
+from bitranox_template_py_cli.adapters.logging.setup import InvalidLoggingConfigError, init_logging
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -202,3 +203,87 @@ def test_an_invalid_logging_section_does_not_block_the_deploy_that_replaces_it(t
     )
 
     assert result.returncode == 0, result.stderr
+
+
+# ------------------------------------------------------------------ a refused setting still leaves logging running
+
+
+@pytest.mark.os_agnostic
+def test_a_refused_logging_section_still_leaves_logging_running() -> None:
+    with pytest.raises(InvalidLoggingConfigError):
+        init_logging(Config({"lib_log_rich": {"rate_limit": "100:60"}}, {}))
+
+    assert lib_log_rich.runtime.is_initialised()
+
+
+@pytest.mark.os_agnostic
+def test_a_refused_log_variable_still_leaves_logging_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    """lib_log_rich reads every ``LOG_*`` variable on each init, so the fallback must start without them."""
+    monkeypatch.setenv("LOG_CONSOLE_LEVEL", "bogus")
+
+    with pytest.raises(InvalidLoggingConfigError):
+        init_logging(Config({}, {}))
+
+    assert lib_log_rich.runtime.is_initialised()
+    assert os.environ["LOG_CONSOLE_LEVEL"] == "bogus"
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    "command", [("info",), ("config-deploy", "--target", "user", "--force")], ids=["info", "deploy"]
+)
+def test_a_refused_log_variable_in_the_env_file_leaves_commands_that_do_not_read_the_config_running(
+    tmp_path: Path, command: tuple[str, ...]
+) -> None:
+    env_file = tmp_path / "service.env"
+    env_file.write_text("LOG_CONSOLE_LEVEL=bogus\n", encoding="utf-8")
+
+    result = _run(tmp_path, "--env-file", str(env_file), *command)
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.os_agnostic
+def test_a_refused_log_variable_in_the_env_file_is_a_configuration_error(tmp_path: Path) -> None:
+    env_file = tmp_path / "service.env"
+    env_file.write_text("LOG_CONSOLE_LEVEL=bogus\n", encoding="utf-8")
+
+    result = _run(tmp_path, "--env-file", str(env_file), "config")
+
+    assert result.returncode == 78, result.stderr
+    errors = [line for line in result.stderr.splitlines() if line.startswith("Error:")]
+    assert len(errors) == 1, result.stderr
+    assert errors[0].startswith("Error: lib_log_rich")
+
+
+@pytest.mark.os_agnostic
+def test_a_refused_log_variable_in_the_environment_leaves_info_running(tmp_path: Path) -> None:
+    result = _run(tmp_path, "info", env={"LOG_CONSOLE_LEVEL": "bogus"})
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.os_agnostic
+def test_every_log_variable_comes_back_even_when_the_default_start_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The fallback start hides the ``LOG_*`` variables; a failure there must not lose them.
+
+    ``lib_log_rich.runtime.init`` is the third-party edge: the first call refuses like a bad
+    level, the second (the defaults) fails for a reason of its own.
+    """
+    monkeypatch.setenv("LOG_CONSOLE_LEVEL", "bogus")
+    seen_by_default_start: list[bool] = []
+
+    def refuse(_config: object) -> None:
+        if not seen_by_default_start and "LOG_CONSOLE_LEVEL" in os.environ:
+            seen_by_default_start.append(True)
+            raise ValueError("Unknown log level: 'bogus'")
+        seen_by_default_start.append("LOG_CONSOLE_LEVEL" in os.environ)
+        raise RuntimeError("the default start failed too")
+
+    monkeypatch.setattr(lib_log_rich.runtime, "init", refuse)
+
+    with pytest.raises(RuntimeError, match="the default start failed too"):
+        init_logging(Config({}, {}))
+
+    assert seen_by_default_start == [True, False]
+    assert os.environ["LOG_CONSOLE_LEVEL"] == "bogus"

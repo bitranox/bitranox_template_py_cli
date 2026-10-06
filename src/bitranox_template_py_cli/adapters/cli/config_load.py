@@ -97,9 +97,10 @@ def start_logging(
 ) -> tuple[Config, Exception | None]:
     """Start logging with ``config``; a logging section it refuses is recorded like a load failure.
 
-    An invalid ``[lib_log_rich]`` value would otherwise stop every command, ``config-deploy``
-    (which replaces the file holding it) included. Logging then starts with its defaults, and
-    the commands that read the configuration refuse with exit 78 naming the key.
+    An invalid ``[lib_log_rich]`` value or ``LOG_*`` variable would otherwise stop every
+    command, ``config-deploy`` (which replaces the file holding it) included. ``init_logging``
+    then starts logging with its defaults and no ``LOG_*`` variable before it raises, and the
+    commands that read the configuration refuse with exit 78 naming the setting.
 
     Args:
         services: The composition's services; only ``init_logging`` is used.
@@ -114,7 +115,6 @@ def start_logging(
     try:
         services.init_logging(config, dotenv_path=env_file)
     except InvalidLoggingConfigError as exc:
-        services.init_logging(Config({}, {}), dotenv_path=env_file)
         return Config({}, {}), config_error or exc
     return config, config_error
 
