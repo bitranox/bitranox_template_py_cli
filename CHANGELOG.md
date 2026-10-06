@@ -21,6 +21,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   own message, `Error: lib_log_rich: Unknown log level: 'bogus'`, which may name neither the
   variable nor where it was set. A refused `[lib_log_rich]` value still leaves every valid
   `LOG_*` variable in force for the fallback, as in 2.1.0: only a refused variable hides them.
+- **The testing composition ignores the developer's `LOG_*` variables.** `build_testing()`'s
+  logging runtime (`init_logging_in_memory`) now starts with every `LOG_*` variable hidden and
+  puts them back afterwards. A `LOG_CONSOLE_LEVEL=bogus` in the shell running the tests made
+  every command under `build_testing()` fail with `ValueError: Unknown log level: 'bogus'`, and a
+  valid one changed the quiet test runtime. Production logging is unaffected.
 
 ## [2.1.0] 2026-10-06 15:37:27
 
