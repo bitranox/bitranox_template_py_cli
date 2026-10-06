@@ -4,7 +4,7 @@
 #
 # Documentation: Uses btx_lib_mail for SMTP functionality
 # Settings are loaded via lib_layered_config and can be overridden via:
-#   - Host/User config files (see precedence list in defaultconfig.toml)
+#   - App/Host/User config files (see precedence list in defaultconfig.toml)
 #   - Environment variables (see below)
 #
 # Environment Variable Naming
@@ -152,35 +152,14 @@ allowed_extensions = []
 
 # Purpose: Blacklist of blocked file extensions (ignored when allowed_extensions is set)
 # Type: array of strings
-# Default: [] (uses OS-specific dangerous extensions from btx_lib_mail)
+# Default: [] (the library's defaults apply: btx_lib_mail DANGEROUS_EXTENSIONS_POSIX /
+#   DANGEROUS_EXTENSIONS_WINDOWS; paths matching SENSITIVE_PATH_PATTERNS such as /.ssh/ are
+#   always refused)
 # Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__ATTACHMENTS__BLOCKED_EXTENSIONS='[".exe",".bat",".cmd"]'
 # .env: EMAIL__ATTACHMENTS__BLOCKED_EXTENSIONS=[".exe",".bat",".cmd"] (unquoted)
 # A comma-separated value is NOT a list: it arrives as one string and is refused
 # (the command exits 78 naming the key) rather than read as "not configured".
 # Note: Only used when allowed_extensions is empty (blacklist mode)
-#
-# btx_lib_mail Default Blocked Extensions by OS:
-#
-#   Windows (executable/script dangers):
-#     Executables:  .exe, .com, .scr, .pif, .msi, .msp
-#     Scripts:      .bat, .cmd, .ps1, .psm1, .psd1, .vbs, .vbe, .js, .jse, .ws, .wsf, .wsh
-#     Libraries:    .dll, .ocx, .sys, .drv, .cpl
-#     Shortcuts:    .lnk, .url, .scf
-#     Office Macro: .docm, .xlsm, .pptm, .dotm, .xltm, .potm
-#     Registry:     .reg
-#     Installers:   .cab, .inf
-#     HTML Apps:    .hta, .chm
-#
-#   macOS (application/installer dangers):
-#     Applications: .app, .pkg, .dmg, .kext
-#     Scripts:      .command, .tool, .workflow, .action
-#
-#   Linux/POSIX (script dangers):
-#     Scripts:      .sh, .bash, .zsh, .fish, .csh, .ksh
-#     Binaries:     .bin, .run, .AppImage, .deb, .rpm
-#     Python:       .py, .pyc, .pyo, .pyw
-#     Other:        .pl, .rb, .so, .ko
-#
 blocked_extensions = []
 
 # Purpose: Whitelist of directories from which attachments may be read
@@ -200,32 +179,14 @@ allowed_directories = []
 
 # Purpose: Blacklist of directories from which attachments cannot be read
 # Type: array of strings (absolute paths)
-# Default: [] (uses OS-specific sensitive directories from btx_lib_mail)
+# Default: [] (the library's defaults apply: btx_lib_mail DANGEROUS_DIRECTORIES_POSIX /
+#   DANGEROUS_DIRECTORIES_WINDOWS; paths matching SENSITIVE_PATH_PATTERNS such as /.ssh/ are
+#   always refused)
 # Environment Variable: BITRANOX_TEMPLATE_PY_CLI___EMAIL__ATTACHMENTS__BLOCKED_DIRECTORIES='["/etc","/root"]'
 # .env: EMAIL__ATTACHMENTS__BLOCKED_DIRECTORIES=["/etc","/root"] (unquoted)
 # A comma-separated value is NOT a list: it arrives as one string and is refused
 # (the command exits 78 naming the key) rather than read as "not configured".
 # Note: Only used when allowed_directories is empty (blacklist mode)
-#
-# btx_lib_mail Default Blocked Directories by OS:
-#
-#   Linux/POSIX:
-#     System Config:   /etc, /usr, /opt, /boot, /lib, /lib64, /sbin, /bin
-#     User Secrets:    ~/.ssh, ~/.gnupg, ~/.config, ~/.local/share/keyrings
-#     Variable Data:   /var/log, /var/run, /var/lib
-#     Root Home:       /root
-#     Proc/Sys:        /proc, /sys, /dev
-#
-#   macOS (additional):
-#     System:          /System, /Library, /private
-#     User Library:    ~/Library/Keychains, ~/Library/Application Support
-#
-#   Windows:
-#     System:          C:/Windows, C:/Windows/System32, C:/Program Files, C:/Program Files (x86)
-#     User Secrets:    %USERPROFILE%/.ssh, %APPDATA%, %LOCALAPPDATA%
-#     Boot:            C:/Boot, C:/Recovery
-#     Drivers:         C:/Windows/System32/drivers
-#
 blocked_directories = []
 
 # Purpose: Maximum attachment file size in bytes

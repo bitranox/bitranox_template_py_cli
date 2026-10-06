@@ -2,7 +2,8 @@
 
 ## Status
 
-Complete (v1.1.2+)
+Describes the modules as they are in the source tree. Update it with every change that adds,
+moves or removes a module, a CLI option or a public name.
 
 ---
 
@@ -11,6 +12,7 @@ Complete (v1.1.2+)
 ### Domain Layer
 - `src/bitranox_template_py_cli/domain/behaviors.py`  -  Pure domain functions (greeting)
 - `src/bitranox_template_py_cli/domain/enums.py`  -  Type-safe enums (OutputFormat, DeployTarget)
+- `src/bitranox_template_py_cli/domain/errors.py`  -  Domain exceptions (ConfigurationError, DeliveryError, InvalidRecipientError)
 
 ### Application Layer
 - `src/bitranox_template_py_cli/application/ports.py`  -  Callable Protocol definitions for adapter functions
@@ -20,7 +22,9 @@ Complete (v1.1.2+)
 - `src/bitranox_template_py_cli/adapters/config/deploy.py`  -  Configuration deployment
 - `src/bitranox_template_py_cli/adapters/config/display.py`  -  Configuration display (TOML/JSON output, redaction)
 - `src/bitranox_template_py_cli/adapters/config/overrides.py`  -  CLI `--set` override parsing and deep-merge
-- `src/bitranox_template_py_cli/adapters/email/sender.py`  -  SMTP email with EmailConfig (a btx_lib_mail ConfMail)
+- `src/bitranox_template_py_cli/adapters/email/config.py`  -  EmailConfig (a btx_lib_mail ConfMail), the `[email]` key mapping and `load_email_config_from_dict`
+- `src/bitranox_template_py_cli/adapters/email/transport.py`  -  `send_email` / `send_notification` over btx_lib_mail
+- `src/bitranox_template_py_cli/adapters/email/sender.py`  -  Re-exports of `config.py` and `transport.py`
 - `src/bitranox_template_py_cli/adapters/email/validation.py`  -  Email recipient validation
 - `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization
 - `src/bitranox_template_py_cli/adapters/cli/`  -  CLI adapter package:
@@ -28,14 +32,17 @@ Complete (v1.1.2+)
   - `constants.py`  -  Shared constants
   - `safe_console.py`  -  Encode-safe terminal output; use `safe_console.echo` instead of `click.echo`
   - `exit_codes.py`  -  POSIX exit codes (ExitCode IntEnum)
-  - `traceback.py`  -  Traceback state management
   - `context.py`  -  Click context helpers
   - `config_load.py`  -  Configuration load for the CLI; records a load failure, `require_config` refuses with exit 78
   - `root.py`  -  Root command group
   - `main.py`  -  Entry point
+  - `typed_click.py`  -  Strictly typed wrappers for rich_click's `option`, `version_option` and `get_current_context`
   - `commands/info.py`  -  info, hello, fail commands
   - `commands/config.py`  -  config, config-deploy, config-generate-examples commands
-  - `commands/email.py`  -  send-email, send-notification commands
+  - `commands/email/`  -  Email commands package:
+    - `_common.py`  -  Shared SMTP override options, config loading and error-to-exit-code mapping
+    - `send_email.py`  -  send-email command
+    - `send_notification.py`  -  send-notification command
   - `commands/logging.py`  -  logdemo command
 
 ### Adapters Layer (In-Memory / Testing)
@@ -48,6 +55,7 @@ Complete (v1.1.2+)
 - `src/bitranox_template_py_cli/composition/__init__.py`  -  Wires adapters to ports
 
 ### Entry Points
+- `src/bitranox_template_py_cli/entry.py`  -  Console-script entry point; wires production services before invoking the CLI
 - `src/bitranox_template_py_cli/__main__.py`  -  Thin shim for `python -m`
 - `src/bitranox_template_py_cli/__init__.py`  -  Public API exports
 - `src/bitranox_template_py_cli/__init__conf__.py`  -  Package metadata constants
@@ -59,25 +67,42 @@ Complete (v1.1.2+)
 - `src/bitranox_template_py_cli/adapters/config/defaultconfig.d/90-logging.toml`  -  Logging defaults
 
 ### Tests
+- `tests/conftest.py`  -  Shared fixtures (see Test Fixtures below)
 - `tests/test_behaviors.py`  -  Domain function tests
-- `tests/test_cache_effectiveness.py`  -  LRU cache behavior tests
-- `tests/test_cli.py`  -  CLI command tests
-- `tests/test_cli_main_exit.py`  -  Exit codes and stderr through the real `main()` entry point
-- `tests/test_cli_config_errors.py`  -  Which commands refuse and which still run when the configuration cannot be loaded
-- `tests/test_config_overrides.py`  -  `--set` parsing tests
-- `tests/test_safe_console.py`  -  Legacy-codepage output tests, plus the guard forbidding direct `click.echo`
-- `tests/test_display.py`  -  Config display formatting tests
-- `tests/test_deploy_mode_safety.py`  -  `--dir-mode`/`--file-mode` literal, range and safety checks
-- `tests/test_exit_codes.py`  -  ExitCode enum tests
-- `tests/test_mail.py`  -  Email configuration and sending tests
+- `tests/test_cache_effectiveness.py`  -  Configuration loading returns consistent (cached) results
+- `tests/test_cli_config.py`  -  `config`, `config-deploy`, `config-generate-examples` commands
+- `tests/test_cli_config_errors.py`  -  A configuration that cannot be loaded: who reports it, and who still runs
+- `tests/test_cli_core.py`  -  Traceback, main entry, help, hello, fail, info, unknown command
+- `tests/test_cli_email.py`  -  `send-email`, `send-notification`, SMTP and credential overrides
 - `tests/test_cli_email_config_errors.py`  -  An invalid `[email]` section or option value: one `Error:` line per problem
+- `tests/test_cli_env_file.py`  -  `--env-file` path passing, validation and value override
+- `tests/test_cli_exit_codes.py`  -  Exit codes through the CLI
+- `tests/test_cli_main_exit.py`  -  Exit codes and stderr through the real `main()` entry point
+- `tests/test_cli_overrides.py`  -  `--set` through the CLI
+- `tests/test_cli_validation.py`  -  Profile name validation
+- `tests/test_config_overrides.py`  -  `--set` parsing tests
+- `tests/test_declared_dependencies.py`  -  Every third-party module imported at run time is a declared dependency
+- `tests/test_deploy_mode_safety.py`  -  `--dir-mode`/`--file-mode` literal, range and safety checks
+- `tests/test_deploy_permissions.py`  -  `config-deploy` permission options
+- `tests/test_display.py`  -  Config display formatting tests
+- `tests/test_email_attachment_lists.py`  -  A list-typed email setting in an unreadable form is refused, never dropped
+- `tests/test_email_config_translation.py`  -  The `[email]` section becomes an EmailConfig: file keys kept, unknown keys refused
 - `tests/test_email_password_secrecy.py`  -  The SMTP password never reaches an error message, the console or the log
-- `tests/test_permission_defaults.py`  -  `config-deploy` hands permissions to lib_layered_config: `--set` overrides, `.env` and deployed destinations never decide a mode, refusals exit 78
+- `tests/test_email_shipped_defaults.py`  -  The shipped `[email]` defaults keep the library's attachment protection on
+- `tests/test_enums.py`  -  Domain enum tests
+- `tests/test_errors.py`  -  Domain error types
+- `tests/test_logging.py`  -  Logging configuration model
+- `tests/test_mail.py`  -  Email configuration and sending tests (the `integration` ones send real mail)
 - `tests/test_memory_logging.py`  -  Testing-composition logging runtime and the per-test logging reset
-- `tests/test_metadata.py`  -  Package metadata tests
+- `tests/test_metadata.py`  -  Package metadata and PEP 561 marker tests
+- `tests/test_metadata_sync.py`  -  `__init__conf__` constants stay in sync with `pyproject.toml`
 - `tests/test_module_entry.py`  -  `python -m` entry tests
+- `tests/test_module_reference_sync.py`  -  The EmailConfig field table in this document matches the model
+- `tests/test_permission_defaults.py`  -  `config-deploy` hands permissions to lib_layered_config: `--set` overrides, `.env` and deployed destinations never decide a mode, refusals exit 78
 - `tests/test_ports.py`  -  Protocol conformance tests
-- `tests/test_scripts.py`  -  Build script tests
+- `tests/test_property_email.py`  -  Property-based EmailConfig tests
+- `tests/test_property_overrides.py`  -  Property-based `--set` override tests
+- `tests/test_safe_console.py`  -  Legacy-codepage output tests, plus the guard forbidding direct `click.echo`
 
 ---
 
@@ -100,7 +125,7 @@ Complete (v1.1.2+)
 
 Layer boundaries enforced via `import-linter` contracts in `pyproject.toml`:
 - **Domain is pure**: Cannot import from adapters or composition
-- **Clean Architecture layers**: Validates dependency direction (composition → adapters → application → domain)
+- **Clean Architecture layers**: Validates dependency direction (composition -> adapters -> application -> domain)
 
 Run `lint-imports` to verify compliance.
 
@@ -138,6 +163,7 @@ POSIX-conventional exit codes defined in `adapters/cli/exit_codes.py`:
 | `--traceback / --no-traceback` | Show full Python traceback on errors        |
 | `--profile NAME`               | Load configuration from a named profile     |
 | `--set SECTION.KEY=VALUE`      | Override configuration setting (repeatable) |
+| `--env-file PATH`              | Explicit `.env` file path                   |
 | `-h, --help`                   | Show help and exit                          |
 
 ### info
@@ -166,6 +192,7 @@ Display merged configuration from all sources.
 |--------------------------|--------------------------------|
 | `--format [human\|json]` | Output format (default: human) |
 | `--section NAME`         | Show only specific section     |
+| `--profile NAME`         | Override the root's profile    |
 
 **Exit codes:** 0, 2 (usage error), 22 (section not found), 78 (configuration not loadable)
 
@@ -176,7 +203,7 @@ Deploy default configuration to system or user directories.
 | Option                             | Description                                                      |
 |------------------------------------|------------------------------------------------------------------|
 | `--target [app\|host\|user]`       | Target layer(s)  -  required, repeatable                         |
-| `--force`                          | Overwrite existing files                                         |
+| `--force`                          | Replace differing files, keeping the old one as `<name>.bak`     |
 | `--profile NAME`                   | Deploy to profile subdirectory                                   |
 | `--permissions / --no-permissions` | Set Unix permissions (default: `enabled` from the configuration) |
 | `--dir-mode MODE`                  | Directory mode for every target (octal)                          |
@@ -199,19 +226,21 @@ Generate example configuration files.
 
 Send email using configured SMTP settings.
 
-| Option                               | Description                     |
-|--------------------------------------|---------------------------------|
-| `--to ADDRESS`                       | Recipient (repeatable)          |
-| `--subject TEXT`                     | Subject line  -  required       |
-| `--body TEXT`                        | Plain-text body                 |
-| `--body-html TEXT`                   | HTML body                       |
-| `--from ADDRESS`                     | Override sender                 |
-| `--attachment PATH`                  | File to attach (repeatable)     |
-| `--smtp-host HOST:PORT`              | Override SMTP host (repeatable) |
-| `--smtp-username USER`               | Override username               |
-| `--smtp-password PASS`               | Override password               |
-| `--use-starttls / --no-use-starttls` | Override STARTTLS               |
-| `--timeout SECONDS`                  | Override timeout                |
+| Option                                                               | Description                          |
+|----------------------------------------------------------------------|--------------------------------------|
+| `--to ADDRESS`                                                       | Recipient (repeatable)               |
+| `--subject TEXT`                                                     | Subject line  -  required            |
+| `--body TEXT`                                                        | Plain-text body                      |
+| `--body-html TEXT`                                                   | HTML body                            |
+| `--from ADDRESS`                                                     | Override sender                      |
+| `--attachment PATH`                                                  | File to attach (repeatable)          |
+| `--smtp-host HOST:PORT`                                              | Override SMTP host (repeatable)      |
+| `--smtp-username USER`                                               | Override username                    |
+| `--smtp-password PASS`                                               | Override password                    |
+| `--use-starttls / --no-use-starttls`                                 | Override STARTTLS                    |
+| `--timeout SECONDS`                                                  | Override timeout                     |
+| `--raise-on-missing-attachments / --no-raise-on-missing-attachments` | Override missing-attachment handling |
+| `--raise-on-invalid-recipient / --no-raise-on-invalid-recipient`     | Override invalid-recipient handling  |
 
 **Exit codes:** 0, 2 (file not found, or usage error), 22 (invalid option value), 69 (SMTP failure), 78 (no SMTP hosts, an invalid `[email]` section, or configuration not loadable)
 
@@ -219,17 +248,22 @@ Send email using configured SMTP settings.
 
 Send simple plain-text notification email.
 
-| Option                               | Description                     |
-|--------------------------------------|---------------------------------|
-| `--to ADDRESS`                       | Recipient (repeatable)          |
-| `--subject TEXT`                     | Subject  -  required            |
-| `--message TEXT`                     | Message  -  required            |
-| `--from ADDRESS`                     | Override sender                 |
-| `--smtp-host HOST:PORT`              | Override SMTP host (repeatable) |
-| `--smtp-username USER`               | Override username               |
-| `--smtp-password PASS`               | Override password               |
-| `--use-starttls / --no-use-starttls` | Override STARTTLS               |
-| `--timeout SECONDS`                  | Override timeout                |
+| Option                                                               | Description                          |
+|----------------------------------------------------------------------|--------------------------------------|
+| `--to ADDRESS`                                                       | Recipient (repeatable)               |
+| `--subject TEXT`                                                     | Subject  -  required                 |
+| `--message TEXT`                                                     | Message  -  required                 |
+| `--from ADDRESS`                                                     | Override sender                      |
+| `--smtp-host HOST:PORT`                                              | Override SMTP host (repeatable)      |
+| `--smtp-username USER`                                               | Override username                    |
+| `--smtp-password PASS`                                               | Override password                    |
+| `--use-starttls / --no-use-starttls`                                 | Override STARTTLS                    |
+| `--timeout SECONDS`                                                  | Override timeout                     |
+| `--raise-on-missing-attachments / --no-raise-on-missing-attachments` | Override missing-attachment handling |
+| `--raise-on-invalid-recipient / --no-raise-on-invalid-recipient`     | Override invalid-recipient handling  |
+
+`--raise-on-missing-attachments` is accepted for symmetry with `send-email`, but a notification
+carries no attachments, so it has no effect.
 
 **Exit codes:** 0, 2 (usage error), 22 (invalid option value), 69 (SMTP failure), 78 (no SMTP hosts, an invalid `[email]` section, or configuration not loadable)
 
@@ -336,6 +370,31 @@ defaults, the app, host and user files, `.env`, the environment, `--set`) into o
 `describe_validation_error()` renders a refusal as one `email.<file key>: <reason>` line per
 problem, never with the refused value.
 
+`adapters/email/config.py` also exports the key tables the loader works from:
+
+| Name                | Content                                                                      |
+|---------------------|------------------------------------------------------------------------------|
+| `SECTION_KEYS`      | Every key `[email]` accepts (the `attachments` table included)               |
+| `ATTACHMENT_KEYS`   | Every key `[email.attachments]` accepts; each names field `attachment_<key>` |
+| `FILE_KEY_TO_FIELD` | File key -> `EmailConfig` field, for the five keys whose names differ        |
+
+---
+
+## Configuration Overrides
+
+`adapters/config/overrides.py` parses and applies `--set SECTION.KEY=VALUE`. Public names
+(`__all__`):
+
+| Name              | Kind     | Purpose                                                                                 |
+|-------------------|----------|-----------------------------------------------------------------------------------------|
+| `parse_override`  | function | Split one `SECTION.KEY[.SUBKEY...]=VALUE` string into a `ConfigOverride`                |
+| `coerce_value`    | function | Read a raw value as JSON (bool, number, null, array, object), falling back to the text  |
+| `nest_overrides`  | function | Parse all `--set` values into the nested mapping they override, refusing contradictions |
+| `apply_overrides` | function | Deep-merge the overrides into a `Config`, recording their provenance as `CLI_LAYER`     |
+| `ConfigOverride`  | class    | One parsed override: section, key path and value                                        |
+| `CoercedValue`    | type     | Union of the types `coerce_value` can return                                            |
+| `CLI_LAYER`       | constant | Provenance layer name (`"cli"`) for a value that came from `--set`                      |
+
 ---
 
 ## Testing Infrastructure
@@ -349,6 +408,11 @@ The `adapters/memory/` package provides lightweight implementations for testing:
 | `memory/config.py`  | `GetConfig`, `GetDefaultConfigPath`, `DeployConfiguration`, `DisplayConfig` |
 | `memory/email.py`   | `SendEmail`, `SendNotification`                                             |
 | `memory/logging.py` | `InitLogging`                                                               |
+
+`adapters/memory` exports `EmailSpy` (from `memory/email.py`): its `send_email` and
+`send_notification` methods satisfy the email ports and record each call as a `CapturedEmail` /
+`CapturedNotification` in `sent_emails` / `sent_notifications`; `should_fail` makes them return
+False and `raise_exception` makes them raise. Create one spy per test.
 
 Use `composition.build_testing()` to wire all in-memory adapters. It wires the real
 `load_email_config_from_dict`, so CLI tests run through the same translation as production.
@@ -367,4 +431,4 @@ Use `composition.build_testing()` to wire all in-memory adapters. It wires the r
 
 ---
 
-**Last Updated:** 2026-09-29 (config-deploy leaves permissions to lib_layered_config)
+**Last Updated:** 2026-10-06 (file index, CLI options and public names brought in line with the source tree)

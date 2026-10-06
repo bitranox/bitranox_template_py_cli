@@ -94,6 +94,7 @@ def cli_send_email(
 ) -> None:
     """Send an email using configured SMTP settings.
 
+    \f
     Example:
         >>> from click.testing import CliRunner
         >>> runner = CliRunner()

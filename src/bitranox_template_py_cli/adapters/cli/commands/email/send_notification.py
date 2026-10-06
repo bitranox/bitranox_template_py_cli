@@ -58,6 +58,7 @@ def cli_send_notification(
 ) -> None:
     """Send a simple plain-text notification email.
 
+    \f
     Example:
         >>> from click.testing import CliRunner
         >>> runner = CliRunner()

@@ -15,7 +15,10 @@
 
 `bitranox_template_py_cli` is a template CLI application demonstrating configuration management and structured logging. It showcases rich-click for ergonomics and lib_cli_exit_tools for exits, providing a solid foundation for building CLI applications.
 - CLI entry point styled with rich-click (rich output + click ergonomics).
-- Layered configuration system with lib_layered_config (defaults → app → host → user → .env → env).
+- Layered configuration system with lib_layered_config (defaults -> app -> host -> user -> .env -> env).
+  The `.env` is the first one found from the current directory upward; when there is none,
+  `$XDG_CONFIG_HOME/bitranox-template-py-cli/.env` (`~/.config/...` when unset) is read on Linux
+  (see [CONFIG.md](CONFIG.md) for macOS and Windows).
 - Rich structured logging with lib_log_rich (console, journald, eventlog, Graylog/GELF).
 - Exit-code and messaging helpers powered by lib_cli_exit_tools.
 - Metadata helpers ready for packaging, testing, and release automation.
@@ -24,9 +27,8 @@
 ### Python 3.10+ Baseline
 
 - The project targets **Python 3.10 and newer**.
-- Runtime dependencies require current stable releases (`rich-click>=1.9.6`
-  and `lib_cli_exit_tools>=2.2.4`). Dev dependencies (pytest, ruff, pyright,
-  bandit, etc.) specify minimum version constraints to ensure compatibility.
+- Runtime dependencies are declared with >= floors in pyproject.toml. Dev
+  dependencies (pytest, ruff, pyright, bandit, etc.) are declared the same way.
 - CI workflows exercise GitHub's rolling runner images (`ubuntu-latest`,
   `macos-latest`, `windows-latest`) and cover CPython 3.10 through 3.14
   alongside the latest available 3.x release provided by Actions.
@@ -62,27 +64,15 @@ uvx bitranox_template_py_cli@latest --help
 ### Persistent install as CLI tool
 
 ```bash
-# Install latest python
-install_latest_python_gcc.sh
-# pin uv to the latest python
-uv python pin /opt/python-latest/bin/python3
-# One-time install, persists from the git repo
-uv tool install --python /opt/python-latest/bin/python3 --from "git+https://github.com/bitranox/bitranox_template_py_cli.git" bitranox-template-py-cli
-# or One-time install, persists from PyPi
-uv tool install --python /opt/python-latest/bin/python3 bitranox-template-py-cli
+# One-time install from PyPI (isolated environment, added to PATH)
+uv tool install bitranox-template-py-cli
+# or from the git repository
+uv tool install --from "git+https://github.com/bitranox/bitranox_template_py_cli.git" bitranox-template-py-cli
+# Pick the interpreter explicitly if needed, e.g. --python 3.14
 # Update (requires network)
 uv tool upgrade bitranox-template-py-cli
 # Run
 bitranox-template-py-cli --help
-```
-
-### Persistent install as CLI tool
-```bash
-# install the CLI tool (isolated environment, added to PATH)
-uv tool install bitranox_template_py_cli
-
-# upgrade to latest
-uv tool upgrade bitranox_template_py_cli
 ```
 
 ### Install as project dependency
@@ -113,8 +103,8 @@ uv tool install bitranox_template_py_cli
 # Verify
 bitranox-template-py-cli --version
 
-# deploy config files
-bitranox-template-py-cli deploy-config --target app
+# deploy config files (user level; --target app or host needs sudo)
+bitranox-template-py-cli config-deploy --target user
 
 # Try it out
 bitranox-template-py-cli hello
@@ -147,14 +137,14 @@ bitranox-template-py-cli config --profile production    # Use a named profile
 
 # Deploy configuration templates to target directories
 # Without profile:
-bitranox-template-py-cli config-deploy --target app    # → /etc/xdg/{slug}/config.toml
-bitranox-template-py-cli config-deploy --target host   # → /etc/xdg/{slug}/hosts/{hostname}.toml
-bitranox-template-py-cli config-deploy --target user   # → ~/.config/{slug}/config.toml
+bitranox-template-py-cli config-deploy --target app    # -> /etc/xdg/{slug}/config.toml
+bitranox-template-py-cli config-deploy --target host   # -> /etc/xdg/{slug}/hosts/{hostname}.toml
+bitranox-template-py-cli config-deploy --target user   # -> ~/.config/{slug}/config.toml
 
 # With profile:
-bitranox-template-py-cli config-deploy --target app --profile production   # → /etc/xdg/{slug}/profile/production/config.toml
-bitranox-template-py-cli config-deploy --target host --profile production  # → /etc/xdg/{slug}/profile/production/hosts/{hostname}.toml
-bitranox-template-py-cli config-deploy --target user --profile production  # → ~/.config/{slug}/profile/production/config.toml
+bitranox-template-py-cli config-deploy --target app --profile production   # -> /etc/xdg/{slug}/profile/production/config.toml
+bitranox-template-py-cli config-deploy --target host --profile production  # -> /etc/xdg/{slug}/profile/production/hosts/{hostname}.toml
+bitranox-template-py-cli config-deploy --target user --profile production  # -> ~/.config/{slug}/profile/production/config.toml
 
 # With custom permissions (POSIX only):
 bitranox-template-py-cli config-deploy --target user --file-mode 640       # Files with rw-r----- (640)
@@ -247,22 +237,32 @@ A key `[email]` or `[email.attachments]` does not know is refused (exit 78,
 `email.<key>: unknown key`), whichever layer it comes from, so a typo cannot leave a setting at
 its default.
 
-**`.env` File:**
+**`.env` File** (no prefix in .env; a prefixed key is not recognised):
 ```bash
 # Email configuration for local testing
-BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_HOSTS=smtp.gmail.com:587
-BITRANOX_TEMPLATE_PY_CLI___EMAIL__FROM_ADDRESS=noreply@example.com
+EMAIL__SMTP_HOSTS=["smtp.gmail.com:587"]
+EMAIL__FROM_ADDRESS=noreply@example.com
 ```
 
 #### Gmail Configuration Example
 
-For Gmail, create an [App Password](https://support.google.com/accounts/answer/185833) instead of using your account password:
+For Gmail, create an [App Password](https://support.google.com/accounts/answer/185833) instead of using your account password.
+In a `.env` file (no prefix in .env; a prefixed key is not recognised):
 
 ```bash
-BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_HOSTS=smtp.gmail.com:587
-BITRANOX_TEMPLATE_PY_CLI___EMAIL__FROM_ADDRESS=your-email@gmail.com
-BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_USERNAME=your-email@gmail.com
-BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_PASSWORD=your-16-char-app-password
+EMAIL__SMTP_HOSTS=["smtp.gmail.com:587"]
+EMAIL__FROM_ADDRESS=your-email@gmail.com
+EMAIL__SMTP_USERNAME=your-email@gmail.com
+EMAIL__SMTP_PASSWORD=your-16-char-app-password
+```
+
+or as environment variables (these need the prefix):
+
+```bash
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_HOSTS='["smtp.gmail.com:587"]'
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__FROM_ADDRESS=your-email@gmail.com
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_USERNAME=your-email@gmail.com
+export BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_PASSWORD=your-16-char-app-password
 ```
 
 #### Send Simple Email
@@ -322,8 +322,9 @@ from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 from bitranox_template_py_cli.composition import send_email, send_notification
 
 # Configure email. EmailConfig is a btx_lib_mail ConfMail, so in Python the fields use the
-# library's names (smtphosts, smtp_use_starttls, smtp_timeout); configuration files keep their
-# keys (smtp_hosts, use_starttls, timeout). smtp_password is a SecretStr: it prints as
+# library's names (smtphosts, smtp_use_starttls, smtp_timeout, smtp_starttls_verify,
+# smtp_local_hostname); configuration files keep their keys (smtp_hosts, use_starttls, timeout,
+# starttls_verify, local_hostname). smtp_password is a SecretStr: it prints as
 # '**********' in logs, reprs and dumps, and config.smtp_password.get_secret_value() returns
 # the plain text.
 config = EmailConfig(

@@ -16,15 +16,15 @@ This project uses [`lib_layered_config`](https://github.com/bitranox/lib_layered
 
 Configuration is loaded and merged in the following order (lowest to highest precedence):
 
-| Priority | Layer        | Description                                      |
-|:--------:|--------------|--------------------------------------------------|
-| 1        | **defaults** | Bundled with the package (`defaultconfig.toml`)  |
-| 2        | **app**      | System-wide settings for all machines            |
-| 3        | **host**     | Machine-specific overrides                       |
-| 4        | **user**     | User's personal settings                         |
-| 5        | **.env**     | Project directory dotenv file                    |
-| 6        | **env vars** | Environment variables                            |
-| 7        | **CLI**      | Command-line `--set` flags (highest priority)    |
+| Priority | Layer        | Description                                     |
+|:--------:|--------------|-------------------------------------------------|
+| 1        | **defaults** | Bundled with the package (`defaultconfig.toml`) |
+| 2        | **app**      | System-wide settings for all machines           |
+| 3        | **host**     | Machine-specific overrides                      |
+| 4        | **user**     | User's personal settings                        |
+| 5        | **.env**     | First `.env` found upward, else per-user `.env` |
+| 6        | **env vars** | Environment variables                           |
+| 7        | **CLI**      | Command-line `--set` flags (highest priority)   |
 
 **Merge behavior**: Each layer only needs to specify values it wants to override. Unspecified values inherit from lower layers.
 
@@ -34,21 +34,28 @@ Configuration is loaded and merged in the following order (lowest to highest pre
 
 ### Platform-Specific Paths
 
-| Layer    | Linux                                   | macOS                                                              | Windows                                                      |
-|----------|-----------------------------------------|--------------------------------------------------------------------|--------------------------------------------------------------|
-| defaults | (bundled with package)                  | (bundled with package)                                             | (bundled with package)                                       |
-| app      | `/etc/xdg/{slug}/config.toml`           | `/Library/Application Support/{vendor}/{app}/config.toml`          | `C:\ProgramData\{vendor}\{app}\config.toml`                  |
-| host     | `/etc/xdg/{slug}/hosts/{hostname}.toml` | `/Library/Application Support/{vendor}/{app}/hosts/{hostname}.toml`| `C:\ProgramData\{vendor}\{app}\hosts\{hostname}.toml`        |
-| user     | `~/.config/{slug}/config.toml`          | `~/Library/Application Support/{vendor}/{app}/config.toml`         | `%APPDATA%\{vendor}\{app}\config.toml`                       |
+| Layer    | Linux                                   | macOS                                                               | Windows                                               |
+|----------|-----------------------------------------|---------------------------------------------------------------------|-------------------------------------------------------|
+| defaults | (bundled with package)                  | (bundled with package)                                              | (bundled with package)                                |
+| app      | `/etc/xdg/{slug}/config.toml`           | `/Library/Application Support/{vendor}/{app}/config.toml`           | `C:\ProgramData\{vendor}\{app}\config.toml`           |
+| host     | `/etc/xdg/{slug}/hosts/{hostname}.toml` | `/Library/Application Support/{vendor}/{app}/hosts/{hostname}.toml` | `C:\ProgramData\{vendor}\{app}\hosts\{hostname}.toml` |
+| user     | `~/.config/{slug}/config.toml`          | `~/Library/Application Support/{vendor}/{app}/config.toml`          | `%APPDATA%\{vendor}\{app}\config.toml`                |
+| .env     | `~/.config/{slug}/.env` (fallback)      | `~/Library/Application Support/{vendor}/{app}/.env` (fallback)      | `%APPDATA%\{vendor}\{app}\.env` (fallback)            |
+
+Every layer reads `config.toml` first and then the files in the `config.d/` directory next to it
+(for the host layer: `hosts/{hostname}.d/`), in lexical order; a `config.d/` file may be TOML, YAML
+or JSON. On Linux the app and host layers are read from `/etc/xdg/{slug}/` and then from
+`/etc/{slug}/`, and `$XDG_CONFIG_HOME` replaces `~/.config` when it is set. The `.env` row is a
+fallback: it is read only when no `.env` is found in the working directory or one of its parents.
 
 ### Path Placeholders
 
-| Placeholder  | Linux                        | macOS / Windows              |
-|--------------|------------------------------|------------------------------|
-| `{slug}`     | `bitranox-template-py-cli`   | —                            |
-| `{vendor}`   | —                            | `bitranox`                   |
-| `{app}`      | —                            | `Bitranox Template Py Cli`   |
-| `{hostname}` | System hostname              | System hostname              |
+| Placeholder  | Linux                      | macOS / Windows            |
+|--------------|----------------------------|----------------------------|
+| `{slug}`     | `bitranox-template-py-cli` | -                          |
+| `{vendor}`   | -                          | `bitranox`                 |
+| `{app}`      | -                          | `bitranox_template_py_cli` |
+| `{hostname}` | System hostname            | System hostname            |
 
 ### Concrete Examples
 
@@ -58,10 +65,10 @@ Configuration is loaded and merged in the following order (lowest to highest pre
 - Host config: `/etc/xdg/bitranox-template-py-cli/hosts/myserver.toml`
 
 **macOS:**
-- User config: `~/Library/Application Support/bitranox/Bitranox Template Py Cli/config.toml`
+- User config: `~/Library/Application Support/bitranox/bitranox_template_py_cli/config.toml`
 
 **Windows:**
-- User config: `%APPDATA%\bitranox\Bitranox Template Py Cli\config.toml`
+- User config: `%APPDATA%\bitranox\bitranox_template_py_cli\config.toml`
 
 ---
 
@@ -71,14 +78,14 @@ Configuration is loaded and merged in the following order (lowest to highest pre
 
 These options apply to all commands and must be specified **before** the command name:
 
-| Option | Description |
-|--------|-------------|
-| `--version` | Show version and exit. |
-| `--profile NAME` | Load configuration from a named profile (e.g., `production`, `test`). |
+| Option                    | Description                                                               |
+|---------------------------|---------------------------------------------------------------------------|
+| `--version`               | Show version and exit.                                                    |
+| `--profile NAME`          | Load configuration from a named profile (e.g., `production`, `test`).     |
 | `--set SECTION.KEY=VALUE` | Override a configuration setting. Can be repeated for multiple overrides. |
-| `--env-file PATH` | Explicit `.env` file path. Skips the default upward directory search. |
-| `--traceback` | Show full Python traceback on errors (useful for debugging). |
-| `--no-traceback` | Hide traceback, show only error message (default). |
+| `--env-file PATH`         | Explicit `.env` file path. Skips the default upward directory search.     |
+| `--traceback`             | Show full Python traceback on errors (useful for debugging).              |
+| `--no-traceback`          | Hide traceback, show only error message (default).                        |
 
 **Example usage:**
 
@@ -102,15 +109,15 @@ bitranox-template-py-cli --traceback config-deploy --target user
 
 ### View Configuration
 
-Display the merged configuration from all sources (defaults → app → host → user → .env → env vars).
+Display the merged configuration from all sources (defaults -> app -> host -> user -> .env -> env vars).
 
 #### Options Reference
 
-| Option | Required | Description |
-|--------|:--------:|-------------|
-| `--format` | No | Output format: `human` (default) or `json`. |
-| `--section NAME` | No | Show only a specific section (e.g., `lib_log_rich`, `email`). |
-| `--profile NAME` | No | Load configuration for a specific profile. |
+| Option           | Required | Description                                                   |
+|------------------|:--------:|---------------------------------------------------------------|
+| `--format`       | No       | Output format: `human` (default) or `json`.                   |
+| `--section NAME` | No       | Show only a specific section (e.g., `lib_log_rich`, `email`). |
+| `--profile NAME` | No       | Load configuration for a specific profile.                    |
 
 #### Examples
 
@@ -137,15 +144,15 @@ Deploy bundled default configuration to platform-specific directories.
 
 #### Options Reference
 
-| Option | Required | Description |
-|--------|:--------:|-------------|
-| `--target` | Yes | Target layer: `app`, `host`, or `user`. Can be specified multiple times. |
-| `--force` | No | Overwrite existing configuration files. Without this, existing files are skipped. |
-| `--profile NAME` | No | Deploy to a profile-specific subdirectory (e.g., `profile/production/`). |
-| `--permissions` | No | Set Unix permissions even when the configured `enabled` is false. |
-| `--no-permissions` | No | Disable permission setting; use system umask instead. Not combinable with a mode option. |
-| `--dir-mode MODE` | No | Override directory permissions (octal: `750` or `0o750`). |
-| `--file-mode MODE` | No | Override file permissions (octal: `640` or `0o640`). |
+| Option             | Required | Description                                                                                                                   |
+|--------------------|:--------:|-------------------------------------------------------------------------------------------------------------------------------|
+| `--target`         | Yes      | Target layer: `app`, `host`, or `user`. Can be specified multiple times.                                                      |
+| `--force`          | No       | Replace existing files whose content differs; the old file is kept as `<name>.bak`. Without this, existing files are skipped. |
+| `--profile NAME`   | No       | Deploy to a profile-specific subdirectory (e.g., `profile/production/`).                                                      |
+| `--permissions`    | No       | Set Unix permissions even when the configured `enabled` is false.                                                             |
+| `--no-permissions` | No       | Disable permission setting; use system umask instead. Not combinable with a mode option.                                      |
+| `--dir-mode MODE`  | No       | Override directory permissions (octal: `750` or `0o750`).                                                                     |
+| `--file-mode MODE` | No       | Override file permissions (octal: `640` or `0o640`).                                                                          |
 
 #### Basic Examples
 
@@ -171,6 +178,13 @@ bitranox-template-py-cli config-deploy --target user --profile production
 # Deploy production profile and overwrite if exists
 bitranox-template-py-cli config-deploy --target user --profile production --force
 ```
+
+Every target receives `config.toml` plus `config.d/40-layered-config.toml`, `config.d/50-mail.toml`
+and `config.d/90-logging.toml` (the host target writes `hosts/{hostname}.toml` and
+`hosts/{hostname}.d/`). With `--force`, a file whose content differs from the bundled one is
+replaced and the old file is kept as `<name>.bak` (numbered, `<name>.bak.1` and so on, when a
+backup already exists); a file whose content is already identical is left as it is, mode
+included. When nothing differs, `config-deploy --force` writes nothing and says so.
 
 #### Deploying for Other Users
 
@@ -214,11 +228,11 @@ bitranox-template-py-cli config-deploy --target user
 
 On Linux and macOS, `config-deploy` sets Unix file permissions based on the target layer. Windows uses ACLs and ignores these settings.
 
-| Target | Directory Mode | File Mode | Description |
-|--------|:--------------:|:---------:|-------------|
-| `app`  | `0o755` (rwxr-xr-x) | `0o644` (rw-r--r--) | World-readable for system-wide config |
+| Target | Directory Mode      | File Mode           | Description                             |
+|--------|:-------------------:|:-------------------:|-----------------------------------------|
+| `app`  | `0o755` (rwxr-xr-x) | `0o644` (rw-r--r--) | World-readable for system-wide config   |
 | `host` | `0o755` (rwxr-xr-x) | `0o644` (rw-r--r--) | World-readable for host-specific config |
-| `user` | `0o700` (rwx------) | `0o600` (rw-------)  | Private to user only |
+| `user` | `0o700` (rwx------) | `0o600` (rw-------) | Private to user only                    |
 
 **Permission options:**
 
@@ -304,10 +318,10 @@ Create example TOML files showing all available options with default values and 
 
 #### Options Reference
 
-| Option | Required | Description |
-|--------|:--------:|-------------|
-| `--destination DIR` | Yes | Directory to write example files. |
-| `--force` | No | Overwrite existing files. Without this, existing files are skipped. |
+| Option              | Required | Description                                                         |
+|---------------------|:--------:|---------------------------------------------------------------------|
+| `--destination DIR` | Yes      | Directory to write example files.                                   |
+| `--force`           | No       | Overwrite existing files. Without this, existing files are skipped. |
 
 #### Examples
 
@@ -324,9 +338,9 @@ bitranox-template-py-cli config-generate-examples --destination .
 
 #### Generated Files
 
-| File | Description |
-|------|-------------|
-| `config.toml` | Main configuration file with all sections |
+| File              | Description                                        |
+|-------------------|----------------------------------------------------|
+| `config.toml`     | Main configuration file with all sections          |
 | `config.d/*.toml` | Modular configuration files (email, logging, etc.) |
 
 Each file contains commented documentation explaining available options and their default values.
@@ -334,7 +348,7 @@ Each file contains commented documentation explaining available options and thei
 ### Runtime Overrides
 
 Use `--set` to override configuration values without modifying files. This option:
-- Has the **highest precedence** (overrides all other sources including environment variables)
+- Has the **highest precedence** among the configuration layers; for logging, lib_log_rich's own `LOG_*` variables still override it
 - Can be **repeated** to set multiple values
 - Must appear **before** the command name
 
@@ -367,14 +381,14 @@ bitranox-template-py-cli --profile production --set lib_log_rich.console_level=D
 
 #### Supported Value Types
 
-| Type | Example |
-|------|---------|
-| String | `--set section.key=value` |
-| Integer | `--set section.timeout=30` |
-| Float | `--set section.ratio=0.5` |
-| Boolean | `--set section.enabled=true` or `--set section.enabled=false` |
-| JSON Array | `--set section.hosts='["a.com", "b.com"]'` |
-| JSON Object | `--set section.metadata='{"key": "value"}'` |
+| Type        | Example                                                       |
+|-------------|---------------------------------------------------------------|
+| String      | `--set section.key=value`                                     |
+| Integer     | `--set section.timeout=30`                                    |
+| Float       | `--set section.ratio=0.5`                                     |
+| Boolean     | `--set section.enabled=true` or `--set section.enabled=false` |
+| JSON Array  | `--set section.hosts='["a.com", "b.com"]'`                    |
+| JSON Object | `--set section.metadata='{"key": "value"}'`                   |
 
 ---
 
@@ -386,13 +400,13 @@ Profiles provide isolated configuration namespaces for different environments (e
 
 Profile names are validated for security and cross-platform compatibility:
 
-| Rule | Description |
-|------|-------------|
-| **Maximum length** | 64 characters |
-| **Allowed characters** | ASCII letters (`a-z`, `A-Z`), digits (`0-9`), hyphens (`-`), underscores (`_`) |
-| **Start character** | Must start with a letter or digit (not `-` or `_`) |
-| **Reserved names** | Windows reserved names rejected: `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9` |
-| **Path safety** | No path separators (`/`, `\`) or traversal sequences (`..`) |
+| Rule                   | Description                                                                               |
+|------------------------|-------------------------------------------------------------------------------------------|
+| **Maximum length**     | 64 characters                                                                             |
+| **Allowed characters** | ASCII letters (`a-z`, `A-Z`), digits (`0-9`), hyphens (`-`), underscores (`_`)            |
+| **Start character**    | Must start with a letter or digit (not `-` or `_`)                                        |
+| **Reserved names**     | Windows reserved names rejected: `CON`, `PRN`, `AUX`, `NUL`, `COM1`-`COM9`, `LPT1`-`LPT9` |
+| **Path safety**        | No path separators (`/`, `\`) or traversal sequences (`..`)                               |
 
 **Valid examples:** `production`, `staging-v2`, `test_env`, `dev01`
 
@@ -400,15 +414,15 @@ Profile names are validated for security and cross-platform compatibility:
 
 ### Which Layers Are Affected?
 
-| Layer    | Affected by Profile? | Notes                               |
-|----------|:--------------------:|-------------------------------------|
-| defaults | No                   | Always loaded from package          |
-| app      | Yes                  | Uses `profile/<name>/` subdirectory |
-| host     | Yes                  | Uses `profile/<name>/` subdirectory |
-| user     | Yes                  | Uses `profile/<name>/` subdirectory |
-| .env     | No                   | Project directory                   |
-| env vars | No                   | Environment                         |
-| CLI      | No                   | Command line                        |
+| Layer    | Affected by Profile? | Notes                                                                        |
+|----------|:--------------------:|------------------------------------------------------------------------------|
+| defaults | No                   | Always loaded from package                                                   |
+| app      | Yes                  | Uses `profile/<name>/` subdirectory                                          |
+| host     | Yes                  | Uses `profile/<name>/` subdirectory                                          |
+| user     | Yes                  | Uses `profile/<name>/` subdirectory                                          |
+| .env     | Fallback only        | The per-user fallback `.env` uses `profile/<name>/`; one found upward is not |
+| env vars | No                   | Environment                                                                  |
+| CLI      | No                   | Command line                                                                 |
 
 ### Profile Path Examples
 
@@ -422,10 +436,10 @@ Profile names are validated for security and cross-platform compatibility:
 
 Profile directories are **separate namespaces**. Configuration deployed with a profile is only visible when reading with that same profile.
 
-| Command                         | Sees `app` layer?                  | Sees `user` layer?                 |
-|---------------------------------|------------------------------------|------------------------------------|
-| `config` (no profile)           | Only if deployed without profile   | Only if deployed without profile   |
-| `config --profile production`   | Only if deployed with `production` | Only if deployed with `production` |
+| Command                       | Sees `app` layer?                  | Sees `user` layer?                 |
+|-------------------------------|------------------------------------|------------------------------------|
+| `config` (no profile)         | Only if deployed without profile   | Only if deployed without profile   |
+| `config --profile production` | Only if deployed with `production` | Only if deployed with `production` |
 
 **Example**: If you deploy `app` with `--profile production` but `user` without a profile:
 
@@ -459,8 +473,8 @@ BITRANOX_TEMPLATE_PY_CLI___EMAIL__SMTP_HOSTS='["smtp.example.com:587"]' bitranox
 ```
 
 **Separator reference:**
-- `___` (triple underscore) — separates prefix from section
-- `__` (double underscore) — separates section from key
+- `___` (triple underscore) - separates prefix from section
+- `__` (double underscore) - separates section from key
 
 ---
 
@@ -476,6 +490,11 @@ LOG_ENABLE_GRAYLOG=false
 ```
 
 By default, the application searches upward from the current directory to discover `.env` files.
+
+Logging reads the `LOG_*` lines of the same `.env` (the `--env-file` when one is given, otherwise the
+nearest `.env` up to the project root) and copies only those into the environment, never over a
+variable that is already set. No other `.env` line reaches the environment, so a `.env` cannot act
+as the environment layer for a later configuration load.
 
 To load a specific `.env` file instead, use `--env-file`:
 
@@ -497,33 +516,42 @@ The `defaultconfig.toml` and files in `defaultconfig.d/` (bundled with the packa
 
 ## Customization Best Practices
 
-**Do NOT modify deployed configuration files directly.** These files may be overwritten during package updates.
+**Do NOT modify deployed configuration files directly.** `config-deploy --force` replaces them
+(keeping the old file as `<name>.bak`).
 
-Instead, create your own override files in the appropriate layer directory using a high-numbered prefix:
+Instead, create your own override file in the layer's `config.d/` directory using a high-numbered
+prefix:
 
 ```bash
 # User-level customization (Linux)
-~/.config/bitranox-template-py-cli/999-myconfig.toml
+~/.config/bitranox-template-py-cli/config.d/999-myconfig.toml
 
 # User-level customization (macOS)
-~/Library/Application Support/bitranox/Bitranox Template Py Cli/999-myconfig.toml
+~/Library/Application Support/bitranox/bitranox_template_py_cli/config.d/999-myconfig.toml
 
 # User-level customization (Windows)
-%APPDATA%\bitranox\Bitranox Template Py Cli\999-myconfig.toml
+%APPDATA%\bitranox\bitranox_template_py_cli\config.d\999-myconfig.toml
 
 # System-wide customization (Linux)
-/etc/xdg/bitranox-template-py-cli/999-myconfig.toml
+/etc/xdg/bitranox-template-py-cli/config.d/999-myconfig.toml
+
+# Host-specific customization (Linux)
+/etc/xdg/bitranox-template-py-cli/hosts/{hostname}.d/999-myconfig.toml
 ```
 
+A file placed directly next to `config.toml` (outside `config.d/`) is never read: each layer reads
+only `config.toml` plus its `config.d/` files.
+
 **Why this works:**
-- Files in each layer directory are loaded in alphabetical order
-- Higher-numbered files (e.g., `999-`) load last and override earlier values
-- Your custom file won't be touched by updates that regenerate `config.toml`
+- Files in each layer's `config.d/` directory are loaded in lexical order after `config.toml`
+- Higher-numbered files (e.g., `999-`) load last and override earlier values, including the
+  deployed `40-`, `50-` and `90-` files
+- `config-deploy` never writes a `999-myconfig.toml`, so a redeploy leaves your file alone
 
 **Example `999-myconfig.toml`:**
 
 ```toml
-# My custom overrides - survives package updates
+# My custom overrides - survives a redeploy
 
 [lib_log_rich]
 console_level = "DEBUG"
