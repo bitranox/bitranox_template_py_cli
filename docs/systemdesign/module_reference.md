@@ -323,9 +323,9 @@ Raises `ValueError` with descriptive message on invalid input.
 `EmailConfig` (`adapters/email/config.py`, re-exported by `adapters/email/sender.py`) subclasses
 btx_lib_mail's `ConfMail`: frozen, a name that is not a field is refused, the password is a
 `SecretStr`, and a validation error never shows the password or a host. It adds `from_address` and
-`recipients`, and checks every SMTP host's syntax (port range, IPv6 brackets) when it loads. In
-Python the fields use the library's names; the configuration file keeps its own keys (third
-column).
+`recipients`. ConfMail checks every SMTP host's syntax (port range, IPv6 brackets, host name
+labels) when it loads, so `EmailConfig` has no host check of its own. In Python the fields use
+the library's names; the configuration file keeps its own keys (fourth column).
 
 | Field                          | Type                | Default | File key (`[email]`)           | Description                                                      |
 |--------------------------------|---------------------|---------|--------------------------------|------------------------------------------------------------------|
@@ -363,7 +363,7 @@ lib_layered_config is the only reader of configuration: it merges every layer (t
 defaults, the app, host and user files, `.env`, the environment, `--set`) into one mapping.
 `load_email_config_from_dict()` turns that mapping's `[email]` section into an `EmailConfig`:
 
-- the six keys in the third column that differ from the field names are mapped;
+- the six keys in the fourth column that differ from the field names are mapped;
 - `[email.attachments]` keys become `attachment_<key>`;
 - a key that is not listed is refused (exit 78, `email.<key>: unknown key`), whatever layer it came from;
 - blank text means "not configured"; a single host or address string is a one-entry list;
@@ -380,7 +380,7 @@ problem, never with the refused value.
 |---------------------|------------------------------------------------------------------------------|
 | `SECTION_KEYS`      | Every key `[email]` accepts (the `attachments` table included)               |
 | `ATTACHMENT_KEYS`   | Every key `[email.attachments]` accepts; each names field `attachment_<key>` |
-| `FILE_KEY_TO_FIELD` | File key -> `EmailConfig` field, for the five keys whose names differ        |
+| `FILE_KEY_TO_FIELD` | File key -> `EmailConfig` field, for the six keys whose names differ         |
 
 ---
 

@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 import pytest
 import rtoml
+from btx_lib_mail import ConfMail
 from pydantic import SecretStr
 from pydantic import ValidationError as PydanticValidationError
 
@@ -46,6 +47,7 @@ class _Delivery:
     credentials: tuple[str, str] | None
     local_hostname: str | None
     starttls_verify: bool
+    deadline: float | None
 
 
 class RecordingTransport:
@@ -87,6 +89,7 @@ class RecordingTransport:
                 credentials=delivery.credentials,
                 local_hostname=delivery.local_hostname,
                 starttls_verify=delivery.starttls_verify,
+                deadline=delivery.deadline,
             )
         )
 
@@ -1346,6 +1349,55 @@ def test_starttls_verify_and_local_hostname_from_the_file_reach_the_transport() 
     assert transport.deliveries[0].starttls_verify is False
 
 
+@pytest.mark.os_agnostic
+def test_delivery_deadline_from_the_file_reaches_the_transport() -> None:
+    config = load_email_config_from_dict(
+        {"email": {"smtp_hosts": ["smtp.test.com:587"], "from_address": "app@example.com", "delivery_deadline": 90}}
+    )
+    transport = RecordingTransport()
+
+    send_email(config=config, recipients="ops@example.com", subject="s", transport=transport)
+
+    assert transport.deliveries[0].deadline == 90.0
+
+
+@pytest.mark.os_agnostic
+def test_recipient_max_count_from_the_file_refuses_a_larger_send_before_any_delivery() -> None:
+    config = load_email_config_from_dict(
+        {"email": {"smtp_hosts": ["smtp.test.com:587"], "from_address": "app@example.com", "recipient_max_count": 1}}
+    )
+    transport = RecordingTransport()
+
+    with pytest.raises(ValueError, match=r"2 recipients, more than recipient_max_count \(1\)"):
+        send_email(config=config, recipients=["a@example.com", "b@example.com"], subject="s", transport=transport)
+
+    assert transport.attempted_hosts == []
+
+
+@pytest.mark.os_agnostic
+def test_attachments_max_count_from_the_file_refuses_a_larger_send_before_any_delivery(tmp_path: Path) -> None:
+    first, second = tmp_path / "a.txt", tmp_path / "b.txt"
+    first.write_text("a", encoding="utf-8")
+    second.write_text("b", encoding="utf-8")
+    config = load_email_config_from_dict(
+        {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
+                "from_address": "app@example.com",
+                "attachments": {"max_count": 1},
+            }
+        }
+    )
+    transport = RecordingTransport()
+
+    with pytest.raises(ValueError, match=r"2 attachments, more than attachment_max_count \(1\)"):
+        send_email(
+            config=config, recipients="ops@example.com", subject="s", attachments=[first, second], transport=transport
+        )
+
+    assert transport.attempted_hosts == []
+
+
 _SHIPPED_MAIL = (
     Path(__file__).parent.parent / "src" / "bitranox_template_py_cli" / "adapters" / "config" / "defaultconfig.d"
 ) / "50-mail.toml"
@@ -1356,3 +1408,18 @@ def test_the_shipped_defaults_verify_the_certificate_and_name_no_ehlo_host() -> 
     shipped = rtoml.load(_SHIPPED_MAIL)["email"]
     assert shipped["starttls_verify"] is True
     assert shipped["local_hostname"] == ""
+
+
+@pytest.mark.os_agnostic
+def test_the_shipped_count_limits_and_deadline_load_as_the_library_defaults() -> None:
+    shipped = rtoml.load(_SHIPPED_MAIL)
+    # The keys are written out, so a reader of the shipped file sees them: the premise.
+    assert "recipient_max_count" in shipped["email"]
+    assert "delivery_deadline" in shipped["email"]
+    assert "max_count" in shipped["email"]["attachments"]
+    loaded = load_email_config_from_dict(shipped)
+    library = ConfMail()
+
+    assert loaded.recipient_max_count == library.recipient_max_count
+    assert loaded.attachment_max_count == library.attachment_max_count
+    assert loaded.smtp_delivery_deadline is library.smtp_delivery_deadline is None

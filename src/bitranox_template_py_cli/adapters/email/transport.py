@@ -122,10 +122,12 @@ def send_email(
 
     Raises:
         ValueError: No from_address configured and no override provided,
-            or no recipients configured and no override provided.
+            or no recipients configured and no override provided, or more
+            recipients or attachments than config.recipient_max_count or
+            config.attachment_max_count allow (refused before any delivery).
         ConfigurationError: No SMTP hosts configured.
-        FileNotFoundError: Required attachment missing and config.raise_on_missing_attachments
-            is True.
+        FileNotFoundError: Required attachment missing or unreadable and
+            config.raise_on_missing_attachments is True.
         DeliveryError: All SMTP hosts failed for a recipient.
 
     Side Effects:

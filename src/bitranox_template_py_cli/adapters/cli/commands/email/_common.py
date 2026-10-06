@@ -84,8 +84,8 @@ def smtp_config_options(func: Callable[..., Any]) -> Callable[..., Any]:
 
     Adds CLI flags for the SMTP connection and delivery settings (hosts, credentials,
     STARTTLS, timeout, the two raise_on_* switches). ``starttls_verify``,
-    ``local_hostname`` and the attachment settings have no flag; set them with
-    ``--set email.<key>=...``.
+    ``local_hostname``, ``delivery_deadline``, ``recipient_max_count`` and the attachment
+    settings have no flag; set them with ``--set email.<key>=...``.
     """
     options = [
         option(

@@ -1,7 +1,7 @@
 """The merged [email] section becomes an EmailConfig: file keys kept, unknown keys refused.
 
 lib_layered_config merges every layer into one mapping; load_email_config_from_dict reads its
-[email] section. Five file keys differ from ConfMail's field names, values that mean "not
+[email] section. Six file keys differ from ConfMail's field names, values that mean "not
 configured" are dropped so the library default applies, and a key that is not a file key is
 refused, whatever layer it came from.
 """
@@ -33,7 +33,7 @@ def _problems(email: object) -> list[str]:
 
 
 @pytest.mark.os_agnostic
-def test_the_five_renamed_file_keys_reach_their_fields() -> None:
+def test_the_six_renamed_file_keys_reach_their_fields() -> None:
     config = _load(
         {
             "smtp_hosts": ["smtp.example.com:587"],
@@ -41,6 +41,7 @@ def test_the_five_renamed_file_keys_reach_their_fields() -> None:
             "timeout": 12.5,
             "starttls_verify": False,
             "local_hostname": "mail.example.com",
+            "delivery_deadline": 120,
         }
     )
 
@@ -49,6 +50,7 @@ def test_the_five_renamed_file_keys_reach_their_fields() -> None:
     assert config.smtp_timeout == 12.5
     assert config.smtp_starttls_verify is False
     assert config.smtp_local_hostname == "mail.example.com"
+    assert config.smtp_delivery_deadline == 120.0
 
 
 @pytest.mark.os_agnostic
@@ -223,12 +225,27 @@ def test_a_directory_list_becomes_paths() -> None:
     "host", ["smtp.example.com:99999", "smtp.example.com:abc", "[::1"], ids=["port-range", "port-text", "bracket"]
 )
 def test_a_malformed_host_is_refused_at_load(host: str) -> None:
-    """ConfMail refuses only userinfo, paths and control characters; the port and brackets are checked here."""
+    """A port or bracket typo surfaces when the configuration loads, not at the first delivery."""
     problems = _problems({"smtp_hosts": [host]})
 
     assert len(problems) == 1, problems
     assert problems[0].startswith("email.smtp_hosts: "), problems
     assert "Value error" not in problems[0], problems
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    "host",
+    ["smtp.example.com:99999", "smtp.example.com:abc", "[::1", "smtp.example.com:+25", "a..example.com", "[zz]"],
+    ids=["port-range", "port-text", "bracket", "port-sign", "empty-label", "bracket-not-ip"],
+)
+def test_conf_mail_itself_refuses_a_malformed_host(host: str) -> None:
+    """EmailConfig has no host check of its own: ConfMail runs validate_smtp_host on every entry.
+
+    If a btx_lib_mail release stops doing so, this fails, and the check belongs back in EmailConfig.
+    """
+    with pytest.raises(ValidationError):
+        ConfMail(smtphosts=[host])
 
 
 @pytest.mark.os_agnostic
