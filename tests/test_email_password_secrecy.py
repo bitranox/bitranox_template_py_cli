@@ -49,7 +49,11 @@ VALID = {"smtp_hosts": ["smtp.example.com:587"], "from_address": "sender@example
 
 #: Text that varies per run and could hold any four digits: ISO timestamps, 32-digit hex event
 #: ids, process ids and traceback line numbers. Removed before looking for a digit dummy.
-_NOISE = re.compile(r"\d{4}-\d\d-\d\dT[\d:.+-]+|\b[0-9a-f]{32}\b|process_id\S*|line \d+|\[\d\d:\d\d:\d\d\]|0x[0-9a-f]+")
+_NOISE = re.compile(
+    r"\d{4}-\d\d-\d\dT[\d:.+-]+|\b[0-9a-f]{32}\b"
+    r'|process_id\w*"?\s*[:=]\s*(?:\[[\d,\s]*\]|\d+)|process_id\S*'
+    r"|line \d+|\[\d\d:\d\d:\d\d\]|0x[0-9a-f]+"
+)
 
 
 def _pieces(dummy: str) -> list[str]:
@@ -66,6 +70,14 @@ def test_the_leak_check_can_fail() -> None:
     """Control: the instrument finds a truncated echo, and the noise filter keeps a real one."""
     assert _leaked(DUMMY, "input_value={'smtp_password': 'Qz7vXk...'}") == ["Qz7v", "z7vX", "7vXk"]
     assert _leaked(DIGITS, "2026-09-28T15:26:59.989796+00:00 password=98979695") != []
+
+
+@pytest.mark.os_agnostic
+def test_a_process_id_value_is_noise_however_the_log_writes_it() -> None:
+    """A PID holding a piece of the digit dummy must not read as a leak, in either JSON field."""
+    assert _leaked(DIGITS, '{"process_id": 19695, "process_id_chain": [197969, 1]}') == []
+    assert _leaked(DIGITS, "process_id=19695") == []
+    assert _leaked(DIGITS, '{"process_id": 1, "password": "98979695"}') != []
 
 
 # ----------------------------------------------------------------------- the model
@@ -85,7 +97,9 @@ def test_an_all_digit_password_from_the_environment_loads(
     """Through the real loader: the environment layer turns the digits into an int."""
     prefix = __init__conf__.LAYEREDCONF_SLUG.upper().replace("-", "_")
     monkeypatch.setenv(f"{prefix}___EMAIL__SMTP_PASSWORD", DIGITS)
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    # Every OS's user-layer location, so a developer's own config cannot decide the result.
+    for name in ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA"):
+        monkeypatch.setenv(name, str(tmp_path))
     config = build_production().get_config(dotenv_path=str(tmp_path / "absent.env"))
 
     assert config.get("email", {}).get("smtp_password") == int(DIGITS)
