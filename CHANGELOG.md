@@ -6,10 +6,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-### Changed
-- **Requires lib_layered_config 7.0.1.** An unquoted `.env` value now converts like the
-  environment layer, so `ENABLED=false` arrives as the boolean `false`; the permission-defaults
-  test reads it that way. A `.env` setting still never reaches a deploy.
+## [2.0.0] 2026-10-06 08:26:05
+
+### Added
+- **`describe_validation_error` and `nest_overrides` are public** (in `__all__` of
+  `adapters/email/config.py` and `adapters/config/overrides.py`): the one-line-per-problem
+  rendering of a validation error, and the `--set` nesting that refuses a conflicting pair.
 
 ### Fixed
 - **`email.recipients` set to nothing means no default recipients.** A bare YAML key or an
@@ -59,7 +61,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   an invalid `--profile` name is a usage error (exit 2) for every command, `info` and `hello`
   included (see Changed for the `--profile` exit code). So are two `--set` values that give one
   key a value and put a key under it (`--set a.b=1 --set a.b.c=2`), which escaped as a
-  `TypeError` (exit 22) in one order and silently dropped the earlier value in the other. Any
+  `TypeError` (exit 22) in one order and silently dropped the earlier value in the other. A table
+  value with a key put under it (`--set 'a.b={"c": 1}' --set a.b.d=2`), which used to merge into
+  `{"c": 1, "d": 2}`, is refused the same way: give the whole table in one `--set`. Any
   other exception from the loader is a bug and propagates as one instead of being reported as a
   configuration error.
   `config --profile X` reloads with the root's `--env-file` instead of searching for another `.env`.
@@ -94,10 +98,55 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   pairs, but a comma-separated value arrives as ONE string in both layers: one bogus SMTP host, an
   attachment whitelist that was silently ignored, or a logging table that was refused. They now
   show a JSON array or object (unquoted in `.env`, shell-quoted in the environment) or one key
-  per entry (`EMAIL__SMTP_HOSTS__0=...`). They also no longer claim that `.env` has booleans:
-  every `.env` value is text, and the setting's own validation reads `true`/`false`.
+  per entry (`EMAIL__SMTP_HOSTS__0=...`). An unquoted `.env` value converts like the
+  environment layer (lib_layered_config 7, see Changed): `true`/`false` arrive as booleans,
+  `null`/`none` as None (not for a secret key such as a password), a JSON array or object
+  parsed, a number that converts back to the same text as a number, anything else as text;
+  quote a value to keep it text.
+- **A `.env` reaches logging and nothing else.** The logging setup called lib_log_rich's
+  `enable_dotenv()`, which copied every line of the nearest `.env` into the process
+  environment, so a later configuration load (`config --profile`, the deploy's permission
+  read) took an app-prefixed `.env` line for the environment layer: a prefixed
+  `..._DEFAULT_PERMISSIONS__USER_FILE=400` in the working directory refused `config-deploy`
+  even under `--env-file`. Logging now copies only the `LOG_*` lines, never over a variable
+  that is already set, and reads them from the `--env-file` when one is given; otherwise from
+  the nearest `.env` up to the project root, without changing directory and passing over a
+  directory it cannot read. A `.env` that is not UTF-8 no longer stops logging from starting,
+  and neither does a working directory that was deleted or an ancestor that cannot be read (both
+  exited 2 with `FileNotFoundError`). Other `.env` lines (`DEVELOPMENT_MODE=1` included) no
+  longer reach the environment; set such a variable in the environment itself. A `${VAR}` in a
+  `LOG_*` line resolves from the file's own lines first, then the environment.
+- **An invalid `[lib_log_rich]` value no longer disables every command.** A value lib_log_rich
+  refuses (`rate_limit = "100:60"`, `queue_maxsize = 0`, an unknown `console_level`) exited 22
+  with pydantic's multi-line report from every command, `config-deploy --force` included. It is now a configuration failure like a broken
+  file: logging starts with its defaults, `config`, `send-email` and `send-notification` refuse
+  with exit 78 and one line per problem (`lib_log_rich.rate_limit: Input should be a valid
+  tuple`), and the other commands run. `InvalidLoggingConfigError` (a `ConfigurationError`) is
+  what the logging setup raises for it.
+- **The password-leak test no longer flakes on a process id.** Its noise filter removed the
+  `process_id` key but not the value after it, so a PID holding four digits of the planted dummy
+  failed the test (about 1 run in 500); it now drops the value in both JSON fields. The
+  environment-password test isolates every operating system's user configuration directory, not
+  only `XDG_CONFIG_HOME`, so a developer's own config cannot decide it on macOS or Windows.
 
 ### Changed
+- **Requires lib_layered_config 7.0.1** (6.0.0 moved the permission decisions into the
+  library, 7.0 converts unquoted `.env` values). `config-deploy` leaves every permission
+  decision to its `deploy_config` (see Fixed). The deploy port (`DeployConfiguration`) takes
+  `set_permissions: bool | None` (None, the default, follows the configured `enabled`) and
+  `permission_overrides`; a derived repo's own deploy double needs both. Refusals of
+  `--dir-mode`/`--file-mode` use the library's wording ("unsafe directory mode 0o777: group
+  write (0o020); world write (0o002)"), and a zero-padded mode such as `0000750` is accepted
+  as `0o750`. An unquoted `.env` value converts like the environment layer, so `ENABLED=false`
+  arrives as the boolean `false`; a `.env` setting still never reaches a deploy.
+- **Requires python-dotenv** (already installed through lib_log_rich): the logging setup reads
+  the `LOG_*` lines of a `.env` itself. **`InitLogging` takes `dotenv_path`**: the port is
+  `init_logging(config, *, dotenv_path=None)`, and a derived repo's own logging double needs
+  the keyword.
+- **Breaking: an invalid `[email]` section exits 78, no longer 22** (see Fixed). A script that
+  checks for 22 after `send-email` or `send-notification` must check for 78 (EX_CONFIG); an
+  invalid option value such as `--timeout -5` still exits 22. The log record for a refused
+  option names its problems in a `problems` field instead of the pydantic dump in `error`.
 - **Breaking: `EmailConfig` is a btx_lib_mail `ConfMail`.** It inherits the `SecretStr` password,
   the timeout and EHLO-name checks, the empty-blocklist refusal and validation errors that never
   show the password or a host, and adds `from_address` and `recipients`; every SMTP host's syntax
@@ -122,7 +171,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   environment and `--set`. A typo used to be ignored silently and leave the setting at its
   default.
 - **New keys `email.starttls_verify` (default true) and `email.local_hostname`** (default unset):
-  certificate verification after STARTTLS, and the host name announced in EHLO.
+  certificate verification after STARTTLS, and the host name announced in EHLO (Python fields
+  `smtp_starttls_verify`, `smtp_local_hostname`).
 - **Delivery errors carry the library's message.** The filter that replaced any message
   mentioning `auth`, `login`, `key` and similar words with "Email delivery failed. Check SMTP
   configuration." is removed. The message names the recipients and hosts that failed, and a host
@@ -137,13 +187,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   configuration"), and `info` and `hello` ignored it and exited 0. A script that tells a bad
   profile name from a broken configuration file by exit code 78 has to test for 2. A profile
   FILE that does not load is still 78.
-- **Requires lib_layered_config 6.0.0 or later.** `config-deploy` leaves every permission
-  decision to its `deploy_config` (see Fixed). The deploy port (`DeployConfiguration`) takes
-  `set_permissions: bool | None` (None, the default, follows the configured `enabled`) and
-  `permission_overrides`; a derived repo's own deploy double needs both. Refusals of
-  `--dir-mode`/`--file-mode` use the library's wording ("unsafe directory mode 0o777: group
-  write (0o020); world write (0o002)"), and a zero-padded mode such as `0000750` is accepted
-  as `0o750`.
 - **Breaking: `EmailConfig.smtp_password` is a pydantic `SecretStr`, no longer a `str`** (see
   Security below for why). Code that reads the password now gets a `SecretStr`, so
   `config.smtp_password == "app-password"` is silently `False`, and under pyright strict
