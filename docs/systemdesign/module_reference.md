@@ -337,6 +337,8 @@ column).
 | `smtp_starttls_verify`         | `bool`              | `True`  | `starttls_verify`              | Verify the server certificate after STARTTLS                     |
 | `smtp_timeout`                 | `float`             | `30.0`  | `timeout`                      | Socket timeout in seconds                                        |
 | `smtp_local_hostname`          | `str \| None`       | `None`  | `local_hostname`               | Host name announced in EHLO; `None` looks it up once per process |
+| `smtp_delivery_deadline`       | `float \| None`     | `None`  | `delivery_deadline`            | Upper bound in seconds for one SMTP session; `None` for none     |
+| `recipient_max_count`          | `int \| None`       | `1000`  | `recipient_max_count`          | Most recipients one send accepts; `None` lifts the limit         |
 | `raise_on_missing_attachments` | `bool`              | `True`  | `raise_on_missing_attachments` | Raise on missing attachment files                                |
 | `raise_on_invalid_recipient`   | `bool`              | `True`  | `raise_on_invalid_recipient`   | Raise on invalid recipient addresses                             |
 
@@ -345,10 +347,11 @@ column).
 | Field                                    | Type                      | Default      | File key (`[email.attachments]`) | Description                                             |
 |------------------------------------------|---------------------------|--------------|----------------------------------|---------------------------------------------------------|
 | `attachment_allowed_extensions`          | `frozenset[str] \| None`  | `None`       | `allowed_extensions`             | Whitelist of allowed extensions                         |
-| `attachment_blocked_extensions`          | `frozenset[str]`          | OS defaults  | `blocked_extensions`             | Blacklist of blocked extensions                         |
+| `attachment_blocked_extensions`          | `frozenset[str]`          | POSIX + Win  | `blocked_extensions`             | Blacklist of blocked extensions (both lists, every OS)  |
 | `attachment_allowed_directories`         | `frozenset[Path] \| None` | `None`       | `allowed_directories`            | Whitelist of allowed source directories                 |
 | `attachment_blocked_directories`         | `frozenset[Path]`         | OS defaults  | `blocked_directories`            | Blacklist of blocked directories                        |
 | `attachment_max_size_bytes`              | `int \| None`             | `26_214_400` | `max_size_bytes`                 | Maximum file size (25 MiB), `None` to disable           |
+| `attachment_max_count`                   | `int \| None`             | `100`        | `max_count`                      | Most attachments one send accepts, `None` to disable    |
 | `attachment_allow_symlinks`              | `bool`                    | `False`      | `allow_symlinks`                 | Whether symlinks are permitted                          |
 | `attachment_raise_on_security_violation` | `bool`                    | `True`       | `raise_on_security_violation`    | Raise or skip on security violation                     |
 | `attachment_allow_empty_blocklists`      | `bool`                    | `False`      | not exposed                      | Allow an empty blocked set (blocks nothing) from Python |
@@ -359,13 +362,13 @@ lib_layered_config is the only reader of configuration: it merges every layer (t
 defaults, the app, host and user files, `.env`, the environment, `--set`) into one mapping.
 `load_email_config_from_dict()` turns that mapping's `[email]` section into an `EmailConfig`:
 
-- the five keys in the third column that differ from the field names are mapped;
+- the six keys in the third column that differ from the field names are mapped;
 - `[email.attachments]` keys become `attachment_<key>`;
 - a key that is not listed is refused (exit 78, `email.<key>: unknown key`), whatever layer it came from;
 - blank text means "not configured"; a single host or address string is a one-entry list;
 - an empty attachment list (`[]` or a blank string) means the library's defaults, and any other
   value that is not a list, such as a comma-separated string, is refused, as is a blank entry;
-- `max_size_bytes = 0` means no size limit.
+- a limit of 0 (`max_size_bytes`, `max_count`, `recipient_max_count`, `delivery_deadline`) means no limit.
 
 `describe_validation_error()` renders a refusal as one `email.<file key>: <reason>` line per
 problem, never with the refused value.

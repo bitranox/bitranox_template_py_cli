@@ -110,6 +110,37 @@ def test_a_size_limit_of_zero_means_no_limit() -> None:
 
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize(
+    ("email", "field"),
+    [
+        ({"recipient_max_count": 0}, "recipient_max_count"),
+        ({"delivery_deadline": 0}, "smtp_delivery_deadline"),
+        ({"delivery_deadline": 0.0}, "smtp_delivery_deadline"),
+        ({"attachments": {"max_count": 0}}, "attachment_max_count"),
+    ],
+    ids=["recipient_max_count", "delivery_deadline", "delivery_deadline_float", "attachments.max_count"],
+)
+def test_every_other_limit_of_zero_means_no_limit(email: dict[str, Any], field: str) -> None:
+    assert getattr(_load(email), field) is None
+
+
+@pytest.mark.os_agnostic
+def test_the_limits_reach_their_fields() -> None:
+    config = _load({"recipient_max_count": 5, "delivery_deadline": 120, "attachments": {"max_count": 3}})
+
+    assert (config.recipient_max_count, config.smtp_delivery_deadline, config.attachment_max_count) == (5, 120.0, 3)
+
+
+@pytest.mark.os_agnostic
+def test_a_negative_deadline_is_named_by_its_file_key() -> None:
+    (line,) = _problems({"delivery_deadline": -1})
+
+    assert line.startswith("email.delivery_deadline: ")
+    assert "smtp_delivery_deadline" not in line
+    assert "unknown key" not in line
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
     ("email", "line"),
     [
         ({"smtp_host": "smtp.example.com"}, "email.smtp_host: unknown key"),

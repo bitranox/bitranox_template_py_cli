@@ -6,6 +6,27 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.1.0] 2026-10-06 15:37:27
+
+### Added
+- **Three email limits from btx_lib_mail 4.0.0 are configurable**: `[email] delivery_deadline`
+  (an upper bound in seconds for one SMTP session; the field is `smtp_delivery_deadline`),
+  `[email] recipient_max_count` (default 1000) and `[email.attachments] max_count` (default
+  100). A value of 0 means no limit, as `max_size_bytes = 0` already did. Shipped in
+  `50-mail.toml`, `.env.example` and the module reference.
+
+### Changed
+- **Requires `btx_lib_mail>=4.0.0`.** Effects a user of the email commands can see: the
+  Windows dangerous extensions (`.exe`, `.bat`, `.ps1`, ...) are refused on every platform by
+  default and the POSIX ones on Windows; a sender or recipient longer than RFC 5321 allows is
+  refused; a subject with a control character or over 4096 characters is refused; an
+  attachment swapped after its checks is refused; a delivery error is a `DeliveryError` (still
+  a `RuntimeError`). See the btx_lib_mail 4.0.0 changelog for the full list.
+
+### Removed
+- **`EmailConfig`'s own SMTP host validator.** `ConfMail` checks every host's syntax (port
+  range, IPv6 brackets) itself since btx_lib_mail 3.0.1; the messages are unchanged.
+
 ## [2.0.1] 2026-10-06 13:09:50
 
 Re-release of 2.0.0, which was tagged but never published: PyPI rejected the upload because

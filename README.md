@@ -231,6 +231,7 @@ use_starttls = true
 starttls_verify = true   # false accepts any certificate: only for a known internal relay
 timeout = 60.0
 # local_hostname = "mail.example.com"   # EHLO name; set it where reverse DNS is slow
+# delivery_deadline = 300               # upper bound in seconds for one SMTP session; 0 = none
 ```
 
 A key `[email]` or `[email.attachments]` does not know is refused (exit 78,
@@ -323,8 +324,8 @@ from bitranox_template_py_cli.composition import send_email, send_notification
 
 # Configure email. EmailConfig is a btx_lib_mail ConfMail, so in Python the fields use the
 # library's names (smtphosts, smtp_use_starttls, smtp_timeout, smtp_starttls_verify,
-# smtp_local_hostname); configuration files keep their keys (smtp_hosts, use_starttls, timeout,
-# starttls_verify, local_hostname). smtp_password is a SecretStr: it prints as
+# smtp_local_hostname, smtp_delivery_deadline); configuration files keep their keys (smtp_hosts,
+# use_starttls, timeout, starttls_verify, local_hostname, delivery_deadline). smtp_password is a SecretStr: it prints as
 # '**********' in logs, reprs and dumps, and config.smtp_password.get_secret_value() returns
 # the plain text.
 config = EmailConfig(

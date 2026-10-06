@@ -3,7 +3,7 @@
 lib_layered_config is the only reader of configuration. It merges every layer (the shipped
 defaults, the app, host and user files, ``.env``, the environment and ``--set``) into one
 mapping, and :func:`load_email_config_from_dict` turns that mapping's ``[email]`` section into
-:class:`EmailConfig`. Operators keep writing the file keys they always wrote; five of them
+:class:`EmailConfig`. Operators keep writing the file keys they always wrote; six of them
 differ from the field names code reads (``FILE_KEY_TO_FIELD``). A key that is not a file key
 is refused, so a typo cannot leave a setting silently at its default.
 """
@@ -14,7 +14,7 @@ import re
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, cast
 
-from btx_lib_mail import ConfMail, validate_email_address, validate_smtp_host
+from btx_lib_mail import ConfMail, validate_email_address
 from pydantic import ConfigDict, Field, SecretStr, ValidationError, field_validator
 
 if TYPE_CHECKING:
@@ -34,6 +34,7 @@ FILE_KEY_TO_FIELD: dict[str, str] = {
     "timeout": "smtp_timeout",
     "starttls_verify": "smtp_starttls_verify",
     "local_hostname": "smtp_local_hostname",
+    "delivery_deadline": "smtp_delivery_deadline",
 }
 _FIELD_TO_FILE_KEY: dict[str, str] = {field: key for key, field in FILE_KEY_TO_FIELD.items()}
 
@@ -47,6 +48,7 @@ SECTION_KEYS = frozenset(
         "smtp_password",
         "raise_on_missing_attachments",
         "raise_on_invalid_recipient",
+        "recipient_max_count",
         _ATTACHMENTS,
     }
 )
@@ -59,6 +61,7 @@ ATTACHMENT_KEYS = frozenset(
         "allowed_directories",
         "blocked_directories",
         "max_size_bytes",
+        "max_count",
         "allow_symlinks",
         "raise_on_security_violation",
     }
@@ -74,6 +77,9 @@ _BLANK_TEXT_MEANS_UNSET = frozenset(
 _EMPTY_LIST_MEANS_DEFAULT = frozenset(
     {"allowed_extensions", "blocked_extensions", "allowed_directories", "blocked_directories"}
 )
+#: Limits whose 0 means "no limit". ConfMail refuses 0 and lifts a limit with None, which a
+#: TOML file or an environment variable cannot write.
+_ZERO_MEANS_NO_LIMIT = frozenset({"max_size_bytes", "max_count", "recipient_max_count", "delivery_deadline"})
 #: The refusal of a blank entry in an attachment list.
 _BLANK_ENTRY = ValueError("an entry is blank; remove it")
 #: The form an attachment list must take, named by the refusal of any other form. A
@@ -144,16 +150,6 @@ class EmailConfig(ConfMail):
             return []
         if isinstance(value, str):
             return [value] if value.strip() else []
-        return value
-
-    @field_validator("smtphosts")
-    @classmethod
-    def _check_hosts(cls, value: list[str]) -> list[str]:
-        # ConfMail refuses userinfo, a path and control characters; the port range and the
-        # IPv6 brackets are checked only by validate_smtp_host, so a typo surfaces at load
-        # time rather than at the first delivery.
-        for host in value:
-            validate_smtp_host(host)
         return value
 
     @field_validator("from_address")
@@ -273,10 +269,10 @@ def _means_unset(key: str, value: object) -> bool:
 
 
 def _field_value(key: str, value: object) -> object:
-    """A lone host or address becomes a one-entry list; a size limit of 0 means no limit."""
+    """A lone host or address becomes a one-entry list; a limit of 0 means no limit."""
     if key in _ONE_OR_MANY and isinstance(value, str):
         return [value]
-    if key == "max_size_bytes" and type(value) in (int, float) and value == 0:
+    if key in _ZERO_MEANS_NO_LIMIT and type(value) in (int, float) and value == 0:
         return None
     return value
 
