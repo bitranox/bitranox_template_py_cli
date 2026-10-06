@@ -189,12 +189,12 @@ def _load_log_variables(dotenv_path: str | None) -> None:
 
 
 @contextmanager
-def _log_variables_hidden() -> Generator[None]:
+def log_variables_hidden() -> Generator[None]:
     """Remove every ``LOG_*`` variable from the environment for the block, then put each back.
 
     Example:
         >>> os.environ["LOG_HIDDEN_PROBE"] = "x"
-        >>> with _log_variables_hidden():
+        >>> with log_variables_hidden():
         ...     "LOG_HIDDEN_PROBE" in os.environ
         False
         >>> os.environ.pop("LOG_HIDDEN_PROBE")
@@ -219,7 +219,7 @@ def _start_default_logging() -> None:
     try:
         lib_log_rich.runtime.init(_build_runtime_config(Config({}, {})))
     except ValueError:  # pydantic's ValidationError is a ValueError
-        with _log_variables_hidden():
+        with log_variables_hidden():
             lib_log_rich.runtime.init(_build_runtime_config(Config({}, {})))
 
 
@@ -284,4 +284,5 @@ __all__ = [
     "InvalidLoggingConfigError",
     "LoggingConfigModel",
     "init_logging",
+    "log_variables_hidden",
 ]
