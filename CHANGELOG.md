@@ -6,7 +6,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-## [2.0.0] 2026-10-06 08:26:05
+## [2.0.1] 2026-10-06 13:09:50
+
+Re-release of 2.0.0, which was tagged but never published: PyPI rejected the upload because
+that filename had been used by a file that has since been deleted, and PyPI never permits
+filename reuse. Package contents are identical to 2.0.0.
+
+## [2.0.0] 2026-10-06 08:26:05 [NOT PUBLISHED]
 
 ### Added
 - **`describe_validation_error` and `nest_overrides` are public** (in `__all__` of
