@@ -100,9 +100,9 @@ class InvalidLoggingConfigError(ConfigurationError):
 
     The settings are the ``[lib_log_rich]`` section plus any ``LOG_*`` variable. A problem the
     type check of the section finds names the key and never repeats the refused value. A value
-    only lib_log_rich itself refuses, such as an unknown level in ``LOG_CONSOLE_LEVEL``, is
-    reported in lib_log_rich's own words (``lib_log_rich: Unknown log level: 'bogus'``), which
-    name neither the variable nor where it was set.
+    only lib_log_rich itself refuses, such as an unknown level in ``LOG_CONSOLE_LEVEL`` or in the
+    section's ``console_level``, is reported in lib_log_rich's own words (``lib_log_rich: Unknown
+    log level: 'bogus'``), which may name neither the setting nor where it was set.
 
     Attributes:
         problems: One line per refused setting.
@@ -218,7 +218,7 @@ def _start_default_logging() -> None:
     """
     try:
         lib_log_rich.runtime.init(_build_runtime_config(Config({}, {})))
-    except (ValidationError, ValueError):
+    except ValueError:  # pydantic's ValidationError is a ValueError
         with _log_variables_hidden():
             lib_log_rich.runtime.init(_build_runtime_config(Config({}, {})))
 
@@ -271,7 +271,7 @@ def init_logging(config: Config, *, dotenv_path: str | None = None) -> None:
     _load_log_variables(dotenv_path)
     try:
         lib_log_rich.runtime.init(_build_runtime_config(config))
-    except (ValidationError, ValueError) as exc:
+    except ValueError as exc:  # pydantic's ValidationError is a ValueError
         # The type check of the section and lib_log_rich's own range checks (which also see the
         # LOG_* variables) both refuse here; neither has started the runtime.
         _start_default_logging()

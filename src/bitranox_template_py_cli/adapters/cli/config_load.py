@@ -102,8 +102,9 @@ def start_logging(
     command, ``config-deploy`` (which replaces the file holding it) included. ``init_logging``
     then starts logging with its defaults (and no ``LOG_*`` variable, if one of them is the
     refused setting) before it raises, and the commands that read the configuration refuse with
-    exit 78 and the refusal: ``lib_log_rich.<key>: <reason>`` for a section value, lib_log_rich's
-    own message for a ``LOG_*`` variable (``lib_log_rich: Unknown log level: 'bogus'``).
+    exit 78 and the refusal: ``lib_log_rich.<key>: <reason>`` for a problem the section's type
+    check finds, lib_log_rich's own message for a value only lib_log_rich refuses, whether it
+    came from the section or a ``LOG_*`` variable (``lib_log_rich: Unknown log level: 'bogus'``).
 
     Args:
         services: The composition's services; only ``init_logging`` is used.

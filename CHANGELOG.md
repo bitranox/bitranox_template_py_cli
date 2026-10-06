@@ -16,9 +16,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   falls back to its defaults with every `LOG_*` variable hidden for that start (and put back
   afterwards), so only the commands that read the configuration (`config`, `send-email`,
   `send-notification`) exit 78, and the others run with exit 0. The 78 carries lib_log_rich's
-  own message, `Error: lib_log_rich: Unknown log level: 'bogus'`, which names neither the
+  own message, `Error: lib_log_rich: Unknown log level: 'bogus'`, which may name neither the
   variable nor where it was set. A refused `[lib_log_rich]` value still leaves every valid
-  `LOG_*` variable in force for the fallback, as in 2.0.1: only a refused variable hides them.
+  `LOG_*` variable in force for the fallback, as in 2.1.0: only a refused variable hides them.
 
 ## [2.1.0] 2026-10-06 15:37:27
 
