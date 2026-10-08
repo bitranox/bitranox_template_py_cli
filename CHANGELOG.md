@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.2.0] 2026-10-08 13:56:49
+
 ### Removed
 - **`send-notification --raise-on-missing-attachments` (usage change).** A notification takes no
   attachments, so the switch did nothing there. `send-notification` now refuses it as an unknown
