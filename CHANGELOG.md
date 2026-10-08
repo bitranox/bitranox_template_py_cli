@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.3.0] 2026-10-08 16:14:12
+
 ### Changed
 - **`config --profile NAME` checks the profile's logging settings instead of restarting logging.**
   The check now runs through lib_log_rich's `validate_config`, which refuses exactly what starting
