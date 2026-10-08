@@ -145,7 +145,7 @@ POSIX-conventional exit codes defined in `adapters/cli/exit_codes.py`:
 | 13   | `PERMISSION_DENIED`  | Cannot write to target directory                                                                                       |
 | 22   | `INVALID_ARGUMENT`   | Invalid CLI argument or section not found                                                                              |
 | 69   | `SMTP_FAILURE`       | SMTP delivery failed                                                                                                   |
-| 77   | `ATTACHMENT_REFUSED` | Attachment refused by btx_lib_mail's security checks (blocked extension or directory, symlink, size)                   |
+| 77   | `ATTACHMENT_REFUSED` | Attachment refused by btx_lib_mail's security checks (blocked extension or directory, symlink, size, ...)              |
 | 78   | `CONFIG_ERROR`       | Configuration missing, not loadable or invalid                                                                         |
 | 110  | `TIMEOUT`            | Operation timed out                                                                                                    |
 | 130  | `SIGNAL_INT`         | Interrupted (SIGINT/Ctrl+C)                                                                                            |

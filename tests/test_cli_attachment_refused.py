@@ -127,7 +127,7 @@ def test_the_attachment_refused_code_is_sysexits_ex_noperm() -> None:
 
 @pytest.mark.os_agnostic
 def test_a_blocked_extension_exits_77_with_one_error_line_and_delivers_nothing(
-    capsys: pytest.CaptureFixture[str], unblocked_dir: Path
+    capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture, unblocked_dir: Path
 ) -> None:
     attachment = unblocked_dir / "x.exe"
     attachment.write_bytes(b"MZ")
@@ -139,13 +139,13 @@ def test_a_blocked_extension_exits_77_with_one_error_line_and_delivers_nothing(
     assert exit_code == 77
     assert _error_lines(err) == [f'{REFUSED}extension ".exe" is blocked: "{attachment.resolve()}"']
     assert "Unexpected error" not in err
-    assert "Traceback" not in err
+    assert [record.getMessage() for record in caplog.records if record.exc_info] == []
     assert transport.recipients == []
 
 
 @pytest.mark.os_agnostic
 def test_a_file_in_a_blocked_directory_exits_77_with_one_error_line_and_delivers_nothing(
-    capsys: pytest.CaptureFixture[str],
+    capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
 ) -> None:
     attachment = _a_file_in_a_blocked_directory()
     transport = _Recording()
@@ -158,7 +158,7 @@ def test_a_file_in_a_blocked_directory_exits_77_with_one_error_line_and_delivers
     assert len(lines) == 1
     assert lines[0].startswith(f"{REFUSED}path under blocked directory ")
     assert "Unexpected error" not in err
-    assert "Traceback" not in err
+    assert [record.getMessage() for record in caplog.records if record.exc_info] == []
     assert transport.recipients == []
 
 

@@ -17,7 +17,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   line, `Error: Attachment refused by security policy - <the library's reason>`, logs no
   traceback, and delivers nothing. A script that checks for 1 after a refused attachment must
   check for 77. With `email.attachments.raise_on_security_violation = false` the attachment is
-  still skipped with a warning and the message sent, as before.
+  still skipped with a warning and the message sent, as before; a violation that names no attachment
+  left to drop is refused in warn mode too, and now exits 77 where it exited 1.
 
 ## [2.1.1] 2026-10-06 18:13:05
 
