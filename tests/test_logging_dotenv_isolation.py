@@ -19,6 +19,7 @@ import logging
 import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import lib_log_rich.runtime
@@ -34,7 +35,6 @@ from bitranox_template_py_cli.adapters.logging.setup import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from pathlib import Path
 
 PREFIX = __init__conf__.LAYEREDCONF_SLUG.upper().replace("-", "_")
 _HOMES = ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA")
@@ -250,9 +250,16 @@ def test_config_with_a_profile_refuses_a_logging_setting_like_config_without_one
 
 @pytest.mark.os_agnostic
 def test_a_logging_section_refused_only_in_the_profile_file_refuses_config_with_that_profile(tmp_path: Path) -> None:
-    profile_dir = tmp_path / __init__conf__.LAYEREDCONF_SLUG / "profile" / "broken"
-    profile_dir.mkdir(parents=True)
-    (profile_dir / "config.toml").write_text('[lib_log_rich]\nrate_limit = "100:60"\n', encoding="utf-8")
+    # The user layer lives in a different place on each OS; the deploy writes it there and says where.
+    deployed = _run(tmp_path, "config-deploy", "--target", "user", "--profile", "broken")
+    assert deployed.returncode == 0, deployed.stderr
+    written = [line.strip()[2:] for line in deployed.stdout.splitlines() if line.strip().startswith("+ ")]
+    profile_files = [Path(path) for path in written if Path(path).name == "config.toml"]
+    assert len(profile_files) == 1, deployed.stdout
+    # config.d merges after config.toml, and the deployed 90-logging.toml sets rate_limit itself.
+    (profile_files[0].parent / "config.d" / "99-refused.toml").write_text(
+        '[lib_log_rich]\nrate_limit = "100:60"\n', encoding="utf-8"
+    )
 
     plain = _run(tmp_path, "config")
     reloaded = _run(tmp_path, "config", "--profile", "broken")
