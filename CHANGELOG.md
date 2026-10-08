@@ -6,6 +6,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+- **The email commands' SMTP options reach the configuration as a typed `EmailConfigOverrides`
+  model instead of a plain dict.** `EmailConfigOverrides.from_cli_options(...)` takes the Click
+  values (an option that was not given is `None`, an unset `--smtp-host` an empty tuple) and
+  `apply_validated_overrides` merges only the options that were given. Its fields carry
+  EmailConfig's own names, so a field EmailConfig renames is refused instead of slipping through,
+  and `--smtp-password` is a `SecretStr` from the moment it is read. `filter_sentinels` is gone;
+  the command line behaves as before.
+
 ## [2.3.0] 2026-10-08 16:14:12
 
 ### Changed

@@ -40,7 +40,8 @@ moves or removes a module, a CLI option or a public name.
   - `commands/info.py`  -  info, hello, fail commands
   - `commands/config.py`  -  config, config-deploy, config-generate-examples commands
   - `commands/email/`  -  Email commands package:
-    - `_common.py`  -  Shared SMTP override options, config loading and error-to-exit-code mapping
+    - `_common.py`  -  Shared SMTP override options and their typed `EmailConfigOverrides`, config
+      loading and error-to-exit-code mapping
     - `send_email.py`  -  send-email command
     - `send_notification.py`  -  send-notification command
   - `commands/logging.py`  -  logdemo command

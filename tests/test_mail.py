@@ -19,7 +19,7 @@ from btx_lib_mail import ConfMail
 from pydantic import SecretStr
 from pydantic import ValidationError as PydanticValidationError
 
-from bitranox_template_py_cli.adapters.cli.commands.email._common import apply_validated_overrides
+from bitranox_template_py_cli.adapters.cli.commands.email._common import EmailConfigOverrides, apply_validated_overrides
 from bitranox_template_py_cli.adapters.email.sender import (
     EmailConfig,
     load_email_config_from_dict,
@@ -368,10 +368,53 @@ def test_no_rendering_of_the_email_config_shows_the_password(render: Callable[[E
 def test_an_override_keeps_the_configured_password() -> None:
     config = EmailConfig(smtphosts=["smtp.example.com:587"], smtp_username="user", smtp_password=SecretStr(_PASSWORD))
 
-    overridden = apply_validated_overrides(config, {"smtp_timeout": 5.0})
+    overridden = apply_validated_overrides(config, EmailConfigOverrides.from_cli_options(timeout=5.0))
 
     assert overridden.smtp_password is not None
     assert overridden.smtp_password.get_secret_value() == _PASSWORD
+    assert overridden.smtp_timeout == 5.0
+
+
+@pytest.mark.os_agnostic
+def test_no_override_given_returns_the_configuration_itself() -> None:
+    config = EmailConfig(smtphosts=["smtp.example.com:587"])
+
+    assert apply_validated_overrides(config, EmailConfigOverrides.from_cli_options()) is config
+
+
+@pytest.mark.os_agnostic
+def test_an_unset_host_option_keeps_the_hosts_and_a_set_one_replaces_them() -> None:
+    config = EmailConfig(smtphosts=["smtp.example.com:587"])
+
+    unset = apply_validated_overrides(config, EmailConfigOverrides.from_cli_options(smtp_hosts=()))
+    replaced = apply_validated_overrides(
+        config, EmailConfigOverrides.from_cli_options(smtp_hosts=("other.example.com:25", "third.example.com:25"))
+    )
+
+    assert unset.smtphosts == ["smtp.example.com:587"]
+    assert replaced.smtphosts == ["other.example.com:25", "third.example.com:25"]
+
+
+@pytest.mark.os_agnostic
+def test_a_password_given_on_the_command_line_never_renders_from_the_overrides() -> None:
+    overrides = EmailConfigOverrides.from_cli_options(smtp_password=_PASSWORD)
+
+    assert _PASSWORD not in repr(overrides)
+    assert _PASSWORD not in str(overrides.model_dump())
+    assert overrides.smtp_password is not None
+    assert overrides.smtp_password.get_secret_value() == _PASSWORD
+
+
+@pytest.mark.os_agnostic
+def test_an_override_refuses_a_name_that_is_not_an_email_config_field() -> None:
+    """The overrides carry EmailConfig's own field names, so a renamed field cannot pass unnoticed."""
+    with pytest.raises(PydanticValidationError, match="smtp_hosts"):
+        EmailConfigOverrides.model_validate({"smtp_hosts": ["smtp.example.com:587"]})
+
+
+@pytest.mark.os_agnostic
+def test_every_override_names_an_email_config_field() -> None:
+    assert set(EmailConfigOverrides.model_fields) <= set(EmailConfig.model_fields)
 
 
 # ======================== load_email_config_from_dict ========================
