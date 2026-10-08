@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.1.2] 2026-10-08 09:43:32
+
 ### Changed
 - **A refused attachment exits 77, not 1 with a traceback (exit code change).** An attachment
   btx_lib_mail's security checks refuse (a blocked extension such as `.exe`, a file under a
