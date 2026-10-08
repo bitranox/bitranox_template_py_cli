@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -11,7 +12,6 @@ from bitranox_template_py_cli.adapters.config import loader as config_mod
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
-    from pathlib import Path
 
     from click.testing import CliRunner, Result
     from lib_layered_config import Config
@@ -255,6 +255,27 @@ def test_when_config_deploy_finds_no_files_to_create_it_informs_user(
     assert result.exit_code == 0
     assert "No files were created" in result.output
     assert "--force" in result.output
+
+
+@pytest.mark.os_agnostic
+def test_when_a_forced_config_deploy_finds_every_file_identical_it_says_nothing_was_written(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+    user_layer_in_tmp_path: Path,
+) -> None:
+    """A second forced deploy writes nothing, and does not suggest the --force it was given."""
+    command = ["config-deploy", "--target", "user", "--force"]
+    first: Result = cli_runner.invoke(cli_mod.cli, command, obj=production_factory)
+    written = [Path(line.removeprefix("  + ")) for line in first.output.splitlines() if line.startswith("  + ")]
+    assert first.exit_code == 0
+    assert written  # liveness: the first deploy writes the files the second one finds identical
+    assert all(path.resolve().is_relative_to(user_layer_in_tmp_path.resolve()) for path in written)
+
+    second: Result = cli_runner.invoke(cli_mod.cli, command, obj=production_factory)
+
+    assert second.exit_code == 0
+    assert "No files were written: every target file is already identical" in second.output
+    assert "--force" not in second.output
 
 
 @pytest.mark.os_agnostic

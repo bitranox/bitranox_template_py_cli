@@ -73,6 +73,11 @@ def _log_send_email_start(
     type=click.Path(path_type=str),
     help="File to attach (can specify multiple)",
 )
+@option(
+    "--raise-on-missing-attachments/--no-raise-on-missing-attachments",
+    default=None,
+    help="Override missing attachment handling",
+)
 @smtp_config_options
 @click.pass_context
 def cli_send_email(

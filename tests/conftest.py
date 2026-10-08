@@ -213,6 +213,18 @@ def production_factory() -> Callable[[], AppServices]:
 
 
 @pytest.fixture
+def user_layer_in_tmp_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Point every OS's user-layer location at ``tmp_path`` and return it.
+
+    A deploy then writes under ``tmp_path`` rather than into the real user configuration
+    directory, and the developer's own user-layer files cannot decide a result.
+    """
+    for name in ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA"):
+        monkeypatch.setenv(name, str(tmp_path))
+    return tmp_path
+
+
+@pytest.fixture
 def strip_ansi() -> Callable[[str], str]:
     """Return a helper that strips ANSI escape sequences from a string.
 

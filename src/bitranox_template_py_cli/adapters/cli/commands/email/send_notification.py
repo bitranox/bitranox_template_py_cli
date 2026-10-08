@@ -53,7 +53,6 @@ def cli_send_notification(
     smtp_password: str | None,
     use_starttls: bool | None,
     timeout: float | None,
-    raise_on_missing_attachments: bool | None,
     raise_on_invalid_recipient: bool | None,
 ) -> None:
     """Send a simple plain-text notification email.
@@ -77,7 +76,6 @@ def cli_send_notification(
             smtp_password=smtp_password,
             smtp_use_starttls=use_starttls,
             smtp_timeout=timeout,
-            raise_on_missing_attachments=raise_on_missing_attachments,
             raise_on_invalid_recipient=raise_on_invalid_recipient,
         )
         try:

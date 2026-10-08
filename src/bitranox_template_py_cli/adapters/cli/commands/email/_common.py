@@ -84,9 +84,10 @@ def smtp_config_options(func: Callable[..., Any]) -> Callable[..., Any]:
     """Apply shared SMTP configuration override options to a Click command.
 
     Adds CLI flags for the SMTP connection and delivery settings (hosts, credentials,
-    STARTTLS, timeout, the two raise_on_* switches). ``starttls_verify``,
-    ``local_hostname``, ``delivery_deadline``, ``recipient_max_count`` and the attachment
-    settings have no flag; set them with ``--set email.<key>=...``.
+    STARTTLS, timeout, ``raise_on_invalid_recipient``). ``send-email`` adds its own
+    ``--raise-on-missing-attachments`` switch, since only it takes attachments.
+    ``starttls_verify``, ``local_hostname``, ``delivery_deadline``, ``recipient_max_count``
+    and the attachment settings have no flag; set them with ``--set email.<key>=...``.
     """
     options = [
         option(
@@ -100,11 +101,6 @@ def smtp_config_options(func: Callable[..., Any]) -> Callable[..., Any]:
         option("--smtp-password", default=None, help="Override SMTP authentication password"),
         option("--use-starttls/--no-use-starttls", default=None, help="Override STARTTLS setting"),
         option("--timeout", "timeout", type=float, default=None, help="Override socket timeout in seconds"),
-        option(
-            "--raise-on-missing-attachments/--no-raise-on-missing-attachments",
-            default=None,
-            help="Override missing attachment handling",
-        ),
         option(
             "--raise-on-invalid-recipient/--no-raise-on-invalid-recipient",
             default=None,

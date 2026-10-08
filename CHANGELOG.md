@@ -6,6 +6,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Removed
+- **`send-notification --raise-on-missing-attachments` (usage change).** A notification takes no
+  attachments, so the switch did nothing there. `send-notification` now refuses it as an unknown
+  option (exit 2); `send-email` keeps it. Drop the flag from any script that passes it to
+  `send-notification`.
+
+### Tests
+- The `config-deploy --force` report for a deploy in which every target file is already identical
+  is covered end to end. New shared fixture `user_layer_in_tmp_path` points every OS's user-layer
+  location at `tmp_path`; it replaces two hand-written copies of the same loop.
+
 ## [2.1.3] 2026-10-08 11:57:40
 
 ### Fixed

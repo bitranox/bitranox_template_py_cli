@@ -251,22 +251,18 @@ Send email using configured SMTP settings.
 
 Send simple plain-text notification email.
 
-| Option                                                               | Description                          |
-|----------------------------------------------------------------------|--------------------------------------|
-| `--to ADDRESS`                                                       | Recipient (repeatable)               |
-| `--subject TEXT`                                                     | Subject  -  required                 |
-| `--message TEXT`                                                     | Message  -  required                 |
-| `--from ADDRESS`                                                     | Override sender                      |
-| `--smtp-host HOST:PORT`                                              | Override SMTP host (repeatable)      |
-| `--smtp-username USER`                                               | Override username                    |
-| `--smtp-password PASS`                                               | Override password                    |
-| `--use-starttls / --no-use-starttls`                                 | Override STARTTLS                    |
-| `--timeout SECONDS`                                                  | Override timeout                     |
-| `--raise-on-missing-attachments / --no-raise-on-missing-attachments` | Override missing-attachment handling |
-| `--raise-on-invalid-recipient / --no-raise-on-invalid-recipient`     | Override invalid-recipient handling  |
-
-`--raise-on-missing-attachments` is accepted for symmetry with `send-email`, but a notification
-carries no attachments, so it has no effect.
+| Option                                                           | Description                         |
+|------------------------------------------------------------------|-------------------------------------|
+| `--to ADDRESS`                                                   | Recipient (repeatable)              |
+| `--subject TEXT`                                                 | Subject  -  required                |
+| `--message TEXT`                                                 | Message  -  required                |
+| `--from ADDRESS`                                                 | Override sender                     |
+| `--smtp-host HOST:PORT`                                          | Override SMTP host (repeatable)     |
+| `--smtp-username USER`                                           | Override username                   |
+| `--smtp-password PASS`                                           | Override password                   |
+| `--use-starttls / --no-use-starttls`                             | Override STARTTLS                   |
+| `--timeout SECONDS`                                              | Override timeout                    |
+| `--raise-on-invalid-recipient / --no-raise-on-invalid-recipient` | Override invalid-recipient handling |
 
 **Exit codes:** 0, 2 (usage error), 22 (invalid option value), 69 (SMTP failure), 78 (no SMTP hosts, an invalid `[email]` section, or configuration not loadable)
 
@@ -425,16 +421,17 @@ Use `composition.build_testing()` to wire all in-memory adapters. It wires the r
 
 ### Test Fixtures (conftest.py)
 
-| Fixture                   | Purpose                                                                                                               |
-|---------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `config_factory`          | Creates real `Config` instances from test data                                                                        |
-| `inject_config`           | Injects config into CLI path                                                                                          |
-| `cli_runner`              | Fresh `CliRunner` per test                                                                                            |
-| `strip_ansi`              | Strips ANSI escape codes from output                                                                                  |
-| `clear_config_cache`      | Clears LRU cache before tests                                                                                         |
-| `managed_traceback_state` | Resets/restores traceback configuration                                                                               |
-| `isolated_logging_state`  | Autouse: after every test, shuts the lib_log_rich runtime down and restores the root logger; yields that restore step |
+| Fixture                   | Purpose                                                                                                                                                                 |
+|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `config_factory`          | Creates real `Config` instances from test data                                                                                                                          |
+| `inject_config`           | Injects config into CLI path                                                                                                                                            |
+| `cli_runner`              | Fresh `CliRunner` per test                                                                                                                                              |
+| `strip_ansi`              | Strips ANSI escape codes from output                                                                                                                                    |
+| `clear_config_cache`      | Clears LRU cache before tests                                                                                                                                           |
+| `managed_traceback_state` | Resets/restores traceback configuration                                                                                                                                 |
+| `isolated_logging_state`  | Autouse: after every test, shuts the lib_log_rich runtime down and restores the root logger; yields that restore step                                                   |
+| `user_layer_in_tmp_path`  | Points every OS's user-layer location (`HOME`, `USERPROFILE`, `XDG_CONFIG_HOME`, `APPDATA`, `LOCALAPPDATA`) at `tmp_path` and returns it, so a real deploy writes there |
 
 ---
 
-**Last Updated:** 2026-10-06 (file index, CLI options and public names brought in line with the source tree)
+**Last Updated:** 2026-10-08 (`send-notification` options, test fixtures)
