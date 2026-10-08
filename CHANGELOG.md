@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.4.0] 2026-10-08 17:34:36
+
 ### Changed
 - **The email commands' SMTP options reach the configuration as a typed `EmailConfigOverrides`
   model instead of a plain dict.** `EmailConfigOverrides.from_cli_options(...)` takes the Click
@@ -15,6 +17,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   and `--smtp-password` is a `SecretStr` from the moment it is read; the model is a btx_lib_mail
   `SecretSafeModel`, so a refused password never appears in a validation error's details.
   `filter_sentinels` is gone; the command line behaves as before.
+- Requires `pydantic>=2.14.0` (and `virtualenv>=21.14.6` in the dev extra).
 
 ## [2.3.0] 2026-10-08 16:14:12
 
