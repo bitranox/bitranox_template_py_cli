@@ -19,7 +19,7 @@ from ..adapters.email.sender import (
 )
 
 # Logging services
-from ..adapters.logging.setup import init_logging
+from ..adapters.logging.setup import init_logging, restart_logging
 
 # Static conformance assertions — pyright verifies that each adapter function
 # structurally satisfies its corresponding Protocol at type-check time.
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         GetDefaultConfigPath,
         InitLogging,
         LoadEmailConfigFromDict,
+        RestartLogging,
         SendEmail,
         SendNotification,
     )
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
     _assert_send_notification: SendNotification = send_notification
     _assert_load_email_config_from_dict: LoadEmailConfigFromDict = load_email_config_from_dict
     _assert_init_logging: InitLogging = init_logging
+    _assert_restart_logging: RestartLogging = restart_logging
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +60,7 @@ class AppServices:
     send_notification: SendNotification
     load_email_config_from_dict: LoadEmailConfigFromDict
     init_logging: InitLogging
+    restart_logging: RestartLogging
 
 
 def build_production() -> AppServices:
@@ -71,6 +74,7 @@ def build_production() -> AppServices:
         send_notification=send_notification,
         load_email_config_from_dict=load_email_config_from_dict,
         init_logging=init_logging,
+        restart_logging=restart_logging,
     )
 
 
@@ -92,6 +96,7 @@ def build_testing(*, spy: EmailSpy | None = None) -> AppServices:
         get_config_in_memory,
         get_default_config_path_in_memory,
         init_logging_in_memory,
+        restart_logging_in_memory,
     )
 
     email_spy = spy if spy is not None else EmailSpy()
@@ -106,23 +111,21 @@ def build_testing(*, spy: EmailSpy | None = None) -> AppServices:
         # The real translation: an in-memory one would let every CLI test skip it.
         load_email_config_from_dict=load_email_config_from_dict,
         init_logging=init_logging_in_memory,
+        restart_logging=restart_logging_in_memory,
     )
 
 
 __all__ = [
-    # Composition
     "AppServices",
     "build_production",
     "build_testing",
     "deploy_configuration",
     "display_config",
-    # Configuration
     "get_config",
     "get_default_config_path",
-    # Logging
     "init_logging",
     "load_email_config_from_dict",
-    # Email
+    "restart_logging",
     "send_email",
     "send_notification",
 ]

@@ -16,6 +16,7 @@ Contents:
     * :func:`load_config` - load with profile, ``.env`` and ``--set``, or say why not.
     * :func:`start_logging` - start logging; an invalid ``[lib_log_rich]`` value or ``LOG_*``
       variable is a load failure.
+    * :func:`restart_logging` - the same refusal for a configuration loaded after logging started.
     * :func:`require_config` - the configuration, or exit 78 naming the failure.
     * :func:`report_load_failure` - the one-line report, after the traceback on request.
     * :func:`echo_load_traceback` - the loader's traceback alone, for a caller with its own line.
@@ -123,6 +124,30 @@ def start_logging(
     return config, config_error
 
 
+def restart_logging(services: AppServices, config: Config, *, env_file: str | None) -> Exception | None:
+    """Restart logging with a configuration loaded after it started; a refused setting is returned.
+
+    ``config --profile`` reloads the configuration once logging is running, so
+    :func:`start_logging` never sees the reloaded ``[lib_log_rich]`` section; without this an
+    invalid value there would display with exit 0 while plain ``config`` exits 78. Restarting
+    runs the very start :func:`start_logging` ran, so it refuses the same settings in the same
+    words, and the rest of the command logs with the reloaded settings.
+
+    Args:
+        services: The composition's services; only ``restart_logging`` is used.
+        config: The configuration :func:`load_config` returned.
+        env_file: The ``--env-file`` path, or None; logging reads its ``LOG_*`` lines from it.
+
+    Returns:
+        None, or the refusal; logging then runs with its defaults.
+    """
+    try:
+        services.restart_logging(config, dotenv_path=env_file)
+    except InvalidLoggingConfigError as exc:
+        return exc
+    return None
+
+
 def echo_load_traceback(error: Exception, *, show_traceback: bool) -> None:
     """Write the loader's chained traceback to stderr when ``--traceback`` was given.
 
@@ -170,4 +195,11 @@ def require_config(ctx: click.Context, cli_ctx: CLIContext) -> Config:
     return cli_ctx.config
 
 
-__all__ = ["echo_load_traceback", "load_config", "report_load_failure", "require_config", "start_logging"]
+__all__ = [
+    "echo_load_traceback",
+    "load_config",
+    "report_load_failure",
+    "require_config",
+    "restart_logging",
+    "start_logging",
+]

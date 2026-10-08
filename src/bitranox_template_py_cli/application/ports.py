@@ -109,6 +109,16 @@ class InitLogging(Protocol):
     def __call__(self, config: Config, *, dotenv_path: str | None = None) -> None: ...
 
 
+class RestartLogging(Protocol):
+    """Stop the running logging runtime and start it again with ``config``, as ``InitLogging`` does.
+
+    For a configuration loaded after logging is running; a refused setting raises
+    ``InvalidLoggingConfigError`` after logging has been started with its defaults.
+    """
+
+    def __call__(self, config: Config, *, dotenv_path: str | None = None) -> None: ...
+
+
 __all__ = [
     "DeployConfiguration",
     "DisplayConfig",
@@ -116,6 +126,7 @@ __all__ = [
     "GetDefaultConfigPath",
     "InitLogging",
     "LoadEmailConfigFromDict",
+    "RestartLogging",
     "SendEmail",
     "SendNotification",
 ]

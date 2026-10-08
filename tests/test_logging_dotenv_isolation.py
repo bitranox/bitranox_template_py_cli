@@ -15,6 +15,7 @@ The end-to-end tests run the real CLI in a subprocess with every configuration l
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import sys
@@ -25,7 +26,11 @@ import pytest
 from lib_layered_config import Config
 
 from bitranox_template_py_cli import __init__conf__
-from bitranox_template_py_cli.adapters.logging.setup import InvalidLoggingConfigError, init_logging
+from bitranox_template_py_cli.adapters.logging.setup import (
+    InvalidLoggingConfigError,
+    init_logging,
+    restart_logging,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -204,6 +209,76 @@ def test_an_invalid_logging_section_does_not_block_the_deploy_that_replaces_it(t
     )
 
     assert result.returncode == 0, result.stderr
+
+
+# ------------------------------------------------------------------ config --profile reloads, and checks logging too
+
+#: One refused setting of each kind lib_log_rich has: the section's type check, its own range
+#: check, a ``LOG_*`` value its settings resolution refuses, and the values only starting the
+#: runtime refuses - a level name (in the section or a ``LOG_*`` variable), a scrub pattern, a
+#: console format preset and a console style key.
+_REFUSED_LOGGING = {
+    "type": {f"{PREFIX}___LIB_LOG_RICH__RATE_LIMIT": "100:60"},
+    "range": {f"{PREFIX}___LIB_LOG_RICH__QUEUE_MAXSIZE": "0"},
+    "settings-variable": {"LOG_RATE_LIMIT": "bogus"},
+    "section-level": {f"{PREFIX}___LIB_LOG_RICH__CONSOLE_LEVEL": "bogus"},
+    "log-variable": {"LOG_CONSOLE_LEVEL": "bogus"},
+    "scrub-pattern": {"LOG_SCRUB_PATTERNS": "token=("},
+    "console-preset": {"LOG_CONSOLE_FORMAT_PRESET": "bogus"},
+    "console-style": {"LOG_CONSOLE_STYLES": "bogus=red"},
+}
+
+
+def _error_lines(result: subprocess.CompletedProcess[str]) -> list[str]:
+    return [line for line in result.stderr.splitlines() if line.startswith("Error:")]
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("env", _REFUSED_LOGGING.values(), ids=_REFUSED_LOGGING.keys())
+def test_config_with_a_profile_refuses_a_logging_setting_like_config_without_one(
+    tmp_path: Path, env: dict[str, str]
+) -> None:
+    plain = _run(tmp_path, "config", env=env)
+    reloaded = _run(tmp_path, "config", "--profile", "production", env=env)
+
+    # Premise: plain config refuses this setting with one line per problem.
+    assert plain.returncode == 78, plain.stderr
+    assert _error_lines(plain), plain.stderr
+    assert reloaded.returncode == 78, reloaded.stderr
+    assert _error_lines(reloaded) == _error_lines(plain)
+
+
+@pytest.mark.os_agnostic
+def test_a_logging_section_refused_only_in_the_profile_file_refuses_config_with_that_profile(tmp_path: Path) -> None:
+    profile_dir = tmp_path / __init__conf__.LAYEREDCONF_SLUG / "profile" / "broken"
+    profile_dir.mkdir(parents=True)
+    (profile_dir / "config.toml").write_text('[lib_log_rich]\nrate_limit = "100:60"\n', encoding="utf-8")
+
+    plain = _run(tmp_path, "config")
+    reloaded = _run(tmp_path, "config", "--profile", "broken")
+
+    assert plain.returncode == 0, plain.stderr
+    assert reloaded.returncode == 78, reloaded.stderr
+    errors = _error_lines(reloaded)
+    assert len(errors) == 1, reloaded.stderr
+    assert "lib_log_rich.rate_limit" in errors[0]
+    assert "100:60" not in reloaded.stderr
+
+
+@pytest.mark.os_agnostic
+def test_restarting_logging_refuses_a_setting_although_logging_already_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``init_logging`` returns at once on a running runtime; a restart must judge the new settings."""
+    init_logging(Config({}, {}))
+    # Premise: logging runs, so a plain init_logging would no longer check anything.
+    assert lib_log_rich.runtime.is_initialised()
+    monkeypatch.setenv("LOG_SCRUB_PATTERNS", "token=(")
+
+    with pytest.raises(InvalidLoggingConfigError, match="Invalid scrub pattern"):
+        restart_logging(Config({}, {}))
+
+    assert lib_log_rich.runtime.is_initialised()
+    handlers = [h for h in logging.getLogger().handlers if isinstance(h, lib_log_rich.runtime.StdlibLoggingHandler)]
+    assert len(handlers) == 1
 
 
 # ------------------------------------------------------------------ a refused setting still leaves logging running

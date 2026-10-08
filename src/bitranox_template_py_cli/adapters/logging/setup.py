@@ -7,6 +7,7 @@ eliminating duplication between module entry (__main__.py) and console script
 Contents:
     * :func:`init_logging` - idempotent logging initialization from the ``[lib_log_rich]``
       section and the ``LOG_*`` variables (the environment, plus the ``LOG_*`` lines of a ``.env``).
+    * :func:`restart_logging` - stop the running runtime and start it again with another configuration.
     * :class:`InvalidLoggingConfigError` - the ``[lib_log_rich]`` section or a ``LOG_*`` variable
       cannot configure logging.
     * :func:`_build_runtime_config` - constructs RuntimeConfig from layered sources.
@@ -280,9 +281,35 @@ def init_logging(config: Config, *, dotenv_path: str | None = None) -> None:
     lib_log_rich.runtime.attach_std_logging()
 
 
+def restart_logging(config: Config, *, dotenv_path: str | None = None) -> None:
+    """Stop the running lib_log_rich runtime, then start it again with ``config``.
+
+    :func:`init_logging` returns at once while a runtime is running, so a configuration loaded
+    after logging started (``config --profile``'s reload) would never have its logging settings
+    judged. This runs that same start again: a setting lib_log_rich refuses raises exactly as it
+    does there, and logging is left running with the defaults. lib_log_rich has no public call
+    that checks settings without starting the runtime.
+
+    Args:
+        config: Already-loaded layered configuration object.
+        dotenv_path: As for :func:`init_logging`.
+
+    Raises:
+        InvalidLoggingConfigError: As for :func:`init_logging`.
+
+    Side Effects:
+        Flushes and shuts down the running runtime first (its queue, Graylog and journald
+        adapters included); the new one carries ``config``'s logging settings.
+    """
+    if lib_log_rich.runtime.is_initialised():
+        lib_log_rich.runtime.shutdown()
+    init_logging(config, dotenv_path=dotenv_path)
+
+
 __all__ = [
     "InvalidLoggingConfigError",
     "LoggingConfigModel",
     "init_logging",
     "log_variables_hidden",
+    "restart_logging",
 ]

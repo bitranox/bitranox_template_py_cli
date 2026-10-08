@@ -32,7 +32,7 @@ from bitranox_template_py_cli.adapters.config.overrides import nest_overrides
 from bitranox_template_py_cli.domain.enums import DeployTarget, OutputFormat
 
 from .. import safe_console
-from ..config_load import load_config, report_load_failure, require_config
+from ..config_load import load_config, report_load_failure, require_config, restart_logging
 from ..constants import CLICK_CONTEXT_SETTINGS
 from ..context import CLIContext, get_cli_context
 from ..exit_codes import ExitCode
@@ -110,7 +110,8 @@ def _resolve_config(ctx: click.Context, cli_ctx: CLIContext, profile: str | None
 
     When a subcommand-level profile override is specified, reloads config
     with that profile, the root's ``--env-file`` and any root-level ``--set``
-    overrides stored in the CLI context.
+    overrides stored in the CLI context, and restarts logging with it, which
+    refuses its logging settings the way the root refuses its own.
 
     Args:
         ctx: The running command's click context, exited with 78 when loading failed.
@@ -126,6 +127,8 @@ def _resolve_config(ctx: click.Context, cli_ctx: CLIContext, profile: str | None
     config, error = load_config(
         cli_ctx.services, profile=profile, env_file=cli_ctx.env_file, set_overrides=cli_ctx.set_overrides
     )
+    if error is None:
+        error = restart_logging(cli_ctx.services, config, env_file=cli_ctx.env_file)
     if error is not None:
         report_load_failure(error, show_traceback=cli_ctx.traceback)
         ctx.exit(ExitCode.CONFIG_ERROR)

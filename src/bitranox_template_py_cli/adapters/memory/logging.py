@@ -63,4 +63,17 @@ def init_logging_in_memory(config: Config, *, dotenv_path: str | None = None) ->
         )
 
 
-__all__ = ["init_logging_in_memory"]
+def restart_logging_in_memory(config: Config, *, dotenv_path: str | None = None) -> None:
+    """Keep the test runtime: :func:`init_logging_in_memory` ignores the configuration, so a restart changes nothing.
+
+    Args:
+        config: Unused; the parameter exists to satisfy the ``RestartLogging`` protocol.
+        dotenv_path: Unused for the same reason.
+
+    Example:
+        >>> from lib_layered_config import Config
+        >>> restart_logging_in_memory(Config({"lib_log_rich": {"rate_limit": "100:60"}}, {}))
+    """
+
+
+__all__ = ["init_logging_in_memory", "restart_logging_in_memory"]

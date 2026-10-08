@@ -6,6 +6,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+- **`config --profile NAME` refuses an invalid logging setting like `config` does.** The
+  subcommand's `--profile` reloads the configuration after logging has started, and that reload
+  skipped the logging settings, so a `[lib_log_rich]` value or `LOG_*` variable that makes plain
+  `config` exit 78 was displayed with exit 0. The reload now restarts logging with the reloaded
+  configuration, which refuses exactly what plain `config` refuses (a scrub pattern, a console
+  format preset or style key and a level name included) with the same `Error:` lines, also for a
+  `[lib_log_rich]` section that is invalid only in that profile's own file; the rest of the
+  command then logs with the profile's settings. New `RestartLogging` port
+  (`AppServices.restart_logging`; the testing composition's double keeps its quiet runtime).
+
 ## [2.1.2] 2026-10-08 09:43:32
 
 ### Changed
