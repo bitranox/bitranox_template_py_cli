@@ -29,8 +29,8 @@ from lib_layered_config import Config
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.logging.setup import (
     InvalidLoggingConfigError,
+    check_logging_config,
     init_logging,
-    restart_logging,
 )
 
 if TYPE_CHECKING:
@@ -273,19 +273,55 @@ def test_a_logging_section_refused_only_in_the_profile_file_refuses_config_with_
 
 
 @pytest.mark.os_agnostic
-def test_restarting_logging_refuses_a_setting_although_logging_already_runs(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``init_logging`` returns at once on a running runtime; a restart must judge the new settings."""
+def test_checking_logging_refuses_a_setting_although_logging_already_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``init_logging`` returns at once on a running runtime; the check must judge the new settings."""
     init_logging(Config({}, {}))
     # Premise: logging runs, so a plain init_logging would no longer check anything.
-    assert lib_log_rich.runtime.is_initialised()
+    running = lib_log_rich.runtime.current_runtime()
     monkeypatch.setenv("LOG_SCRUB_PATTERNS", "token=(")
 
     with pytest.raises(InvalidLoggingConfigError, match="Invalid scrub pattern"):
-        restart_logging(Config({}, {}))
+        check_logging_config(Config({}, {}))
 
-    assert lib_log_rich.runtime.is_initialised()
+    assert lib_log_rich.runtime.current_runtime() is running
     handlers = [h for h in logging.getLogger().handlers if isinstance(h, lib_log_rich.runtime.StdlibLoggingHandler)]
     assert len(handlers) == 1
+
+
+@pytest.mark.os_agnostic
+def test_checking_a_valid_logging_section_leaves_the_running_runtime_alone() -> None:
+    """The check never stops or replaces the runtime, so no other thread loses its logging."""
+    init_logging(Config({}, {}))
+    running = lib_log_rich.runtime.current_runtime()
+
+    check_logging_config(Config({"lib_log_rich": {"console_level": "debug"}}, {}))
+
+    assert lib_log_rich.runtime.current_runtime() is running
+
+
+def _graylog_section(*, tls: bool) -> dict[str, object]:
+    # The endpoint as a TOML file writes it: a [host, port] list, which RuntimeConfig accepts.
+    return {
+        "enable_graylog": True,
+        "graylog_endpoint": ["graylog.invalid", 12201],
+        "graylog_protocol": "udp",
+        "graylog_tls": tls,
+    }
+
+
+@pytest.mark.os_agnostic
+def test_checking_logging_refuses_tls_over_udp_for_graylog() -> None:
+    """A refusal no single field owns (TLS with UDP) reaches the check, as one ``lib_log_rich: <reason>`` line."""
+    with pytest.raises(InvalidLoggingConfigError, match="TLS is only supported for TCP Graylog transport") as caught:
+        check_logging_config(Config({"lib_log_rich": _graylog_section(tls=True)}, {}))
+
+    assert caught.value.problems[0].startswith("lib_log_rich: ")
+
+
+@pytest.mark.os_agnostic
+def test_checking_logging_accepts_graylog_over_udp_without_tls() -> None:
+    """Control: the same section without TLS is valid, so the refusal above is the TLS one."""
+    check_logging_config(Config({"lib_log_rich": _graylog_section(tls=False)}, {}))
 
 
 # ------------------------------------------------------------------ a refused setting still leaves logging running

@@ -19,20 +19,20 @@ from ..adapters.email.sender import (
 )
 
 # Logging services
-from ..adapters.logging.setup import init_logging, restart_logging
+from ..adapters.logging.setup import check_logging_config, init_logging
 
 # Static conformance assertions — pyright verifies that each adapter function
 # structurally satisfies its corresponding Protocol at type-check time.
 if TYPE_CHECKING:
     from ..adapters.memory.email import EmailSpy
     from ..application.ports import (
+        CheckLoggingConfig,
         DeployConfiguration,
         DisplayConfig,
         GetConfig,
         GetDefaultConfigPath,
         InitLogging,
         LoadEmailConfigFromDict,
-        RestartLogging,
         SendEmail,
         SendNotification,
     )
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     _assert_send_notification: SendNotification = send_notification
     _assert_load_email_config_from_dict: LoadEmailConfigFromDict = load_email_config_from_dict
     _assert_init_logging: InitLogging = init_logging
-    _assert_restart_logging: RestartLogging = restart_logging
+    _assert_check_logging_config: CheckLoggingConfig = check_logging_config
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +60,7 @@ class AppServices:
     send_notification: SendNotification
     load_email_config_from_dict: LoadEmailConfigFromDict
     init_logging: InitLogging
-    restart_logging: RestartLogging
+    check_logging_config: CheckLoggingConfig
 
 
 def build_production() -> AppServices:
@@ -74,7 +74,7 @@ def build_production() -> AppServices:
         send_notification=send_notification,
         load_email_config_from_dict=load_email_config_from_dict,
         init_logging=init_logging,
-        restart_logging=restart_logging,
+        check_logging_config=check_logging_config,
     )
 
 
@@ -91,12 +91,12 @@ def build_testing(*, spy: EmailSpy | None = None) -> AppServices:
     """
     from ..adapters.memory import (  # noqa: PLC0415 - deferred: keeps in-memory test doubles out of the production import path
         EmailSpy,
+        check_logging_config_in_memory,
         deploy_configuration_in_memory,
         display_config_in_memory,
         get_config_in_memory,
         get_default_config_path_in_memory,
         init_logging_in_memory,
-        restart_logging_in_memory,
     )
 
     email_spy = spy if spy is not None else EmailSpy()
@@ -111,7 +111,7 @@ def build_testing(*, spy: EmailSpy | None = None) -> AppServices:
         # The real translation: an in-memory one would let every CLI test skip it.
         load_email_config_from_dict=load_email_config_from_dict,
         init_logging=init_logging_in_memory,
-        restart_logging=restart_logging_in_memory,
+        check_logging_config=check_logging_config_in_memory,
     )
 
 
@@ -119,13 +119,13 @@ __all__ = [
     "AppServices",
     "build_production",
     "build_testing",
+    "check_logging_config",
     "deploy_configuration",
     "display_config",
     "get_config",
     "get_default_config_path",
     "init_logging",
     "load_email_config_from_dict",
-    "restart_logging",
     "send_email",
     "send_notification",
 ]

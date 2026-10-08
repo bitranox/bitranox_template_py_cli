@@ -6,6 +6,21 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Changed
+- **`config --profile NAME` checks the profile's logging settings instead of restarting logging.**
+  The check now runs through lib_log_rich's `validate_config`, which refuses exactly what starting
+  logging refuses, with the same `Error:` lines and exit 78, so nothing changes for an invalid
+  setting. What changes: the running logging runtime is no longer shut down and started again, so
+  the rest of the command keeps logging with the settings logging started with (not the profile's),
+  and a `main()` call from a worker thread no longer replaces the logging every other thread uses.
+  The `RestartLogging` port is now `CheckLoggingConfig` (`AppServices.check_logging_config`; the
+  testing composition's double refuses nothing). Requires `lib_log_rich>=6.4.2`.
+
+### Fixed
+- **A logging refusal no single setting owns reads `lib_log_rich: <reason>`.** Such a problem (for
+  example TLS together with UDP for Graylog, which lib_log_rich 6.4.2 now refuses up front) has no
+  key, and its `Error:` line came out as `lib_log_rich.: <reason>` with a dangling dot.
+
 ## [2.2.0] 2026-10-08 13:56:49
 
 ### Removed

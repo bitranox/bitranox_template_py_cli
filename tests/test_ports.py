@@ -16,19 +16,19 @@ from bitranox_template_py_cli.adapters.email.config import load_email_config_fro
 from bitranox_template_py_cli.adapters.email.sender import EmailConfig
 from bitranox_template_py_cli.adapters.memory import (
     EmailSpy,
+    check_logging_config_in_memory,
     get_config_in_memory,
     get_default_config_path_in_memory,
     init_logging_in_memory,
-    restart_logging_in_memory,
 )
 
 if TYPE_CHECKING:
     from bitranox_template_py_cli.application.ports import (
+        CheckLoggingConfig,
         GetConfig,
         GetDefaultConfigPath,
         InitLogging,
         LoadEmailConfigFromDict,
-        RestartLogging,
         SendEmail,
         SendNotification,
     )
@@ -76,9 +76,9 @@ def init_logging_impl() -> InitLogging:
 
 
 @pytest.fixture
-def restart_logging_impl() -> RestartLogging:
-    """Provide in-memory RestartLogging implementation."""
-    return restart_logging_in_memory
+def check_logging_config_impl() -> CheckLoggingConfig:
+    """Provide in-memory CheckLoggingConfig implementation."""
+    return check_logging_config_in_memory
 
 
 @pytest.mark.os_agnostic
@@ -152,9 +152,9 @@ def test_init_logging_does_not_raise(init_logging_impl: InitLogging) -> None:
 
 
 @pytest.mark.os_agnostic
-def test_restart_logging_in_memory_refuses_nothing(restart_logging_impl: RestartLogging) -> None:
-    """The test runtime ignores the configuration, so restarting it refuses no logging section either."""
-    restart_logging_impl(Config({"lib_log_rich": {"rate_limit": "100:60"}}, {}))
+def test_check_logging_config_in_memory_refuses_nothing(check_logging_config_impl: CheckLoggingConfig) -> None:
+    """The test runtime ignores the configuration, so no logging section can break it."""
+    check_logging_config_impl(Config({"lib_log_rich": {"rate_limit": "100:60"}}, {}))
 
 
 # ======================== Composition Wiring Tests ========================

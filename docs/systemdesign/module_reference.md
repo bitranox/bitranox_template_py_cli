@@ -26,14 +26,14 @@ moves or removes a module, a CLI option or a public name.
 - `src/bitranox_template_py_cli/adapters/email/transport.py`  -  `send_email` / `send_notification` over btx_lib_mail
 - `src/bitranox_template_py_cli/adapters/email/sender.py`  -  Re-exports of `config.py` and `transport.py`
 - `src/bitranox_template_py_cli/adapters/email/validation.py`  -  Email recipient validation
-- `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization; takes only the `LOG_*` lines of a `.env`, and raises `InvalidLoggingConfigError` for a refused `[lib_log_rich]` value or `LOG_*` variable, after starting logging with its defaults (and without the `LOG_*` variables only when one of them is refused); `restart_logging` shuts the running runtime down and starts it again with another configuration
+- `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization; takes only the `LOG_*` lines of a `.env`, and raises `InvalidLoggingConfigError` for a refused `[lib_log_rich]` value or `LOG_*` variable, after starting logging with its defaults (and without the `LOG_*` variables only when one of them is refused); `check_logging_config` refuses another configuration's logging settings through lib_log_rich's `validate_config`, without touching the running runtime
 - `src/bitranox_template_py_cli/adapters/cli/`  -  CLI adapter package:
   - `__init__.py`  -  Public facade
   - `constants.py`  -  Shared constants
   - `safe_console.py`  -  Encode-safe terminal output; use `safe_console.echo` instead of `click.echo`
   - `exit_codes.py`  -  POSIX exit codes (ExitCode IntEnum)
   - `context.py`  -  Click context helpers
-  - `config_load.py`  -  Configuration load for the CLI; records a load failure, `require_config` refuses with exit 78, `restart_logging` restarts logging with a configuration reloaded by `config --profile`, refusing its logging settings as the root does
+  - `config_load.py`  -  Configuration load for the CLI; records a load failure, `require_config` refuses with exit 78, `check_logging` checks the logging settings of a configuration reloaded by `config --profile`, refusing them as the root does
   - `root.py`  -  Root command group
   - `main.py`  -  Entry point
   - `typed_click.py`  -  Strictly typed wrappers for rich_click's `option`, `version_option` and `get_current_context`
@@ -409,7 +409,7 @@ The `adapters/memory/` package provides lightweight implementations for testing:
 |---------------------|-----------------------------------------------------------------------------|
 | `memory/config.py`  | `GetConfig`, `GetDefaultConfigPath`, `DeployConfiguration`, `DisplayConfig` |
 | `memory/email.py`   | `SendEmail`, `SendNotification`                                             |
-| `memory/logging.py` | `InitLogging`, `RestartLogging`                                             |
+| `memory/logging.py` | `InitLogging`, `CheckLoggingConfig`                                         |
 
 `adapters/memory` exports `EmailSpy` (from `memory/email.py`): its `send_email` and
 `send_notification` methods satisfy the email ports and record each call as a `CapturedEmail` /

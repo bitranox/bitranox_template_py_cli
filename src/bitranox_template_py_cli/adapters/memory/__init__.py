@@ -20,28 +20,28 @@ from .config import (
     get_default_config_path_in_memory,
 )
 from .email import EmailSpy
-from .logging import init_logging_in_memory, restart_logging_in_memory
+from .logging import check_logging_config_in_memory, init_logging_in_memory
 
 # Static conformance assertions
 if TYPE_CHECKING:
     from bitranox_template_py_cli.application.ports import (
+        CheckLoggingConfig,
         GetConfig,
         GetDefaultConfigPath,
         InitLogging,
-        RestartLogging,
     )
 
     _assert_get_config: GetConfig = get_config_in_memory
     _assert_get_default_config_path: GetDefaultConfigPath = get_default_config_path_in_memory
     _assert_init_logging: InitLogging = init_logging_in_memory
-    _assert_restart_logging: RestartLogging = restart_logging_in_memory
+    _assert_check_logging_config: CheckLoggingConfig = check_logging_config_in_memory
 
 __all__ = [
     "EmailSpy",
+    "check_logging_config_in_memory",
     "deploy_configuration_in_memory",
     "display_config_in_memory",
     "get_config_in_memory",
     "get_default_config_path_in_memory",
     "init_logging_in_memory",
-    "restart_logging_in_memory",
 ]
