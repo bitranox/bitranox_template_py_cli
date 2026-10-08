@@ -413,6 +413,42 @@ def test_an_override_refuses_a_name_that_is_not_an_email_config_field() -> None:
 
 
 @pytest.mark.os_agnostic
+def test_each_command_line_option_lands_in_its_own_field() -> None:
+    """Every option is distinct from its neighbours, so a swapped parameter shows as a mismatch."""
+    overrides = EmailConfigOverrides.from_cli_options(
+        smtp_hosts=("smtp.example.com:587",),
+        smtp_username="user",
+        smtp_password=_PASSWORD,
+        use_starttls=False,
+        timeout=7.5,
+        raise_on_missing_attachments=True,
+        raise_on_invalid_recipient=False,
+    )
+
+    dumped = overrides.model_dump()
+    secret = dumped.pop("smtp_password")
+
+    assert secret.get_secret_value() == _PASSWORD
+    assert dumped == {
+        "smtphosts": ("smtp.example.com:587",),
+        "smtp_username": "user",
+        "smtp_use_starttls": False,
+        "smtp_timeout": 7.5,
+        "raise_on_missing_attachments": True,
+        "raise_on_invalid_recipient": False,
+    }
+
+
+@pytest.mark.os_agnostic
+def test_a_refused_password_value_stays_out_of_the_error_details() -> None:
+    with pytest.raises(PydanticValidationError) as caught:
+        EmailConfigOverrides.model_validate({"smtp_password": [_PASSWORD]})
+
+    assert _PASSWORD not in str(caught.value.errors())
+    assert _PASSWORD not in caught.value.json()
+
+
+@pytest.mark.os_agnostic
 def test_every_override_names_an_email_config_field() -> None:
     assert set(EmailConfigOverrides.model_fields) <= set(EmailConfig.model_fields)
 

@@ -12,8 +12,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   values (an option that was not given is `None`, an unset `--smtp-host` an empty tuple) and
   `apply_validated_overrides` merges only the options that were given. Its fields carry
   EmailConfig's own names, so a field EmailConfig renames is refused instead of slipping through,
-  and `--smtp-password` is a `SecretStr` from the moment it is read. `filter_sentinels` is gone;
-  the command line behaves as before.
+  and `--smtp-password` is a `SecretStr` from the moment it is read; the model is a btx_lib_mail
+  `SecretSafeModel`, so a refused password never appears in a validation error's details.
+  `filter_sentinels` is gone; the command line behaves as before.
 
 ## [2.3.0] 2026-10-08 16:14:12
 

@@ -11,8 +11,8 @@ import logging
 import os
 from typing import TYPE_CHECKING, Any, NoReturn
 
-from btx_lib_mail import AttachmentSecurityError
-from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
+from btx_lib_mail import AttachmentSecurityError, SecretSafeModel
+from pydantic import ConfigDict, SecretStr, ValidationError
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.email.config import describe_validation_error
@@ -33,15 +33,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class EmailConfigOverrides(BaseModel):
+class EmailConfigOverrides(SecretSafeModel):
     """The EmailConfig fields the command line overrides; ``None`` means the option was not given.
 
     Each field carries EmailConfig's own name, so a field EmailConfig renames is refused here
     instead of being passed along unnoticed. The password stays a ``SecretStr`` from the moment
-    the command line hands it over, and no validation error shows an input.
+    the command line hands it over, and a validation error never carries its value, not even in
+    ``errors()`` or ``json()``.
     """
 
-    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    credential_fields = frozenset({"smtp_password"})
 
     smtphosts: tuple[str, ...] | None = None
     smtp_username: str | None = None
