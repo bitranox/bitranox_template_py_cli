@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.1.3] 2026-10-08 11:57:40
+
 ### Fixed
 - **`config --profile NAME` refuses an invalid logging setting like `config` does.** The
   subcommand's `--profile` reloads the configuration after logging has started, and that reload
