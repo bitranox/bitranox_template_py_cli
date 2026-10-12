@@ -12,7 +12,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 - The devcontainer image and interpreter path move from Python 3.13 to 3.14.
-- Requires `lib_log_rich>=6.5.1`, `lib_layered_config>=7.1.4` and `pydantic>=2.14.1` (and, in the
+- Requires `lib_log_rich>=6.5.1`, `lib_layered_config>=7.1.6` and `pydantic>=2.14.1` (and, in the
   dev extra, `ruff>=0.17.0`, `rtoml>=0.14.0`, `virtualenv>=21.14.7`); the Makefile is bmk 3.19.0.
 
 ### Fixed
