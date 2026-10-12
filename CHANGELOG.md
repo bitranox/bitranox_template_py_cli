@@ -15,6 +15,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - Requires `lib_log_rich>=6.5.1`, `lib_layered_config>=7.1.4` and `pydantic>=2.14.1` (and, in the
   dev extra, `ruff>=0.17.0`, `rtoml>=0.14.0`, `virtualenv>=21.14.7`); the Makefile is bmk 3.19.0.
 
+### Fixed
+- The `graylog_endpoint` and `rate_limit` notes in `.env.example` and `90-logging.toml` said a
+  `host:port` or `100:60` string makes every command exit 22. It does not: `info` still runs
+  (exit 0) and the commands that read the configuration exit 78. The notes now say that only the
+  native `LOG_GRAYLOG_ENDPOINT` and `LOG_RATE_LIMIT` variables take that form.
+
 ## [2.4.0] 2026-10-08 17:34:36
 
 ### Changed
