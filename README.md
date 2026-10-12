@@ -30,7 +30,7 @@
 - Runtime dependencies are declared with >= floors in pyproject.toml. Dev
   dependencies (pytest, ruff, pyright, bandit, etc.) are declared the same way.
 - CI workflows exercise GitHub's rolling runner images (`ubuntu-latest`,
-  `macos-latest`, `windows-latest`) and cover CPython 3.10 through 3.14
+  `macos-latest`, `windows-latest`) and cover CPython 3.10 through 3.15
   alongside the latest available 3.x release provided by Actions.
 
 ---
