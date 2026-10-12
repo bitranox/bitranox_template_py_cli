@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.4.1] 2026-10-12 18:59:22
+
 ### Added
 - Python 3.15 is declared and tested: the classifier puts it into the CI matrix and
   `make test-all`, and `make test` now builds the development venv on 3.15.
