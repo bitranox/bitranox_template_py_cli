@@ -16,6 +16,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   dev extra, `ruff>=0.17.0`, `rtoml>=0.14.0`, `virtualenv>=21.14.7`); the Makefile is bmk 3.19.0.
 
 ### Fixed
+- **A digit-only `[lib_log_rich]` service or environment name no longer fails validation.**
+  lib_layered_config 7.1 reads an unquoted `.env` or environment value that spells a number
+  losslessly as an int, so `LIB_LOG_RICH__SERVICE=4711` reached `LoggingConfigModel` as `4711`
+  and was refused with `Input should be a valid string`. The model now reads the number back as
+  the text that was written. The email section already did this for the SMTP user name and
+  password.
 - The `graylog_endpoint` and `rate_limit` notes in `.env.example` and `90-logging.toml` said a
   `host:port` or `100:60` string makes every command exit 22. It does not: `info` still runs
   (exit 0) and the commands that read the configuration exit 78. The notes now say that only the
