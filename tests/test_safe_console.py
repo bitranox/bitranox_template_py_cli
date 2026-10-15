@@ -216,7 +216,7 @@ class TestTheStreamsOwnErrorHandlerIsHonoured:
 
         safe_console.echo(f"x{chr(0xDC00 + byte)}y", file=stream)
 
-        assert _bytes_written(stream) == b"x?y\n"
+        assert _bytes_written(stream) == f"x\\x{byte:02x}y\n".encode("ascii")
 
     def test_rich_output_does_not_write_a_c1_control_byte_raw_either(self) -> None:
         stream = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="surrogateescape", newline="")
@@ -225,7 +225,7 @@ class TestTheStreamsOwnErrorHandlerIsHonoured:
 
         written = _bytes_written(stream)
         assert b"\x9b" not in written
-        assert b"x?y" in written
+        assert b"x\\x9by" in written
 
 
 @pytest.mark.skipif(

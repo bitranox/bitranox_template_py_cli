@@ -16,8 +16,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `Value error, ` in front, like the `[email]` refusals.
 - Console output no longer writes a raw C1 control byte (0x80-0x9F) for a lone surrogate on a
   `surrogateescape` stream (Python's UTF-8 mode, a C/POSIX locale): such a byte, 0x9B being the
-  8-bit CSI, is obeyed by a terminal that reads 8-bit controls, so it is written as `?`. Any
-  other non-UTF-8 path byte is still written back as it is on disk.
+  8-bit CSI, is obeyed by a terminal that reads 8-bit controls, so it is written as the inert
+  ASCII escape `\x9b`, which still names the byte. Any other non-UTF-8 path byte is still
+  written back as it is on disk.
 - `send-email --smtp-host H` and `send-notification --smtp-host H` send through `H` when the
   configuration names no SMTP host; they exited 78 "No SMTP hosts configured", because the hosts
   were checked before the command-line overrides were applied.

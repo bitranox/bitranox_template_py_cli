@@ -82,8 +82,9 @@ def _streams_own_replacement(error: UnicodeEncodeError, stream_errors: str) -> s
 
     ``surrogateescape`` turns a lone surrogate back into the path byte it came from and
     ``backslashreplace`` spells the character out; a ``strict`` stream, or a handler that
-    cannot take this character (surrogateescape and a CJK glyph), gets ``?``. So does a byte in
-    the C1 control range: written raw, 0x9B is the 8-bit CSI a terminal obeys.
+    cannot take this character (surrogateescape and a CJK glyph), gets ``?``. A byte in the C1
+    control range is spelled out as ``\\x9b``: written raw, 0x9B is the 8-bit CSI a terminal
+    obeys, while the escape is inert ASCII that still names the byte on disk.
     """
     if stream_errors == "strict":
         return "?"
@@ -92,9 +93,19 @@ def _streams_own_replacement(error: UnicodeEncodeError, stream_errors: str) -> s
         replacement, _ = codecs.lookup_error(stream_errors)(single)
     except (UnicodeError, LookupError):
         return "?"
-    if isinstance(replacement, bytes) and any(byte in _C1_CONTROL_BYTES for byte in replacement):
-        return "?"
+    if isinstance(replacement, bytes):
+        return _escape_c1_controls(replacement)
     return replacement
+
+
+def _escape_c1_controls(raw: bytes) -> bytes:
+    """Return `raw` with every C1 control byte (0x80-0x9F) written as its ``\\xNN`` escape.
+
+    Examples:
+        >>> _escape_c1_controls(b"\\x9b\\xff")
+        b'\\\\x9b\\xff'
+    """
+    return b"".join(b"\\x%02x" % byte if byte in _C1_CONTROL_BYTES else bytes((byte,)) for byte in raw)
 
 
 def _replacing_unencodable(stream_errors: str) -> Callable[[UnicodeError], tuple[str | bytes, int]]:
