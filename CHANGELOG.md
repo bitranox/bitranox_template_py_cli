@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.4.3] 2026-10-15 13:17:15
+
 ### Fixed
 - The source distribution ships only the package, its tests, its docs, `README.md`, `CONFIG.md`,
   `LICENSE`, `CHANGELOG.md` and `pyproject.toml` (an include list). Earlier sdists also carried
