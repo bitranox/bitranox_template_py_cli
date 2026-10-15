@@ -174,3 +174,13 @@ def test_config_shows_the_logging_key_counts_and_still_redacts_the_password(
     assert _value(shown, "lib_log_rich.payload_limits.context_max_keys") == (30 if options else 20)
     assert _value(shown, "lib_log_rich.payload_limits.extra_max_keys") == 25
     assert _value(shown, "email.smtp_password") == "***REDACTED***"
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("field", ["password", "secret", "token"])
+def test_config_shows_the_shipped_scrub_patterns_but_hides_an_added_one(tmp_path: Path, field: str) -> None:
+    """A scrub pattern is a regex naming what to hide; only an application-added field stays redacted."""
+    shown = _config_json(tmp_path, "--set", "lib_log_rich.scrub_patterns.api_key=.+")
+
+    assert _value(shown, f"lib_log_rich.scrub_patterns.{field}") == ".+"
+    assert _value(shown, "lib_log_rich.scrub_patterns.api_key") == "***REDACTED***"

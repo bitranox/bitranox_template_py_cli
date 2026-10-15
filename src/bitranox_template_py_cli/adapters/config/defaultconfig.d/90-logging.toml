@@ -334,6 +334,8 @@ dump_format_template = ""
 # .env, one key per field: LIB_LOG_RICH__SCRUB_PATTERNS__API_KEY=.+
 # Comma-separated field=regex pairs are NOT a table: they arrive as one string and are refused.
 # Note: Patterns are merged with built-in defaults
+# Note: `config` shows the password, secret and token patterns (a regex is not a secret); write a
+#       regex for the shape of a value, never a literal secret, into them
 scrub_patterns = { password = ".+", secret = ".+", token = ".+" }
 
 # ------------------------------------------------------------------------------
