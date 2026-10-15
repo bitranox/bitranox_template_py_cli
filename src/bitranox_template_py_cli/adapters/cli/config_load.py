@@ -106,7 +106,8 @@ def start_logging(
     exit 78 and the refusal: ``lib_log_rich.<key>: <reason>`` for a problem the section's type
     check finds, lib_log_rich's own message for a value only lib_log_rich refuses, whether it
     came from the section or a ``LOG_*`` variable (``lib_log_rich: Invalid runtime settings:
-    console_level: Unknown log level: 'bogus'``).
+    console_level: Unknown log level: 'bogus'`` for the section, the same line naming
+    ``LOG_CONSOLE_LEVEL`` for the variable).
 
     Args:
         services: The composition's services; only ``init_logging`` is used.

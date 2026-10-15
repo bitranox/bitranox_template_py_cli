@@ -8,6 +8,7 @@ Contents:
     * :func:`init_logging` - idempotent logging initialization from the ``[lib_log_rich]``
       section and the ``LOG_*`` variables (the environment, plus the ``LOG_*`` lines of a ``.env``).
     * :func:`check_logging_config` - refuse another configuration's logging settings without touching the runtime.
+    * :func:`log_variables_hidden` - remove every ``LOG_*`` variable for a block, then put each back.
     * :class:`InvalidLoggingConfigError` - the ``[lib_log_rich]`` section or a ``LOG_*`` variable
       cannot configure logging.
     * :func:`_build_runtime_config` - constructs RuntimeConfig from layered sources.

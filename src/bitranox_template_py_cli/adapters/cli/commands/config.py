@@ -218,7 +218,7 @@ def _check_profile_name(_ctx: click.Context, _param: click.Parameter, value: str
     "set_permissions",
     default=None,
     help=(
-        "Set Unix permissions (755/644 for app/host, 700/600 for user). "
+        "Set Unix permissions (the configured modes, else 755/644 for app/host, 700/600 for user). "
         "Default: the configured enabled (on when unset)."
     ),
 )

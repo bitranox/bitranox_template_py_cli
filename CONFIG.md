@@ -338,12 +338,11 @@ bitranox-template-py-cli config-generate-examples --destination .
 
 #### Generated Files
 
-| File              | Description                                        |
-|-------------------|----------------------------------------------------|
-| `config.toml`     | Main configuration file with all sections          |
-| `config.d/*.toml` | Modular configuration files (email, logging, etc.) |
-
-Each file contains commented documentation explaining available options and their default values.
+The command writes lib_layered_config's example layout: one placeholder file per layer location
+(`config.toml`, `config.d/10-override.toml`, `hosts/your-hostname.toml`, under `xdg/` and `home/`
+or the platform's equivalents) plus a `.env.example`. They show WHERE each layer reads from and
+hold a generic `[service]` placeholder, not this application's settings. For a file holding this
+application's defaults with every option documented, use `config-deploy`.
 
 ### Runtime Overrides
 

@@ -346,7 +346,8 @@ def _reason(item: ErrorDetails) -> str:
 def describe_validation_error(error: ValidationError) -> list[str]:
     """Render an EmailConfig validation error as one ``<key>: <reason>`` line per problem.
 
-    The refused input is never part of a line: it can be the SMTP password.
+    The refused input is never added to a line, since it can be the SMTP password. A validator's
+    own reason may quote the value (a timeout, an address, as below); no credential's reason does.
 
     Args:
         error: The error loading or overriding ``EmailConfig`` raised.

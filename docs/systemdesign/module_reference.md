@@ -32,7 +32,7 @@ moves or removes a module, a CLI option or a public name.
   - `constants.py`  -  Shared constants
   - `safe_console.py`  -  Encode-safe terminal output; use `safe_console.echo` instead of `click.echo`
   - `exit_codes.py`  -  POSIX exit codes (ExitCode IntEnum)
-  - `context.py`  -  Click context helpers
+  - `context.py`  -  Click context helpers (`CLIContext`) and the traceback preference state
   - `config_load.py`  -  Configuration load for the CLI; records a load failure, `require_config` refuses with exit 78, `check_logging` checks the logging settings of a configuration reloaded by `config --profile`, refusing them as the root does
   - `root.py`  -  Root command group
   - `main.py`  -  Entry point
@@ -246,7 +246,7 @@ Send email using configured SMTP settings.
 | `--raise-on-missing-attachments / --no-raise-on-missing-attachments` | Override missing-attachment handling |
 | `--raise-on-invalid-recipient / --no-raise-on-invalid-recipient`     | Override invalid-recipient handling  |
 
-**Exit codes:** 0, 2 (file not found, or usage error), 22 (invalid option value), 69 (SMTP failure), 77 (an attachment refused by btx_lib_mail's security checks), 78 (no SMTP hosts, an invalid `[email]` section, or configuration not loadable)
+**Exit codes:** 0, 1 (unexpected error), 2 (file not found, or usage error), 22 (invalid option value, or more recipients or attachments than `recipient_max_count` / `attachments.max_count`), 69 (SMTP failure), 77 (an attachment refused by btx_lib_mail's security checks), 78 (no SMTP host configured or given with `--smtp-host`, an invalid `[email]` section, or configuration not loadable)
 
 ### send-notification
 
@@ -265,7 +265,7 @@ Send simple plain-text notification email.
 | `--timeout SECONDS`                                              | Override timeout                    |
 | `--raise-on-invalid-recipient / --no-raise-on-invalid-recipient` | Override invalid-recipient handling |
 
-**Exit codes:** 0, 2 (usage error), 22 (invalid option value), 69 (SMTP failure), 78 (no SMTP hosts, an invalid `[email]` section, or configuration not loadable)
+**Exit codes:** 0, 1 (unexpected error), 2 (usage error), 22 (invalid option value, or more recipients than `recipient_max_count`), 69 (SMTP failure), 78 (no SMTP host configured or given with `--smtp-host`, an invalid `[email]` section, or configuration not loadable)
 
 ### logdemo
 
@@ -275,7 +275,10 @@ Run logging demonstration.
 |----------------|----------------------------------|
 | `--theme NAME` | Logging theme (default: classic) |
 
-**Exit codes:** 0
+The demo runs lib_log_rich's own demo runtime: it does not read the configuration, so a
+`--set lib_log_rich.*` value changes nothing in it, while a `LOG_*` variable does.
+
+**Exit codes:** 0, 22 (an unknown `--theme`, or a `LOG_*` variable lib_log_rich refuses)
 
 ---
 
@@ -371,7 +374,8 @@ defaults, the app, host and user files, `.env`, the environment, `--set`) into o
 - a limit of 0 (`max_size_bytes`, `max_count`, `recipient_max_count`, `delivery_deadline`) means no limit.
 
 `describe_validation_error()` renders a refusal as one `email.<file key>: <reason>` line per
-problem, never with the refused value.
+problem. It never adds the refused value; a validator's own reason may quote it
+(`timeout must be positive, got -5.0`, an invalid address), a credential's reason never does.
 
 `adapters/email/config.py` also exports the key tables the loader works from:
 

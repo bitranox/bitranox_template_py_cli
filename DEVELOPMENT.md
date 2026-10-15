@@ -142,6 +142,8 @@ To publish a release:
 
 ## Codecov
 
-- `make test` writes `coverage.xml`; `make codecov` uploads it.
+- `make test` writes `coverage.xml`. CI uploads it with `codecov/codecov-action`; `make codecov`
+  uploads it from your machine only when the `codecovcli` command is on PATH, since codecov-cli is
+  left out of the dev extra (see `pyproject.toml`).
 - For private repos, set `CODECOV_TOKEN` (see `.env.example`) or export it in your shell.
 - For public repos, a token is typically not required.

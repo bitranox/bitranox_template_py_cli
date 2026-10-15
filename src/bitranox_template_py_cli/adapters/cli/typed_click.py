@@ -17,8 +17,9 @@ are still used at runtime) through a typed ``Protocol``: the ``cast`` is a no-op
 at runtime, and the wrappers keep the exact same public signatures they always
 had, so no rule needs to be silenced anywhere.
 
-Other click members (``command``, ``group``, ``echo``, ``Context``, ``Path`` ...)
-type cleanly and are still used directly as ``click.X`` at call sites.
+Other click members (``command``, ``group``, ``Context``, ``Path`` ...) type
+cleanly and are still used directly as ``click.X`` at call sites. Output goes
+through ``safe_console.echo``, never ``click.echo``.
 """
 
 from collections.abc import Callable

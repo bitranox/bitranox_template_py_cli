@@ -197,7 +197,7 @@ bitranox-template-py-cli --set email.smtp_hosts='["smtp.example.com:587"]' confi
 
 # Logging demo
 bitranox-template-py-cli logdemo
-bitranox-template-py-cli --set lib_log_rich.console_level=DEBUG logdemo
+LOG_CONSOLE_LEVEL=DEBUG bitranox-template-py-cli logdemo   # logdemo reads LOG_* only, not --set
 
 # Send email
 bitranox-template-py-cli send-email \
