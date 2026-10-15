@@ -18,6 +18,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `surrogateescape` stream (Python's UTF-8 mode, a C/POSIX locale): such a byte, 0x9B being the
   8-bit CSI, is obeyed by a terminal that reads 8-bit controls, so it is written as `?`. Any
   other non-UTF-8 path byte is still written back as it is on disk.
+- `send-email --smtp-host H` and `send-notification --smtp-host H` send through `H` when the
+  configuration names no SMTP host; they exited 78 "No SMTP hosts configured", because the hosts
+  were checked before the command-line overrides were applied.
 
 ## [2.4.2] 2026-10-15 12:30:56
 
