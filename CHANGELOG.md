@@ -6,6 +6,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+- `ai-transparency.md` described another project (pve-bindsnap: Proxmox bind mounts, its
+  `BINDSNAP-*` keywords and skill) and claimed the GNU AGPL v3.0, while this template is under
+  the MIT License. It now describes this template's own work and states the MIT License.
+
 ## [2.4.1] 2026-10-12 18:59:22
 
 ### Added
