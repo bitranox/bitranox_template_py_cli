@@ -12,6 +12,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   now fails `make test`; before, nothing enforced it. Proven with a complexity-11 function, which
   ruff reported only once `C90` was selected; the tree itself already passes.
 
+### Tests
+
+- The sdist bytecode check in `tests/test_packaging.py` matches a path component named `__pycache__`
+  (or a `.pyc` file); its substring test failed a repository whose test fixtures sit under a directory
+  such as `test__pycache__`.
+
 ## [2.4.3] 2026-10-15 13:17:15
 
 ### Fixed
