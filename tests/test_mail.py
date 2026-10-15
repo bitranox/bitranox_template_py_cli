@@ -651,6 +651,8 @@ def test_send_email_includes_html_body() -> None:
     payload = transport.deliveries[0].payload
     assert b"multipart/alternative" in payload
     assert b"text/html" in payload
+    assert b"Plain text" in payload
+    assert b"<h1>HTML</h1>" in payload
 
 
 @pytest.mark.os_agnostic
@@ -769,6 +771,7 @@ def test_send_notification_delivers_plain_text_message() -> None:
     )
 
     assert result is True
+    assert [delivery.recipient for delivery in transport.deliveries] == ["admin@test.com"]
     payload = transport.deliveries[0].payload
     assert b"System notification" in payload
     assert b"text/html" not in payload

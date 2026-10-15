@@ -73,11 +73,23 @@ def test_blank_text_means_not_configured(key: str, blank: str) -> None:
 
 
 @pytest.mark.os_agnostic
+@pytest.mark.parametrize("blank", ["", "  "], ids=["empty", "spaces"])
 @pytest.mark.parametrize("key", ["smtp_hosts", "recipients"])
-def test_a_blank_list_string_means_an_empty_list(key: str) -> None:
-    config = _load({key: "  "})
+def test_a_blank_list_string_means_an_empty_list(key: str, blank: str) -> None:
+    """``EMAIL__SMTP_HOSTS=`` arrives as ``""``; a line of spaces as ``"  "``."""
+    config = _load({key: blank})
 
     assert getattr(config, {"smtp_hosts": "smtphosts"}.get(key, key)) == []
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("blank", ["", "  "], ids=["empty", "spaces"])
+def test_a_blank_list_string_given_to_the_model_means_an_empty_list(blank: str) -> None:
+    """The loader drops blanks before the model sees them; Python code building the model does not."""
+    config = EmailConfig(smtphosts=blank, recipients=blank, from_address="sender@example.com")
+
+    assert config.smtphosts == []
+    assert config.recipients == []
 
 
 @pytest.mark.os_agnostic
