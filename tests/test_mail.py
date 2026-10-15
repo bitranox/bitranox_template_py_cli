@@ -828,7 +828,7 @@ def test_send_notification_forwards_from_address_override() -> None:
     assert transport.deliveries[0].sender == "override@test.com"
 
 
-# ======================== send_email — from_address validation ========================
+# ======================== send_email - from_address validation ========================
 
 
 @pytest.mark.os_agnostic
@@ -1064,7 +1064,7 @@ def test_email_config_accepts_empty_recipients_list() -> None:
     assert config.recipients == []
 
 
-# ======================== load_email_config_from_dict — recipients ========================
+# ======================== load_email_config_from_dict - recipients ========================
 
 
 @pytest.mark.os_agnostic
@@ -1091,7 +1091,7 @@ def test_load_config_defaults_recipients_to_empty_list() -> None:
     assert config.recipients == []
 
 
-# ======================== send_email — recipients fallback ========================
+# ======================== send_email - recipients fallback ========================
 
 
 @pytest.mark.os_agnostic
@@ -1189,7 +1189,7 @@ def test_send_email_raises_when_parameter_is_empty_list() -> None:
         )
 
 
-# ======================== send_notification — recipients fallback ========================
+# ======================== send_notification - recipients fallback ========================
 
 
 @pytest.mark.os_agnostic
