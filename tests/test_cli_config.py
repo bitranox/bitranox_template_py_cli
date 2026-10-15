@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -875,7 +876,7 @@ def unreadable_user_config(
 
 @pytest.mark.os_posix
 @pytest.mark.skipif(
-    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    sys.platform == "win32" or os.geteuid() == 0,
     reason="chmod 000 binds only a non-root POSIX user: root reads any file, Windows has no POSIX modes",
 )
 @pytest.mark.parametrize("command", [["config"], ["send-notification", "--subject", "s", "--message", "m"]])
