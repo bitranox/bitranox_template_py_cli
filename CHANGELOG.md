@@ -7,6 +7,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ## [Unreleased]
 
 ### Fixed
+- The source distribution ships only the package, its tests, its docs, `README.md`, `CONFIG.md`,
+  `LICENSE`, `CHANGELOG.md` and `pyproject.toml` (an include list). Earlier sdists also carried
+  repository working files such as `reset_git_history.sh` and, in a local build, anything hidden
+  only through `.git/info/exclude` or a nested `.gitignore` (`handover.md`, `OPEN-WORK.md`,
+  `.private/`). `tests/test_packaging.py` builds the sdist and wheel and checks both.
 - A refused `[lib_log_rich]` setting that takes one of several types (`console_styles`) is named
   by the key a configuration file writes, once: pydantic's tag for each arm of the union
   (`console_styles.dict[str,str]`) no longer appears, and arms refused for the same reason share
