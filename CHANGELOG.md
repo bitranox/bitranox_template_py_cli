@@ -6,6 +6,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+- A refused `[lib_log_rich]` setting that takes one of several types (`console_styles`) is named
+  by the key a configuration file writes, once: pydantic's tag for each arm of the union
+  (`console_styles.dict[str,str]`) no longer appears, and arms refused for the same reason share
+  one line.
+- A `[lib_log_rich]` value a validator refuses reads as the validator wrote it
+  (`lib_log_rich.queue_maxsize: queue_maxsize must be positive`), without pydantic's
+  `Value error, ` in front, like the `[email]` refusals.
+
 ## [2.4.2] 2026-10-15 12:30:56
 
 ### Added

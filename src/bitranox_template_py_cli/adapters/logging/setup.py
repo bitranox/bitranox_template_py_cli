@@ -21,6 +21,7 @@ System Role:
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -35,6 +36,8 @@ from bitranox_template_py_cli.domain.errors import ConfigurationError
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    from pydantic_core import ErrorDetails
 
 
 class LoggingConfigModel(BaseModel):
@@ -117,7 +120,7 @@ class InvalidLoggingConfigError(ConfigurationError):
         >>> try:
         ...     _build_runtime_config(Config({"lib_log_rich": {"rate_limit": "100:60"}}, {}))
         ... except ValidationError as exc:
-        ...     print(InvalidLoggingConfigError(_problems(exc)))
+        ...     print(InvalidLoggingConfigError(_problems(exc, {"rate_limit": "100:60"})))
         lib_log_rich.rate_limit: Input should be a valid tuple
     """
 
@@ -132,13 +135,15 @@ _LOG_VARIABLE_PREFIX = "LOG_"
 _PROJECT_MARKERS = ("pyproject.toml", ".git")
 
 
-def _problems(error: BaseException) -> list[str]:
+def _problems(error: BaseException, section: object) -> list[str]:
     """One line per problem: key and reason from the first pydantic error in ``error``'s chain.
 
-    A pydantic problem never repeats the refused value; one no single key owns (a model-wide
-    check) has no key and reads ``lib_log_rich: <reason>``. Without a pydantic error in the chain,
-    the line is lib_log_rich's own first line, which may repeat the value
-    (``Invalid runtime settings: console_level: Unknown log level: 'bogus'``).
+    ``section`` is the ``[lib_log_rich]`` section the settings were built from; it tells the keys
+    the reader wrote from the tags pydantic adds for each arm of a union. Arms that fail for the
+    same reason collapse into one line. A pydantic problem never repeats the refused value; one no
+    single key owns (a model-wide check) has no key and reads ``lib_log_rich: <reason>``. Without
+    a pydantic error in the chain, the line is lib_log_rich's own first line, which may repeat the
+    value (``Invalid runtime settings: console_level: Unknown log level: 'bogus'``).
     """
     cause: BaseException | None = error
     while cause is not None and not isinstance(cause, ValidationError):
@@ -147,19 +152,75 @@ def _problems(error: BaseException) -> list[str]:
         # Not a pydantic error (e.g. an unknown level name in a LOG_* variable): lib_log_rich's
         # own first line.
         return [f"lib_log_rich: {str(error).splitlines()[0]}"]
-    return [f"{_problem_key(item['loc'])}: {item['msg']}" for item in cause.errors()]
+    lines = [f"{_problem_key(item['loc'], section)}: {_reason(item)}" for item in cause.errors()]
+    return list(dict.fromkeys(lines))
 
 
-def _problem_key(loc: tuple[int | str, ...]) -> str:
-    """``lib_log_rich.<key>`` for a problem located at a key, bare ``lib_log_rich`` for a model-wide one.
+def _reason(item: ErrorDetails) -> str:
+    """The reason as its validator wrote it, without the ``Value error, `` pydantic puts in front.
 
     Example:
-        >>> _problem_key(("rate_limit",))
+        >>> _reason({"type": "value_error", "loc": (), "msg": "Value error, x", "input": 0,
+        ...          "ctx": {"error": ValueError("queue_maxsize must be positive")}})
+        'queue_maxsize must be positive'
+        >>> _reason({"type": "tuple_type", "loc": (), "msg": "Input should be a valid tuple", "input": 0})
+        'Input should be a valid tuple'
+    """
+    error = item.get("ctx", {}).get("error")
+    if item["type"] == "value_error" and isinstance(error, ValueError):
+        return str(error)
+    return item["msg"]
+
+
+#: pydantic's location part for a refused mapping KEY (not its value).
+_KEY_PART = "[key]"
+
+
+def _problem_key(loc: tuple[int | str, ...], section: object) -> str:
+    """``lib_log_rich.<key>`` for a problem located at a key, bare ``lib_log_rich`` for a model-wide one.
+
+    Only the location parts present in ``section`` are keys the reader wrote; every other part is
+    a tag pydantic gives one arm of a union (``dict[str,str]``) and is left out. A refused mapping
+    key itself ends in `` (key)``.
+
+    Example:
+        >>> _problem_key(("rate_limit",), {"rate_limit": "100:60"})
         'lib_log_rich.rate_limit'
-        >>> _problem_key(())
+        >>> _problem_key(("console_styles", "dict[str,str]", "INFO"), {"console_styles": {"INFO": 3}})
+        'lib_log_rich.console_styles.INFO'
+        >>> _problem_key(("console_styles", "dict[int-enum[LogLevel],str]", "INFO", "[key]"),
+        ...              {"console_styles": {"INFO": 3}})
+        'lib_log_rich.console_styles.INFO (key)'
+        >>> _problem_key((), {})
         'lib_log_rich'
     """
-    return ".".join(["lib_log_rich", *(str(part) for part in loc)])
+    parts = ["lib_log_rich"]
+    node: object = section
+    for index, part in enumerate(loc):
+        if part == _KEY_PART:
+            return ".".join(parts) + " (key)"
+        if index == 0 or _holds(node, part):
+            parts.append(str(part))
+            node = _child(node, part)
+    return ".".join(parts)
+
+
+def _holds(node: object, part: int | str) -> bool:
+    """Whether ``part`` is a key of the mapping, or an index of the list, the reader wrote."""
+    if isinstance(node, Mapping):
+        return part in cast("Mapping[object, object]", node)
+    if isinstance(node, Sequence) and not isinstance(node, str) and isinstance(part, int):
+        return 0 <= part < len(cast("Sequence[object]", node))
+    return False
+
+
+def _child(node: object, part: int | str) -> object:
+    """The value under ``part``, or None when ``node`` does not hold it."""
+    if not _holds(node, part):
+        return None
+    if isinstance(node, Mapping):
+        return cast("Mapping[object, object]", node)[part]
+    return cast("Sequence[object]", node)[cast("int", part)]
 
 
 def _nearest_dotenv() -> Path | None:
@@ -300,7 +361,7 @@ def init_logging(config: Config, *, dotenv_path: str | None = None) -> None:
         # LOG_* variables) both refuse here; neither has started the runtime.
         _start_default_logging()
         lib_log_rich.runtime.attach_std_logging()
-        raise InvalidLoggingConfigError(_problems(exc)) from exc
+        raise InvalidLoggingConfigError(_problems(exc, _section(config))) from exc
     lib_log_rich.runtime.attach_std_logging()
 
 
@@ -330,7 +391,12 @@ def check_logging_config(config: Config) -> None:
     try:
         lib_log_rich.runtime.validate_config(_build_runtime_config(config))
     except ValueError as exc:  # pydantic's ValidationError is a ValueError
-        raise InvalidLoggingConfigError(_problems(exc)) from exc
+        raise InvalidLoggingConfigError(_problems(exc, _section(config))) from exc
+
+
+def _section(config: Config) -> object:
+    """The ``[lib_log_rich]`` section as written, for telling its keys from pydantic's union tags."""
+    return config.get("lib_log_rich", default={})
 
 
 __all__ = [

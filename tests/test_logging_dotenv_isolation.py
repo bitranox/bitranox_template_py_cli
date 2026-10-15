@@ -324,6 +324,36 @@ def test_checking_logging_accepts_graylog_over_udp_without_tls() -> None:
     check_logging_config(Config({"lib_log_rich": _graylog_section(tls=False)}, {}))
 
 
+@pytest.mark.os_agnostic
+def test_a_refused_union_setting_is_named_by_its_key_once() -> None:
+    """pydantic refuses each arm of a union setting under a tag of its own; the reader wrote only the key."""
+    with pytest.raises(InvalidLoggingConfigError) as caught:
+        check_logging_config(Config({"lib_log_rich": {"console_styles": 5}}, {}))
+
+    assert caught.value.problems == ["lib_log_rich.console_styles: Input should be a valid dictionary"]
+
+
+@pytest.mark.os_agnostic
+def test_a_refused_entry_of_a_union_setting_names_the_entry_and_no_tag() -> None:
+    with pytest.raises(InvalidLoggingConfigError) as caught:
+        check_logging_config(Config({"lib_log_rich": {"console_styles": {"INFO": 3}}}, {}))
+
+    problems = caught.value.problems
+    assert "lib_log_rich.console_styles.INFO: Input should be a valid string" in problems
+    assert all(problem.startswith("lib_log_rich.console_styles.INFO") for problem in problems), problems
+    assert not any("[" in problem.split(":")[0] for problem in problems), problems
+    assert len(problems) == len(set(problems)), problems
+
+
+@pytest.mark.os_agnostic
+def test_a_value_a_validator_refuses_reads_as_the_validator_wrote_it() -> None:
+    """pydantic prefixes a validator's ValueError with ``Value error, ``; the [email] refusal does not."""
+    with pytest.raises(InvalidLoggingConfigError) as caught:
+        check_logging_config(Config({"lib_log_rich": {"queue_maxsize": 0}}, {}))
+
+    assert caught.value.problems == ["lib_log_rich.queue_maxsize: queue_maxsize must be positive"]
+
+
 # ------------------------------------------------------------------ a refused setting still leaves logging running
 
 
@@ -398,8 +428,9 @@ def test_a_refused_log_variable_in_the_environment_leaves_info_running(tmp_path:
 def test_every_log_variable_comes_back_even_when_the_default_start_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     """The fallback start hides the ``LOG_*`` variables; a failure there must not lose them.
 
-    ``lib_log_rich.runtime.init`` is the third-party edge: the first call refuses like a bad
-    level, the second (the defaults) fails for a reason of its own.
+    ``lib_log_rich.runtime.init`` is the third-party edge: the configuration and then the defaults
+    with the variables are refused like a bad level, and the third call (the defaults without
+    them) fails for a reason of its own.
     """
     monkeypatch.setenv("LOG_CONSOLE_LEVEL", "bogus")
     variable_seen: list[bool] = []
