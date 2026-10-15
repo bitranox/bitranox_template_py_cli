@@ -898,6 +898,21 @@ def test_send_email_raises_when_smtp_connection_fails() -> None:
 
 
 @pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    "failure",
+    [ConnectionError("simulated"), ConnectionRefusedError(111, "refused")],
+    ids=["connection-error", "connection-refused"],
+)
+def test_send_email_raises_when_a_socket_level_error_hits_every_host(failure: OSError) -> None:
+    """A plain OSError (not an SMTPException) from the transport still becomes DeliveryError."""
+    config = EmailConfig(smtphosts=["smtp.test.com:587"], from_address="sender@test.com")
+    transport = RecordingTransport(failing_hosts=["smtp.test.com:587"], failure=failure)
+
+    with pytest.raises(DeliveryError, match=r"failed.*on all of following hosts"):
+        send_email(config=config, recipients="recipient@test.com", subject="Test", body="Hello", transport=transport)
+
+
+@pytest.mark.os_agnostic
 def test_send_email_raises_when_authentication_fails() -> None:
     """SMTP authentication failure raises DeliveryError."""
     config = EmailConfig(

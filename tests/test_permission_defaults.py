@@ -24,7 +24,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from lib_layered_config import Config
+import rtoml
+from lib_layered_config import Config, deploy_permissions_from_config
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod
@@ -295,6 +296,23 @@ def test_a_non_boolean_enabled_is_not_reported_as_a_mode(
 # flags as untrusted input, so what varies between cases goes through the environment or the
 # working directory, or the case gets its own literal call.
 
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("source", ["shipped", "unconfigured"])
+def test_the_layer_modes_are_755_644_for_app_and_host_and_700_600_for_user(source: str) -> None:
+    """A deploy with nothing configured, and with the shipped section, uses these modes."""
+    shipped = get_default_config_path().parent / "defaultconfig.d" / "40-layered-config.toml"
+    data = rtoml.load(shipped) if source == "shipped" else {}
+    settings = deploy_permissions_from_config(Config(data, {}))
+
+    modes = {
+        layer: (settings.for_layer(layer).directory.value, settings.for_layer(layer).file.value)
+        for layer in ("app", "host", "user")
+    }
+    assert modes == {"app": (0o755, 0o644), "host": (0o755, 0o644), "user": (0o700, 0o600)}
+    assert settings.enabled is True
+
+
 _LINUX_ONLY = pytest.mark.skipif(
     not sys.platform.startswith("linux"), reason="XDG_CONFIG_HOME locates the user layer on Linux"
 )
@@ -396,6 +414,68 @@ def test_an_unquoted_set_mode_is_applied_on_disk(tmp_path: Path) -> None:
         check=False,
         env=_env(tmp_path),
     )
+
+    assert completed.returncode == 0, _stderr(completed)
+    assert _user_modes(tmp_path) == (0o750, 0o640)
+
+
+@_LINUX_ONLY
+def test_explicit_modes_take_precedence_over_configured_ones(tmp_path: Path) -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "bitranox_template_py_cli",
+            "--set",
+            'lib_layered_config.default_permissions.user_directory="0o750"',
+            "--set",
+            'lib_layered_config.default_permissions.user_file="0o640"',
+            "config-deploy",
+            "--target",
+            "user",
+            "--dir-mode",
+            "700",
+            "--file-mode",
+            "600",
+        ],
+        capture_output=True,
+        check=False,
+        env=_env(tmp_path),
+    )
+
+    assert completed.returncode == 0, _stderr(completed)
+    assert _user_modes(tmp_path) == (0o700, 0o600)
+
+
+@_LINUX_ONLY
+def test_a_quoted_unprefixed_set_mode_is_read_as_octal(tmp_path: Path) -> None:
+    """``'"640"'`` is the JSON string "640", read as octal 0o640, unlike the bare integer 640."""
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "bitranox_template_py_cli",
+            "--set",
+            'lib_layered_config.default_permissions.user_directory="750"',
+            "--set",
+            'lib_layered_config.default_permissions.user_file="640"',
+            "config-deploy",
+            "--target",
+            "user",
+        ],
+        capture_output=True,
+        check=False,
+        env=_env(tmp_path),
+    )
+
+    assert completed.returncode == 0, _stderr(completed)
+    assert _user_modes(tmp_path) == (0o750, 0o640)
+
+
+@_LINUX_ONLY
+def test_a_configured_mode_from_the_environment_is_applied_on_disk(tmp_path: Path) -> None:
+    """The library's own read of the section (not --set overrides) decides the deployed modes."""
+    completed = _deploy_user(tmp_path, {f"{_ENV_PREFIX}USER_DIRECTORY": "0o750", f"{_ENV_PREFIX}USER_FILE": "0o640"})
 
     assert completed.returncode == 0, _stderr(completed)
     assert _user_modes(tmp_path) == (0o750, 0o640)

@@ -8,13 +8,16 @@ refused, whatever layer it came from.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
+import btx_lib_mail
 import pytest
 from btx_lib_mail import ConfMail
 from pydantic import ValidationError
 
+from bitranox_template_py_cli.adapters.config.loader import get_default_config_path
 from bitranox_template_py_cli.adapters.email.config import (
     EmailConfig,
     describe_validation_error,
@@ -90,6 +93,11 @@ def test_a_blank_list_string_given_to_the_model_means_an_empty_list(blank: str) 
 
     assert config.smtphosts == []
     assert config.recipients == []
+
+
+@pytest.mark.os_agnostic
+def test_an_unconfigured_size_limit_is_the_library_default() -> None:
+    assert _load({}).attachment_max_size_bytes == ConfMail().attachment_max_size_bytes == 26_214_400
 
 
 @pytest.mark.os_agnostic
@@ -317,3 +325,13 @@ def test_an_unknown_key_with_control_characters_is_shown_escaped() -> None:
 @pytest.mark.os_agnostic
 def test_a_size_limit_of_zero_written_as_a_float_means_no_limit() -> None:
     assert _load({"attachments": {"max_size_bytes": 0.0}}).attachment_max_size_bytes is None
+
+
+@pytest.mark.os_agnostic
+def test_every_btx_lib_mail_constant_the_mail_defaults_cite_exists() -> None:
+    """50-mail.toml names the library's default lists; a rename upstream would leave the comment pointing nowhere."""
+    text = (get_default_config_path().parent / "defaultconfig.d" / "50-mail.toml").read_text(encoding="utf-8")
+    cited = set(re.findall(r"\b(?:DANGEROUS|SENSITIVE)_[A-Z_]+\b", text))
+
+    assert len(cited) >= 5, cited
+    assert sorted(name for name in cited if not hasattr(btx_lib_mail, name)) == []

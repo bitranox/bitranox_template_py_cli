@@ -78,13 +78,17 @@ def test_a_single_string_is_refused_too(setting: str) -> None:
     lines = _refusal(setting, ".pdf" if "extensions" in setting else "/srv/outbox")
 
     assert [line.split(": ")[0] for line in lines] == [f"email.attachments.{setting}"]
+    assert "JSON array" in lines[0], lines
 
 
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize("setting", LIST_SETTINGS)
 @pytest.mark.parametrize("value", [7, True, {"a": 1}], ids=["int", "bool", "dict"])
 def test_a_value_of_another_type_is_refused(setting: str, value: object) -> None:
-    assert [line.split(": ")[0] for line in _refusal(setting, value)] == [f"email.attachments.{setting}"]
+    lines = _refusal(setting, value)
+
+    assert [line.split(": ")[0] for line in lines] == [f"email.attachments.{setting}"]
+    assert "JSON array" in lines[0], lines
 
 
 @pytest.mark.os_agnostic
