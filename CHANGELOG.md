@@ -50,6 +50,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `attachments.allow_empty_blocklists`, a key the configuration loader refuses as unknown.
 
 ### Tests
+- The `os_windows`, `os_macos`, `os_linux` and `os_posix` markers now skip a test off its platform
+  (`pytest_runtest_setup` in `tests/conftest.py`); registered in `pyproject.toml` alone they skipped
+  nothing, so a test trusting its marker ran everywhere. `tests/test_platform_markers.py` pins it.
 - A configuration file the user cannot read (mode 000) is pinned to exit 78 with one stderr line naming the
   file, for `config` and `send-notification`: lib_layered_config 7.1.1 wraps the PermissionError in a
   LayerLoadError, and exit 13 stays reserved for a refused write (`config-deploy`).
