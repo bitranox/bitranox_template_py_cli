@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Final, Protocol, cast
 
 from lib_layered_config import (
     DEFAULT_MAX_PROFILE_LENGTH,
@@ -19,6 +19,14 @@ except ImportError:  # pragma: no cover - older lib_layered_config without the d
     _LibValidationError = ValueError
 
 from bitranox_template_py_cli import __init__conf__
+
+#: Dotted paths whose names look secret to lib_layered_config's redaction (``*_keys``) but hold
+#: plain counts, so ``config`` shows their values. Every Config this application builds carries
+#: the declaration: the loader passes it to ``read_config``, and ``--set`` rebuilds pass it on.
+NOT_SENSITIVE: Final[tuple[str, ...]] = (
+    "lib_log_rich.payload_limits.context_max_keys",
+    "lib_log_rich.payload_limits.extra_max_keys",
+)
 
 
 class ConfigLoaderProtocol(Protocol):
@@ -112,6 +120,7 @@ def _get_config_impl(
         default_file=get_default_config_path(),
         start_dir=start_dir,
         dotenv_path=dotenv_path,
+        not_sensitive=NOT_SENSITIVE,
     )
 
 
@@ -192,6 +201,7 @@ get_config: ConfigLoaderProtocol = cast("ConfigLoaderProtocol", _get_config)
 
 
 __all__ = [
+    "NOT_SENSITIVE",
     "get_config",
     "get_default_config_path",
     "validate_profile",

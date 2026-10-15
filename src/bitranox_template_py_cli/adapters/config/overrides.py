@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 import orjson
-from lib_layered_config import Config
+from lib_layered_config import Config, NotSensitiveKeys
+
+from .loader import NOT_SENSITIVE
 
 if TYPE_CHECKING:
     from lib_layered_config.domain.config import SourceInfo
@@ -288,7 +290,8 @@ def apply_overrides(config: Config, raw_overrides: tuple[str, ...]) -> Config:
     # reader knows to look at the invocation rather than at any file.
     merged = config.with_overrides(overrides)
     merged_as_dict = merged.as_dict()
-    return Config(merged_as_dict, _provenance_naming_the_cli(config, merged_as_dict, overridden))
+    provenance = _provenance_naming_the_cli(config, merged_as_dict, overridden)
+    return Config(merged_as_dict, provenance, NotSensitiveKeys.of(NOT_SENSITIVE))
 
 
 __all__ = [

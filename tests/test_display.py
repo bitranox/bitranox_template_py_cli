@@ -7,16 +7,22 @@ in lib_layered_config's test suite.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import json
+import os
+import subprocess
+import sys
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from lib_layered_config import Config
 
+from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters.config.display import display_config
 from bitranox_template_py_cli.domain.enums import OutputFormat
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from lib_layered_config.domain.config import SourceInfo
 
@@ -122,3 +128,49 @@ def test_display_config_json_displays_section_with_falsey_values(capsys: pytest.
     assert '"count": 0' in output
     assert '"enabled": false' in output
     assert '"items": []' in output
+
+
+# ======================== config: what is redacted ========================
+
+_PREFIX = __init__conf__.LAYEREDCONF_SLUG.upper().replace("-", "_")
+_HOMES = ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA")
+
+
+def _config_json(tmp_path: Path, *options: str) -> dict[str, Any]:
+    """Run the real ``config --format json`` with every configuration location under ``tmp_path``."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith((_PREFIX, "LOG_", "LIB_LAYERED_CONFIG"))}
+    env.update(dict.fromkeys(_HOMES, str(tmp_path)))
+    completed = subprocess.run(  # noqa: S603 - fixed argv: this interpreter running this package
+        [sys.executable, "-m", "bitranox_template_py_cli", *options, "config", "--format", "json"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return cast("dict[str, Any]", json.loads(completed.stdout))
+
+
+def _value(shown: dict[str, Any], dotted: str) -> object:
+    node: Any = shown
+    for part in dotted.split("."):
+        node = node[part]
+    return cast("object", node)
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize(
+    "options", [(), ("--set", "lib_log_rich.payload_limits.context_max_keys=30")], ids=["loaded", "with-set"]
+)
+def test_config_shows_the_logging_key_counts_and_still_redacts_the_password(
+    tmp_path: Path, options: tuple[str, ...]
+) -> None:
+    """``*_max_keys`` are counts whose names only look secret; the SMTP password stays hidden."""
+    shown = _config_json(tmp_path, *options)
+
+    assert _value(shown, "lib_log_rich.payload_limits.context_max_keys") == (30 if options else 20)
+    assert _value(shown, "lib_log_rich.payload_limits.extra_max_keys") == 25
+    assert _value(shown, "email.smtp_password") == "***REDACTED***"

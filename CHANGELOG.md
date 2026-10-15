@@ -26,6 +26,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   bundled content) logs "No configuration file written".
 - `send-email` logs "Sending email" once per send: the command logged it and so did the transport.
   The transport's line stays, since it carries the resolved sender and recipients.
+- `config` shows `lib_log_rich.payload_limits.context_max_keys` and `extra_max_keys`, plain counts,
+  instead of `***REDACTED***`: their names matched lib_layered_config's secret pattern (`*_keys`).
+  The two paths are declared not sensitive (`NOT_SENSITIVE` in `adapters/config/loader.py`), also
+  for a configuration a `--set` rebuilt; `email.smtp_password` stays redacted.
 
 ## [2.4.2] 2026-10-15 12:30:56
 
