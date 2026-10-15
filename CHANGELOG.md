@@ -50,6 +50,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `attachments.allow_empty_blocklists`, a key the configuration loader refuses as unknown.
 
 ### Tests
+- A plain `pytest` run no longer deletes the coverage database in the system temp directory, and
+  its SQLite journal files, at the start of every session: `tests/conftest.py`'s
+  `pytest_configure` purged them whatever else was using them, while the `COVERAGE_FILE` redirect
+  it also set never took effect (pytest-cov creates its Coverage object before any conftest is
+  imported). Both are gone; `tests/test_coverage_database.py` plants a database and requires a real
+  pytest run to leave it alone.
 - The `os_windows`, `os_macos`, `os_linux` and `os_posix` markers now skip a test off its platform
   (`pytest_runtest_setup` in `tests/conftest.py`); registered in `pyproject.toml` alone they skipped
   nothing, so a test trusting its marker ran everywhere. `tests/test_platform_markers.py` pins it.
