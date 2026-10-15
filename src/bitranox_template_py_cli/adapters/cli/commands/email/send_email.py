@@ -6,7 +6,6 @@ Provides the send-email command with HTML and attachment support.
 from __future__ import annotations
 
 import functools
-import logging
 from pathlib import Path
 
 import lib_log_rich.runtime
@@ -22,33 +21,6 @@ from ._common import (
     load_and_validate_email_config,
     smtp_config_options,
 )
-
-logger = logging.getLogger(__name__)
-
-
-def _log_send_email_start(
-    recipients: list[str] | None,
-    subject: str,
-    body_html: str,
-    attachments: tuple[str, ...],
-) -> None:
-    """Log the start of an email send operation.
-
-    Args:
-        recipients: Email recipients, or None when using config defaults.
-        subject: Email subject.
-        body_html: HTML body content.
-        attachments: Attachment file paths.
-    """
-    logger.info(
-        "Sending email",
-        extra={
-            "recipients": recipients,
-            "subject": subject,
-            "has_html": bool(body_html),
-            "attachment_count": len(attachments) if attachments else 0,
-        },
-    )
 
 
 @click.command("send-email", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -122,7 +94,7 @@ def cli_send_email(
         )
         attachment_paths = [Path(p) for p in attachments] if attachments else None
 
-        _log_send_email_start(resolved_recipients, subject, body_html, attachments)
+        # No "Sending email" line here: the transport logs it with the resolved sender and recipients.
         execute_with_email_error_handling(
             operation=functools.partial(
                 cli_ctx.services.send_email,

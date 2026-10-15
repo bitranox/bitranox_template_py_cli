@@ -24,6 +24,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - `config-deploy` logs "Deployed configuration" only when it wrote a file, now with the files
   written; a deploy that wrote nothing (every target exists, or under `--force` already holds the
   bundled content) logs "No configuration file written".
+- `send-email` logs "Sending email" once per send: the command logged it and so did the transport.
+  The transport's line stays, since it carries the resolved sender and recipients.
 
 ## [2.4.2] 2026-10-15 12:30:56
 

@@ -7,10 +7,13 @@ email operations.
 
 from __future__ import annotations
 
+import dataclasses
+import functools
+import logging
 import smtplib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
@@ -19,6 +22,7 @@ from btx_lib_mail import ConfMail
 from pydantic import SecretStr
 from pydantic import ValidationError as PydanticValidationError
 
+from bitranox_template_py_cli.adapters import cli as cli_mod
 from bitranox_template_py_cli.adapters.cli.commands.email._common import EmailConfigOverrides, apply_validated_overrides
 from bitranox_template_py_cli.adapters.email.sender import (
     EmailConfig,
@@ -32,6 +36,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from btx_lib_mail.lib_mail import DeliveryOptions
+    from click.testing import CliRunner
+    from conftest import EmailCliContext
 
 # ======================== Transport test double ========================
 
@@ -1224,6 +1230,29 @@ def test_send_notification_raises_when_no_recipients_anywhere() -> None:
 
 
 # ======================== send_email logging behavior ========================
+
+
+@pytest.mark.os_agnostic
+def test_send_email_through_the_cli_logs_sending_email_once(
+    cli_runner: CliRunner,
+    email_cli_context: Callable[[dict[str, Any]], EmailCliContext],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The transport logs the send with the resolved sender and recipients; the command must not repeat it."""
+    ctx = email_cli_context({"smtp_hosts": ["smtp.test.com:587"], "from_address": "sender@test.com"})
+    transport = RecordingTransport()
+    services = dataclasses.replace(ctx.factory(), send_email=functools.partial(send_email, transport=transport))
+
+    with caplog.at_level(logging.INFO):
+        result = cli_runner.invoke(
+            cli_mod.cli,
+            ["send-email", "--to", "recipient@test.com", "--subject", "S", "--body", "B"],
+            obj=lambda: services,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert [delivery.recipient for delivery in transport.deliveries] == ["recipient@test.com"]
+    assert [record.getMessage() for record in caplog.records].count("Sending email") == 1
 
 
 @pytest.mark.os_agnostic
