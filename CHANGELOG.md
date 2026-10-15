@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.4.2] 2026-10-15 12:30:56
+
 ### Added
 - `uv.lock` is committed, and `[tool.uv] exclude-newer` sets a cooldown that keeps releases younger
   than it out of the lock. CI installs exactly the locked tree on push and pull request; the nightly

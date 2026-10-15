@@ -67,7 +67,7 @@ wheels = [
 
 [[package]]
 name = "bitranox-template-py-cli"
-version = "2.4.1"
+version = "2.4.2"
 source = { editable = "." }
 dependencies = [
     { name = "btx-lib-mail" },
