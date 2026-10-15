@@ -101,7 +101,8 @@ class LoadEmailConfigFromDict(Protocol):
 class InitLogging(Protocol):
     """Initialize lib_log_rich runtime with the provided configuration.
 
-    ``dotenv_path`` is the ``.env`` the configuration was loaded with, or None for the nearest one.
+    ``dotenv_path`` is the ``.env`` the configuration was loaded with, or None for the one the
+    configuration's provenance names.
     A refused logging setting raises ``InvalidLoggingConfigError`` only after logging has been
     started with its defaults, so the caller never has to start it a second time.
     """

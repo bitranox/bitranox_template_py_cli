@@ -478,3 +478,68 @@ def test_a_refused_log_variable_is_hidden_and_the_fallback_still_logs(tmp_path: 
 
     assert result.returncode == 0, result.stderr
     assert _INFO_LINE in result.stderr, result.stderr
+
+
+# ------------------------------------------------------------------ logging reads the .env the configuration read
+
+_LINUX_ONLY = pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="XDG_CONFIG_HOME locates the user .env on Linux"
+)
+
+
+@pytest.mark.os_agnostic
+def test_logging_reads_the_dotenv_above_a_nested_project_root(tmp_path: Path) -> None:
+    """A checkout nested in another (a worktree) has its own project root below the ``.env``.
+
+    lib_layered_config walks past that root to the parent's ``.env``; logging must read the same file.
+    """
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "pyproject.toml").write_text("", encoding="utf-8")
+    shown = _run(nested, "info")
+    (tmp_path / ".env").write_text("LOG_CONSOLE_LEVEL=error\n", encoding="utf-8")
+
+    quieted = _run(nested, "info")
+
+    # Premise: without the .env, info's INFO line shows at the default console level.
+    assert shown.returncode == 0, shown.stderr
+    assert _INFO_LINE in shown.stderr, shown.stderr
+    assert quieted.returncode == 0, quieted.stderr
+    assert _INFO_LINE not in quieted.stderr, quieted.stderr
+
+
+@pytest.mark.os_linux
+@_LINUX_ONLY
+def test_logging_reads_the_user_dotenv_the_configuration_read(tmp_path: Path) -> None:
+    """With no project ``.env``, lib_layered_config reads the one in the user configuration directory."""
+    user_dir = tmp_path / __init__conf__.LAYEREDCONF_SLUG
+    user_dir.mkdir()
+    (user_dir / ".env").write_text("LOG_CONSOLE_LEVEL=error\n", encoding="utf-8")
+    work = tmp_path / "work"
+    work.mkdir()
+
+    result = _run(work, "info", env={"XDG_CONFIG_HOME": str(tmp_path)})
+
+    assert result.returncode == 0, result.stderr
+    assert _INFO_LINE not in result.stderr, result.stderr
+
+
+@pytest.mark.os_linux
+@_LINUX_ONLY
+def test_without_a_loaded_configuration_logging_walks_past_a_nested_project_root(tmp_path: Path) -> None:
+    """A broken configuration file leaves no provenance; the fallback makes the loader's own walk."""
+    user_dir = tmp_path / __init__conf__.LAYEREDCONF_SLUG
+    user_dir.mkdir()
+    (user_dir / "config.toml").write_text("[broken\n", encoding="utf-8")
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "pyproject.toml").write_text("", encoding="utf-8")
+    (tmp_path / ".env").write_text("LOG_CONSOLE_LEVEL=error\n", encoding="utf-8")
+
+    refused = _run(nested, "config", env={"XDG_CONFIG_HOME": str(tmp_path)})
+    result = _run(nested, "info", env={"XDG_CONFIG_HOME": str(tmp_path)})
+
+    # Premise: the configuration really did not load.
+    assert refused.returncode == 78, refused.stderr
+    assert result.returncode == 0, result.stderr
+    assert _INFO_LINE not in result.stderr, result.stderr

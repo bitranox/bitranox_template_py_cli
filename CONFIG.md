@@ -488,12 +488,15 @@ LOG_CONSOLE_FORMAT_PRESET=short
 LOG_ENABLE_GRAYLOG=false
 ```
 
-By default, the application searches upward from the current directory to discover `.env` files.
+By default, the configuration loader reads ONE `.env` as its `.env` layer: the first one from the
+current directory up to the filesystem root (past any `pyproject.toml` or `.git`, so a checkout
+nested in another reads the outer one's `.env`), or, when there is none, the per-user fallback
+`.env` (see the `.env` row of the layer table above).
 
-Logging reads the `LOG_*` lines of the same `.env` (the `--env-file` when one is given, otherwise the
-nearest `.env` up to the project root) and copies only those into the environment, never over a
-variable that is already set. No other `.env` line reaches the environment, so a `.env` cannot act
-as the environment layer for a later configuration load.
+Logging reads the `LOG_*` lines of that same file (the `--env-file` when one is given; when the
+configuration did not load, the first `.env` on the same upward walk) and copies only those into
+the environment, never over a variable that is already set. No other `.env` line reaches the
+environment, so a `.env` cannot act as the environment layer for a later configuration load.
 
 To load a specific `.env` file instead, use `--env-file`:
 

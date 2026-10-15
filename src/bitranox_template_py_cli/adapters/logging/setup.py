@@ -132,8 +132,8 @@ class InvalidLoggingConfigError(ConfigurationError):
 
 #: The variables lib_log_rich reads itself; the only lines of a ``.env`` logging takes.
 _LOG_VARIABLE_PREFIX = "LOG_"
-#: A directory holding one of these is a project root: the upward ``.env`` search stops there.
-_PROJECT_MARKERS = ("pyproject.toml", ".git")
+#: The provenance layer name lib_layered_config gives the values it read from a ``.env``.
+_DOTENV_LAYER = "dotenv"
 
 
 def _problems(error: BaseException, section: object) -> list[str]:
@@ -224,9 +224,32 @@ def _child(node: object, part: int | str) -> object:
     return cast("Sequence[object]", node)[cast("int", part)]
 
 
-def _nearest_dotenv() -> Path | None:
-    """The ``.env`` in the working directory or the nearest parent, up to the project root.
+def _configured_dotenv(config: Config) -> Path | None:
+    """The ``.env`` the configuration's dotenv layer was read from, as its provenance records it.
 
+    lib_layered_config turns every ``LOG_*`` line of that file into a top-level key, so a file
+    holding one is always found here; a file holding none has nothing for logging anyway.
+
+    Example:
+        >>> source = {"layer": "dotenv", "path": "/srv/app/.env", "key": "log_console_level"}
+        >>> _configured_dotenv(Config({"log_console_level": "DEBUG"}, {"log_console_level": source})).as_posix()
+        '/srv/app/.env'
+        >>> _configured_dotenv(Config({}, {})) is None
+        True
+    """
+    for key in config:
+        source = config.origin(key)
+        if source is not None and source["layer"] == _DOTENV_LAYER and source["path"] is not None:
+            return Path(source["path"])
+    return None
+
+
+def _nearest_dotenv() -> Path | None:
+    """The first ``.env`` from the working directory up to the filesystem root.
+
+    The same walk lib_layered_config makes for its ``.env`` layer, used when the configuration
+    did not load and so cannot say which file it read. There is no project-root stop: the
+    loader has none, so a checkout nested in another (a worktree) reads the outer ``.env``.
     Walks by path only: no ``chdir``, and a directory that cannot be read is passed over.
     """
     try:
@@ -234,35 +257,38 @@ def _nearest_dotenv() -> Path | None:
     except OSError:
         return None
     for directory in (start, *start.parents):
-        found, stop = _dotenv_in(directory)
-        if found is not None or stop:
+        found = _dotenv_in(directory)
+        if found is not None:
             return found
     return None
 
 
-def _dotenv_in(directory: Path) -> tuple[Path | None, bool]:
-    """The ``.env`` in ``directory``, and whether the search stops there (a project root).
+def _dotenv_in(directory: Path) -> Path | None:
+    """The ``.env`` file in ``directory``, or None.
 
-    A directory that cannot be read is passed over: Python before 3.14 raises for a path
-    behind a directory without search permission instead of answering False.
+    A directory that cannot be read has none: Python before 3.14 raises for a path behind a
+    directory without search permission instead of answering False.
     """
     try:
         candidate = directory / ".env"
-        if candidate.is_file():
-            return candidate, True
-        return None, any((directory / marker).exists() for marker in _PROJECT_MARKERS)
+        return candidate if candidate.is_file() else None
     except OSError:
-        return None, False
+        return None
 
 
-def _load_log_variables(dotenv_path: str | None) -> None:
+def _load_log_variables(config: Config, dotenv_path: str | None) -> None:
     """Copy the ``LOG_*`` lines of a ``.env`` into the environment, never replacing a set variable.
+
+    The file is ``dotenv_path`` when one is given, otherwise the one the configuration loader
+    read (it walks past a nested project root and falls back to the ``.env`` in the user
+    configuration directory), so a ``LOG_*`` line applies wherever that file's other lines do.
+    Only when the configuration did not load is it the first ``.env`` on the loader's own walk.
 
     Only ``LOG_*``: any other line would be read as the environment layer by a later
     configuration load (``config --profile``, the deploy's permission read). A file that
     cannot be read or decoded is skipped; the configuration loader reports it.
     """
-    path = Path(dotenv_path) if dotenv_path is not None else _nearest_dotenv()
+    path = Path(dotenv_path) if dotenv_path is not None else _configured_dotenv(config) or _nearest_dotenv()
     if path is None:
         return
     try:
@@ -323,7 +349,9 @@ def init_logging(config: Config, *, dotenv_path: str | None = None) -> None:
         config: Already-loaded layered configuration object containing logging
             settings in the [lib_log_rich] section.
         dotenv_path: The ``.env`` the configuration was loaded with (``--env-file``), or None
-            to use the nearest ``.env`` from the working directory up to the project root.
+            to use the ``.env`` the configuration's provenance names (when it did not load: the
+            first ``.env`` from the working directory up to the filesystem root, the same walk
+            the loader makes).
 
     Raises:
         InvalidLoggingConfigError: The ``[lib_log_rich]`` section or a ``LOG_*`` variable holds
@@ -354,7 +382,7 @@ def init_logging(config: Config, *, dotenv_path: str | None = None) -> None:
     """
     if lib_log_rich.runtime.is_initialised():
         return
-    _load_log_variables(dotenv_path)
+    _load_log_variables(config, dotenv_path)
     try:
         lib_log_rich.runtime.init(_build_runtime_config(config))
     except ValueError as exc:  # pydantic's ValidationError is a ValueError

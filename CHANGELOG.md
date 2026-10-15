@@ -12,6 +12,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   repository working files such as `reset_git_history.sh` and, in a local build, anything hidden
   only through `.git/info/exclude` or a nested `.gitignore` (`handover.md`, `OPEN-WORK.md`,
   `.private/`). `tests/test_packaging.py` builds the sdist and wheel and checks both.
+- Logging takes its `LOG_*` lines from the `.env` the configuration loader read, named by the
+  configuration's provenance. It searched only up to the first `pyproject.toml` or `.git`, while
+  the loader walks on to the filesystem root and falls back to the per-user `.env`, so in a
+  checkout nested in another (a worktree), or with only a per-user `.env`, that file's other lines
+  applied and its `LOG_CONSOLE_LEVEL` did not. When the configuration did not load, logging takes
+  the first `.env` on the loader's own walk.
 - A refused `[lib_log_rich]` setting that takes one of several types (`console_styles`) is named
   by the key a configuration file writes, once: pydantic's tag for each arm of the union
   (`console_styles.dict[str,str]`) no longer appears, and arms refused for the same reason share
