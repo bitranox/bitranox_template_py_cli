@@ -90,9 +90,15 @@ _LIST_FORM = 'a list: a TOML array, or in an environment variable a JSON array s
 _ONE_OR_MANY = frozenset({"smtp_hosts", "recipients"})
 #: What pydantic puts in front of the message of a ValueError a validator raised.
 _VALUE_ERROR_PREFIX = "Value error, "
-#: A field name inside a library message, rewritten so the reader sees the key they wrote.
+#: A field name inside a library message, rewritten so the reader sees the key they wrote. Only
+#: fields a file key reaches: ``attachment_allow_empty_blocklists`` has none, so its name stays as
+#: Python spells it rather than becoming ``attachments.allow_empty_blocklists``, an unknown key.
 _FIELD_NAME_IN_TEXT = re.compile(
-    r"\b(?:" + "|".join(map(re.escape, _FIELD_TO_FILE_KEY)) + "|" + _ATTACHMENT_PREFIX + r"\w+)\b"
+    r"\b(?:"
+    + "|".join(map(re.escape, _FIELD_TO_FILE_KEY))
+    + "|"
+    + "|".join(re.escape(_ATTACHMENT_PREFIX + key) for key in sorted(ATTACHMENT_KEYS))
+    + r")\b"
 )
 
 

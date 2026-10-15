@@ -30,6 +30,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   instead of `***REDACTED***`: their names matched lib_layered_config's secret pattern (`*_keys`).
   The two paths are declared not sensitive (`NOT_SENSITIVE` in `adapters/config/loader.py`), also
   for a configuration a `--set` rebuilt; `email.smtp_password` stays redacted.
+- The refusal of an empty blocked attachment set built from Python names its way out as
+  `attachment_allow_empty_blocklists=True`, the setting that exists; it said
+  `attachments.allow_empty_blocklists`, a key the configuration loader refuses as unknown.
 
 ## [2.4.2] 2026-10-15 12:30:56
 

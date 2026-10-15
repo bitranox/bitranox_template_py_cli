@@ -19,6 +19,7 @@ from pydantic import ValidationError
 
 from bitranox_template_py_cli.adapters.config.loader import get_default_config_path
 from bitranox_template_py_cli.adapters.email.config import (
+    ATTACHMENT_KEYS,
     EmailConfig,
     describe_validation_error,
     load_email_config_from_dict,
@@ -335,3 +336,22 @@ def test_every_btx_lib_mail_constant_the_mail_defaults_cite_exists() -> None:
 
     assert len(cited) >= 5, cited
     assert sorted(name for name in cited if not hasattr(btx_lib_mail, name)) == []
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("kind", ["extensions", "directories"])
+def test_an_empty_blocked_set_from_python_names_only_keys_that_exist(kind: str) -> None:
+    """Only Python reaches this refusal (the file loader reads an empty list as the defaults).
+
+    Its hint names the Python-only knob; spelling it as a file key would send the reader to
+    ``attachments.allow_empty_blocklists``, which the loader refuses as unknown.
+    """
+    with pytest.raises(ValidationError) as caught:
+        EmailConfig.model_validate({"from_address": "sender@example.com", f"attachment_blocked_{kind}": frozenset()})
+
+    lines = describe_validation_error(caught.value)
+    assert len(lines) == 1, lines
+    assert "attachment_allow_empty_blocklists=True" in lines[0]
+    named = re.findall(r"\battachments\.(\w+)", lines[0])
+    assert named, lines
+    assert sorted(set(named) - ATTACHMENT_KEYS) == []
