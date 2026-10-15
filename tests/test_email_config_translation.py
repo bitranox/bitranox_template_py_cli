@@ -86,7 +86,7 @@ def test_a_blank_list_string_means_an_empty_list(key: str, blank: str) -> None:
 @pytest.mark.parametrize("blank", ["", "  "], ids=["empty", "spaces"])
 def test_a_blank_list_string_given_to_the_model_means_an_empty_list(blank: str) -> None:
     """The loader drops blanks before the model sees them; Python code building the model does not."""
-    config = EmailConfig(smtphosts=blank, recipients=blank, from_address="sender@example.com")
+    config = EmailConfig.model_validate({"smtphosts": blank, "recipients": blank, "from_address": "sender@example.com"})
 
     assert config.smtphosts == []
     assert config.recipients == []
