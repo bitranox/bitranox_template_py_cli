@@ -38,6 +38,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `attachment_allow_empty_blocklists=True`, the setting that exists; it said
   `attachments.allow_empty_blocklists`, a key the configuration loader refuses as unknown.
 
+### Tests
+- A configuration file the user cannot read (mode 000) is pinned to exit 78 with one stderr line naming the
+  file, for `config` and `send-notification`: lib_layered_config 7.1.1 wraps the PermissionError in a
+  LayerLoadError, and exit 13 stays reserved for a refused write (`config-deploy`).
+
 ## [2.4.2] 2026-10-15 12:30:56
 
 ### Added

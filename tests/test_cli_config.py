@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -11,7 +12,7 @@ from bitranox_template_py_cli.adapters import cli as cli_mod
 from bitranox_template_py_cli.adapters.config import loader as config_mod
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Iterator, Mapping
 
     from click.testing import CliRunner, Result
     from lib_layered_config import Config
@@ -848,3 +849,51 @@ def test_when_config_subcommand_has_no_profile_it_uses_stored_config_with_overri
     assert result.exit_code == 0
     assert "overridden" in result.stdout
     assert '"original"' not in result.stdout
+
+
+@pytest.fixture
+def unreadable_user_config(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+    user_layer_in_tmp_path: Path,
+    clear_config_cache: None,
+) -> Iterator[Path]:
+    """Deploy the user-layer config through the CLI, then make its ``config.toml`` unreadable (mode 000)."""
+    deploy: Result = cli_runner.invoke(
+        cli_mod.cli, ["config-deploy", "--target", "user", "--force"], obj=production_factory
+    )
+    written = [Path(line.removeprefix("  + ")) for line in deploy.output.splitlines() if line.startswith("  + ")]
+    config_file = next(path for path in written if path.name == "config.toml")
+    assert config_file.resolve().is_relative_to(user_layer_in_tmp_path.resolve())
+    config_file.chmod(0o000)
+    config_mod.get_config.cache_clear()  # the deploy cached a load made while the file was readable
+    try:
+        yield config_file
+    finally:
+        config_file.chmod(0o600)
+
+
+@pytest.mark.os_posix
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="chmod 000 binds only a non-root POSIX user: root reads any file, Windows has no POSIX modes",
+)
+@pytest.mark.parametrize("command", [["config"], ["send-notification", "--subject", "s", "--message", "m"]])
+def test_when_the_user_config_file_is_unreadable_a_config_reading_command_exits_78_and_names_it(
+    cli_runner: CliRunner,
+    production_factory: Callable[[], Any],
+    unreadable_user_config: Path,
+    command: list[str],
+) -> None:
+    """An unreadable configuration file is 'configuration not loadable' (78), as the exit-code table documents.
+
+    PERMISSION_DENIED (13) is for a refused WRITE (``config-deploy``); a refused READ is a
+    configuration problem. lib_layered_config wraps the PermissionError in LayerLoadError,
+    and the command must end with one stderr line naming the file, not a traceback.
+    """
+    result: Result = cli_runner.invoke(cli_mod.cli, command, obj=production_factory)
+
+    assert result.exit_code == 78
+    assert str(unreadable_user_config) in result.output
+    assert "Permission denied" in result.output
+    assert "Traceback" not in result.output
