@@ -18,7 +18,7 @@ Contents:
       variable is a load failure.
     * :func:`check_logging` - the same refusal for a configuration loaded after logging started.
     * :func:`require_config` - the configuration, or exit 78 naming the failure.
-    * :func:`report_load_failure` - the one-line report, after the traceback on request.
+    * :func:`report_load_failure` - one line per problem, after the traceback on request.
     * :func:`echo_load_traceback` - the loader's traceback alone, for a caller with its own line.
 """
 

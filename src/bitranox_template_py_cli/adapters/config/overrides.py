@@ -282,10 +282,10 @@ def apply_overrides(config: Config, raw_overrides: tuple[str, ...]) -> Config:
 
     overrides, overridden = nest_overrides(raw_overrides)
 
-    # Rebuilt rather than returned straight from with_overrides, which shares
-    # the original provenance map by design: the merged value is the CLI's and
-    # its recorded origin still named the file it replaced, so `config` sent a
-    # reader to a file holding the old value.
+    # Rebuilt rather than returned straight from with_overrides, which records
+    # each overridden key as the library's generic "override" layer: `config`
+    # names the command line ("cli") as the source of a --set value, so a
+    # reader knows to look at the invocation rather than at any file.
     merged = config.with_overrides(overrides)
     merged_as_dict = merged.as_dict()
     return Config(merged_as_dict, _provenance_naming_the_cli(config, merged_as_dict, overridden))

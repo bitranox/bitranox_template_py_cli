@@ -331,9 +331,10 @@ def test_apply_overrides_rejects_malformed_input() -> None:
 def test_apply_overrides_names_the_cli_as_the_source_of_an_overridden_key() -> None:
     """An overridden key reports the CLI as its origin, not the layer it replaced.
 
-    ``Config.with_overrides`` returns the merged data with the ORIGINAL provenance
-    map by design, so without a rebuild ``config`` answers "where did this come
-    from" with the file holding the value that was just replaced.
+    ``Config.with_overrides`` records an overridden key as the library's generic
+    ``override`` layer; the rebuild names the command line (``cli``), so ``config``
+    answers "where did this come from" with the invocation, never with the file
+    holding the value that was just replaced.
     """
     config = Config({"s": {"k": 1}}, {"s.k": {"layer": "file", "path": "/etc/app.toml", "key": "s.k"}})
 

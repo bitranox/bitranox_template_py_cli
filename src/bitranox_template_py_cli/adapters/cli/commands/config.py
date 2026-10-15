@@ -408,6 +408,8 @@ def _permission_overrides(cli_ctx: CLIContext) -> Mapping[str, object] | None:
     value = section[_PERMISSIONS_KEY]
     if isinstance(value, Mapping):
         return cast("Mapping[str, object]", value)
+    # "override", not the "cli" `config` shows: lib_layered_config's own refusal of a --set
+    # permission value names that layer "override", and one deploy should name it one way.
     safe_console.echo(
         f"Error: {_LAYERED_CONFIG_SECTION}.{_PERMISSIONS_KEY}: must be a table, "
         f"got {type(value).__name__} (source: override)",
