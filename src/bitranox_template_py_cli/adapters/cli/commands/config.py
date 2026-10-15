@@ -346,11 +346,7 @@ def _execute_deploy(
             file_mode=file_mode,
             permission_overrides=overrides,
         )
-        # Logged after the call, so the line reports what happened rather than an attempt.
-        logger.info(
-            "Deployed configuration",
-            extra={"targets": tuple(t.value for t in targets), "force": force, "profile": profile},
-        )
+        _log_deployment(deployed_paths, targets=targets, force=force, profile=profile)
         _report_deployment_result(deployed_paths, profile, set_permissions, force=force)
     except DeployPermissionsError as exc:
         _refuse_permission_settings(exc)
@@ -435,6 +431,26 @@ def _refuse_permission_settings(exc: DeployPermissionsError) -> None:
     if exc.hint is not None:
         safe_console.echo(_DEPLOY_ANYWAY_HINT, err=True)
     get_current_context().exit(ExitCode.CONFIG_ERROR)
+
+
+def _log_deployment(
+    deployed_paths: list[Path], *, targets: tuple[DeployTarget, ...], force: bool, profile: str | None
+) -> None:
+    """Log what the deploy wrote, after the call, so the line reports what happened.
+
+    "Deployed configuration" only when at least one file was written: an empty result (every
+    target exists, or under ``--force`` already holds the bundled content) wrote nothing.
+    """
+    extra = {
+        "targets": tuple(t.value for t in targets),
+        "force": force,
+        "profile": profile,
+        "files": [str(path) for path in deployed_paths],
+    }
+    if deployed_paths:
+        logger.info("Deployed configuration", extra=extra)
+    else:
+        logger.info("No configuration file written", extra=extra)
 
 
 def _report_deployment_result(

@@ -180,13 +180,23 @@ def test_a_library_refusal_without_a_hint_offers_none(cli_runner: CliRunner) -> 
     assert [line for line in result.stderr.splitlines() if line.strip()] == [f"Error: {_PROBLEMS[0]}"]
 
 
+def _deploying(paths: list[Path]) -> Callable[[], AppServices]:
+    """A deploy that reports ``paths`` as written."""
+
+    def deploy(**_kwargs: Any) -> list[Path]:
+        return paths
+
+    return lambda: dataclasses.replace(build_testing(), deploy_configuration=deploy)
+
+
 @pytest.mark.os_agnostic
 @pytest.mark.parametrize("refused", [True, False], ids=["refused", "deploys"])
 def test_config_deploy_logs_a_deploy_only_after_it_happened(
-    cli_runner: CliRunner, caplog: pytest.LogCaptureFixture, refused: bool
+    cli_runner: CliRunner, caplog: pytest.LogCaptureFixture, tmp_path: Path, refused: bool
 ) -> None:
     """An INFO line before the call would tell the log a deploy happened that the library refused."""
-    factory = _refusing_deploy(DeployPermissionsError(_PROBLEMS[:1])) if refused else build_testing
+    refusing = _refusing_deploy(DeployPermissionsError(_PROBLEMS[:1]))
+    factory = refusing if refused else _deploying([tmp_path / "config.toml"])
 
     with caplog.at_level(logging.INFO):
         result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=factory)
@@ -194,6 +204,24 @@ def test_config_deploy_logs_a_deploy_only_after_it_happened(
     announced = [record for record in caplog.records if record.getMessage() == "Deployed configuration"]
     assert result.exit_code == (78 if refused else 0), result.output
     assert len(announced) == (0 if refused else 1)
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("written", [1, 0], ids=["wrote-a-file", "wrote-nothing"])
+def test_deployed_configuration_is_logged_only_when_a_file_was_written(
+    cli_runner: CliRunner, caplog: pytest.LogCaptureFixture, tmp_path: Path, written: int
+) -> None:
+    """A deploy that finds every target in place writes nothing, and its log line must say so."""
+    paths = [tmp_path / "config.toml"][:written]
+
+    with caplog.at_level(logging.INFO):
+        result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"], obj=_deploying(paths))
+
+    records = [record for record in caplog.records if record.name.endswith("commands.config")]
+    messages = [record.getMessage() for record in records]
+    assert result.exit_code == 0, result.output
+    assert messages.count("Deployed configuration") == written
+    assert messages.count("No configuration file written") == 1 - written
 
 
 @pytest.mark.os_agnostic
