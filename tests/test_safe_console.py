@@ -209,6 +209,24 @@ class TestTheStreamsOwnErrorHandlerIsHonoured:
         assert safe_console.encode_safe("ex\udcff", "utf-8", errors="surrogateescape") == "ex\udcff"
         assert safe_console.encode_safe("ex\udcff", "utf-8") == "ex?"
 
+    @pytest.mark.parametrize("byte", [0x80, 0x9B, 0x9F])
+    def test_a_surrogate_for_a_c1_control_byte_is_not_written_raw(self, byte: int) -> None:
+        """0x80-0x9F are C1 controls (0x9B is the 8-bit CSI): a terminal that reads them obeys them."""
+        stream = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="surrogateescape", newline="")
+
+        safe_console.echo(f"x{chr(0xDC00 + byte)}y", file=stream)
+
+        assert _bytes_written(stream) == b"x?y\n"
+
+    def test_rich_output_does_not_write_a_c1_control_byte_raw_either(self) -> None:
+        stream = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="surrogateescape", newline="")
+
+        Console(file=safe_console.safe_stream(stream), legacy_windows=False, width=80).print("x\udc9by")
+
+        written = _bytes_written(stream)
+        assert b"\x9b" not in written
+        assert b"x?y" in written
+
 
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"), reason="Windows and APFS refuse a filename that is not valid UTF-8"

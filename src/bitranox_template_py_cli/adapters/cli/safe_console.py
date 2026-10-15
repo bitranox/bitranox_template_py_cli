@@ -72,13 +72,18 @@ _FALLBACK_ERROR_HANDLER: Final[str] = "bitranox_template_py_cli.safe_console.asc
 #: The stream error handlers a fallback handler has been registered for, by handler name.
 _REGISTERED: dict[str, str] = {}
 
+#: Bytes a terminal reading 8-bit controls obeys (C1: 0x80-0x9F). A stream's own handler that would
+#: write one raw for an unencodable character gets ``?`` instead.
+_C1_CONTROL_BYTES: Final[range] = range(0x80, 0xA0)
+
 
 def _streams_own_replacement(error: UnicodeEncodeError, stream_errors: str) -> str | bytes:
     """What the stream's own error handler writes for the first rejected character, else ``?``.
 
     ``surrogateescape`` turns a lone surrogate back into the path byte it came from and
     ``backslashreplace`` spells the character out; a ``strict`` stream, or a handler that
-    cannot take this character (surrogateescape and a CJK glyph), gets ``?``.
+    cannot take this character (surrogateescape and a CJK glyph), gets ``?``. So does a byte in
+    the C1 control range: written raw, 0x9B is the 8-bit CSI a terminal obeys.
     """
     if stream_errors == "strict":
         return "?"
@@ -86,6 +91,8 @@ def _streams_own_replacement(error: UnicodeEncodeError, stream_errors: str) -> s
     try:
         replacement, _ = codecs.lookup_error(stream_errors)(single)
     except (UnicodeError, LookupError):
+        return "?"
+    if isinstance(replacement, bytes) and any(byte in _C1_CONTROL_BYTES for byte in replacement):
         return "?"
     return replacement
 

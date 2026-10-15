@@ -14,6 +14,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - A `[lib_log_rich]` value a validator refuses reads as the validator wrote it
   (`lib_log_rich.queue_maxsize: queue_maxsize must be positive`), without pydantic's
   `Value error, ` in front, like the `[email]` refusals.
+- Console output no longer writes a raw C1 control byte (0x80-0x9F) for a lone surrogate on a
+  `surrogateescape` stream (Python's UTF-8 mode, a C/POSIX locale): such a byte, 0x9B being the
+  8-bit CSI, is obeyed by a terminal that reads 8-bit controls, so it is written as `?`. Any
+  other non-UTF-8 path byte is still written back as it is on disk.
 
 ## [2.4.2] 2026-10-15 12:30:56
 
