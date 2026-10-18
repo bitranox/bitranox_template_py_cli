@@ -17,6 +17,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - The sdist bytecode check in `tests/test_packaging.py` matches a path component named `__pycache__`
   (or a `.pyc` file); its substring test failed a repository whose test fixtures sit under a directory
   such as `test__pycache__`.
+- The `test_real_smtp_*` tests (`make testintegration`) also skip when `[email].recipients` is
+  empty, as the shipped `50-mail.toml` leaves it; with a host and sender configured they failed
+  three times with "No recipients configured".
 
 ## [2.4.3] 2026-10-15 13:17:15
 
