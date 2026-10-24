@@ -6,6 +6,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- `reset_git_history.sh` publishes the whole working tree minus ignored files. It staged only
+  tracked files, so after `rename.sh` (which leaves the renamed package untracked) it force-pushed a
+  repository without its source. It now refuses when anything is left unstaged, and keeps `.idea`
+  out whether or not it is ignored.
+- `--traceback` now applies to a crash during the root command's setup (building the services,
+  loading the configuration, starting logging). Before, such a crash printed the one-line summary
+  even with `--traceback`.
+- `notebooks/Quickstart.ipynb` fails the CI notebook job when one of its shell commands fails: every
+  `!` command is followed by `assert _exit_code == N`, since IPython's `!` never raises.
+
 ### Changed
 
 - Ruff selects `C90` (mccabe), so a function over cyclomatic complexity 10, the house hard limit,
