@@ -70,9 +70,17 @@ def cli_send_email(
 
     \f
     Example:
+        With no SMTP host configured it refuses with exit 78 (EX_CONFIG):
+
         >>> from click.testing import CliRunner
-        >>> runner = CliRunner()
-        >>> # Real invocation tested in test_cli_email.py
+        >>> from bitranox_template_py_cli.adapters.cli.root import cli
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> args = ["send-email", "--to", "a@example.com", "--subject", "Hi", "--body", "Hello"]
+        >>> result = CliRunner().invoke(cli, args, obj=build_testing)
+        >>> int(result.exit_code)
+        78
+        >>> "No SMTP hosts configured" in result.output
+        True
     """
     cli_ctx = get_cli_context(ctx)
     config = require_config(ctx, cli_ctx)

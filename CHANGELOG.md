@@ -39,6 +39,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - The `test_real_smtp_*` tests (`make testintegration`) also skip when `[email].recipients` is
   empty, as the shipped `50-mail.toml` leaves it; with a host and sender configured they failed
   three times with "No recipients configured".
+- Every CLI command's docstring example now runs, through `tests/test_cli_docstring_examples.py`.
+  `pytest --doctest-modules` never collected them (a click-decorated function is a `Command`
+  object, not a function), and three of them were false: `cli`, `info` and `hello`, invoked
+  without a services factory, exited 1. Five more only imported `CliRunner` and asserted nothing,
+  and `logdemo` had none. Each example now runs through the root group with `build_testing` and
+  checks a real result. The test fails a command whose example is false or checks no output.
 
 ## [2.4.3] 2026-10-15 13:17:15
 

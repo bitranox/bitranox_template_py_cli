@@ -75,10 +75,28 @@ def cli_config(ctx: click.Context, output_format: str, section: str | None, prof
 
     \f
     Example:
+        The in-memory services display nothing, so this wires the real display
+        over a small configuration:
+
+        >>> import dataclasses
         >>> from click.testing import CliRunner
-        >>> from unittest.mock import MagicMock
-        >>> runner = CliRunner()
-        >>> # Real invocation tested in test_cli_config.py
+        >>> from lib_layered_config import Config
+        >>> from bitranox_template_py_cli.adapters.cli.root import cli
+        >>> from bitranox_template_py_cli.adapters.config.display import display_config
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> data = Config({"email": {"from_address": "a@example.com"}}, {})
+        >>> def services():
+        ...     testing = build_testing()
+        ...     return dataclasses.replace(testing, get_config=lambda **_: data, display_config=display_config)
+        >>> result = CliRunner().invoke(cli, ["config", "--format", "json"], obj=services)
+        >>> result.exit_code
+        0
+        >>> print(result.output.strip())
+        {
+          "email": {
+            "from_address": "a@example.com"
+          }
+        }
     """
     cli_ctx = get_cli_context(ctx)
     effective_config, effective_profile = _resolve_config(ctx, cli_ctx, profile)
@@ -276,9 +294,16 @@ def cli_config_deploy(
 
     \f
     Example:
+        The in-memory deploy writes nothing, so it reports that no file was created:
+
         >>> from click.testing import CliRunner
-        >>> runner = CliRunner()
-        >>> # Real invocation tested in test_cli_config.py
+        >>> from bitranox_template_py_cli.adapters.cli.root import cli
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> result = CliRunner().invoke(cli, ["config-deploy", "--target", "user"], obj=build_testing)
+        >>> result.exit_code
+        0
+        >>> "No files were created" in result.output
+        True
     """
     if set_permissions is False and (dir_mode is not None or file_mode is not None):
         raise click.UsageError(
@@ -499,9 +524,18 @@ def cli_config_generate_examples(ctx: click.Context, destination: str, force: bo
 
     \f
     Example:
+        >>> import pathlib
+        >>> import shutil
+        >>> import tempfile
         >>> from click.testing import CliRunner
-        >>> runner = CliRunner()
-        >>> # Real invocation tested in test_cli_config.py
+        >>> from bitranox_template_py_cli.adapters.cli.root import cli
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> scratch = pathlib.Path(tempfile.mkdtemp())
+        >>> args = ["config-generate-examples", "--destination", str(scratch / "examples")]
+        >>> result = CliRunner().invoke(cli, args, obj=build_testing)
+        >>> result.exit_code, (scratch / "examples" / ".env.example").is_file()
+        (0, True)
+        >>> shutil.rmtree(scratch)
     """
     extra = {"command": "config-generate-examples", "destination": destination, "force": force}
     with lib_log_rich.runtime.bind(job_id="cli-config-generate-examples", extra=extra):

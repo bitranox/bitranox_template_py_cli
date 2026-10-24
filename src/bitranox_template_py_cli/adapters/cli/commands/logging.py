@@ -19,7 +19,17 @@ from ..typed_click import option
 @option("--theme", default="classic", help="Logging theme to preview")
 @click.pass_context
 def cli_logdemo(ctx: click.Context, theme: str) -> None:
-    """Run a logging demonstration to preview log output."""
+    """Run a logging demonstration to preview log output.
+
+    \f
+    Example:
+        >>> from click.testing import CliRunner
+        >>> from bitranox_template_py_cli.adapters.cli.root import cli
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> result = CliRunner().invoke(cli, ["logdemo"], obj=build_testing)
+        >>> result.exit_code, result.output.splitlines()[-1]
+        (0, 'Log demo completed (theme: classic)')
+    """
     import lib_log_rich  # noqa: PLC0415 - deferred: logdemo needs an uninitialised runtime, imported only when invoked
     import lib_log_rich.runtime  # noqa: PLC0415 - deferred: logdemo needs an uninitialised runtime, imported only when invoked
 

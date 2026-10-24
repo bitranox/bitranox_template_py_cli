@@ -82,13 +82,13 @@ def cli(
     observe the preference.
 
     Example:
+        ``obj`` is the services factory; a console script passes ``build_production``:
+
         >>> from click.testing import CliRunner
-        >>> runner = CliRunner()
-        >>> result = runner.invoke(cli, ["hello"])
-        >>> result.exit_code
-        0
-        >>> "Hello World" in result.output
-        True
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> result = CliRunner().invoke(cli, ["hello"], obj=build_testing)
+        >>> result.exit_code, result.output.strip()
+        (0, 'Hello World')
     """
     # First, before anything that can raise: main() reads this flag when it reports an exception,
     # so a crash in the services factory, the config loader or logging setup honours --traceback.

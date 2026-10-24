@@ -31,10 +31,13 @@ def cli_info() -> None:
     \f
     Example:
         >>> from click.testing import CliRunner
-        >>> runner = CliRunner()
-        >>> result = runner.invoke(cli_info)
-        >>> result.exit_code == 0
-        True
+        >>> from bitranox_template_py_cli.adapters.cli.root import cli
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> result = CliRunner().invoke(cli, ["info"], obj=build_testing)
+        >>> result.exit_code
+        0
+        >>> result.output.splitlines()[0]
+        'Info for bitranox-template-py-cli:'
     """
     with lib_log_rich.runtime.bind(job_id="cli-info", extra={"command": "info"}):
         logger.info("Displaying package information")
@@ -48,10 +51,11 @@ def cli_hello() -> None:
     \f
     Example:
         >>> from click.testing import CliRunner
-        >>> runner = CliRunner()
-        >>> result = runner.invoke(cli_hello)
-        >>> "Hello World" in result.output
-        True
+        >>> from bitranox_template_py_cli.adapters.cli.root import cli
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> result = CliRunner().invoke(cli, ["hello"], obj=build_testing)
+        >>> result.exit_code, result.output.strip()
+        (0, 'Hello World')
     """
     with lib_log_rich.runtime.bind(job_id="cli-hello", extra={"command": "hello"}):
         logger.info("Executing hello command")
@@ -65,10 +69,11 @@ def cli_fail() -> None:
     \f
     Example:
         >>> from click.testing import CliRunner
-        >>> runner = CliRunner()
-        >>> result = runner.invoke(cli_fail)
-        >>> result.exit_code != 0
-        True
+        >>> from bitranox_template_py_cli.adapters.cli.root import cli
+        >>> from bitranox_template_py_cli.composition import build_testing
+        >>> result = CliRunner().invoke(cli, ["fail"], obj=build_testing)
+        >>> result.exit_code, type(result.exception).__name__, str(result.exception)
+        (1, 'RuntimeError', 'I should fail')
     """
     with lib_log_rich.runtime.bind(job_id="cli-fail", extra={"command": "fail"}):
         logger.warning("Executing intentional failure command")
