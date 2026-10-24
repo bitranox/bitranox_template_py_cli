@@ -54,6 +54,15 @@ def _raising(error: Exception) -> Callable[..., Any]:
     return raise_it
 
 
+def _crashing_loader(error: Exception) -> Callable[[], AppServices]:
+    """Services whose configuration loader raises ``error``, which no load handler records."""
+
+    def build() -> AppServices:
+        return dataclasses.replace(build_testing(), get_config=_raising(error))
+
+    return build
+
+
 @pytest.mark.os_agnostic
 def test_send_email_without_smtp_hosts_exits_78_without_printing_systemexit(
     capsys: pytest.CaptureFixture[str],
@@ -158,3 +167,28 @@ def test_a_successful_command_exits_0(capsys: pytest.CaptureFixture[str]) -> Non
 
     assert exit_code == 0
     assert "Hello World" in capsys.readouterr().out
+
+
+@pytest.mark.os_agnostic
+def test_traceback_shows_the_full_trace_of_a_crash_during_root_setup(
+    capsys: pytest.CaptureFixture[str], strip_ansi: Callable[[str], str]
+) -> None:
+    """A loader bug propagates out of the root group before any command runs; --traceback must reach it."""
+    exit_code = main(["--traceback", "hello"], services_factory=_crashing_loader(RuntimeError("boom")))
+
+    err = strip_ansi(capsys.readouterr().err)
+    assert exit_code == 1
+    assert "Traceback (most recent call last)" in err
+    assert "RuntimeError: boom" in err
+
+
+@pytest.mark.os_agnostic
+def test_a_crash_during_root_setup_without_traceback_prints_only_the_summary(
+    capsys: pytest.CaptureFixture[str], strip_ansi: Callable[[str], str]
+) -> None:
+    exit_code = main(["hello"], services_factory=_crashing_loader(RuntimeError("boom")))
+
+    err = strip_ansi(capsys.readouterr().err)
+    assert exit_code == 1
+    assert "RuntimeError: boom" in err
+    assert "Traceback" not in err

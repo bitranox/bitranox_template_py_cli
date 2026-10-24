@@ -90,6 +90,9 @@ def cli(
         >>> "Hello World" in result.output
         True
     """
+    # First, before anything that can raise: main() reads this flag when it reports an exception,
+    # so a crash in the services factory, the config loader or logging setup honours --traceback.
+    apply_traceback_preferences(traceback)
     # ctx.obj is always the services factory (production or test). click types it as Any, which
     # callable() would narrow to a callable returning object; declared first, it keeps its type.
     factory: Callable[[], AppServices] | None = ctx.obj
@@ -109,7 +112,6 @@ def cli(
         env_file=env_file,
         config_error=config_error,
     )
-    apply_traceback_preferences(traceback)
 
     if ctx.invoked_subcommand is None:
         safe_console.echo(ctx.get_help())
