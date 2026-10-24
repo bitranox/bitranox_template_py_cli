@@ -30,24 +30,24 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ## One-shot run via uvx (no install needed)
 
 ```bash
-uvx bitranox_template_py_cli@latest --help
+uvx bitranox-template-py-cli@latest --help
 ```
 
 ## Persistent install as CLI tool
 
 ```bash
 # install the CLI tool (isolated environment, added to PATH)
-uv tool install bitranox_template_py_cli
+uv tool install bitranox-template-py-cli
 
 # upgrade to latest
-uv tool upgrade bitranox_template_py_cli
+uv tool upgrade bitranox-template-py-cli
 ```
 
 ## Install as project dependency
 
 ```bash
 uv venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
-uv pip install bitranox_template_py_cli
+uv pip install bitranox-template-py-cli
 ```
 
 ## Verify installation
@@ -67,7 +67,7 @@ bitranox-template-py-cli --version
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 # install from PyPI
-pip install bitranox_template_py_cli
+pip install bitranox-template-py-cli
 # optional install from GitHub
 pip install "git+https://github.com/bitranox/bitranox_template_py_cli"
 # optional development install from local
@@ -80,7 +80,7 @@ pip install .
 
 ```bash
 # install from PyPI
-pip install --user bitranox_template_py_cli
+pip install --user bitranox-template-py-cli
 # optional install from GitHub
 pip install --user "git+https://github.com/bitranox/bitranox_template_py_cli"
 # optional install from local
@@ -98,12 +98,12 @@ python -m pip install pipx
 # optional install pipx via apt
 sudo apt install pipx
 # install via pipx from PyPI
-pipx install bitranox_template_py_cli
+pipx install bitranox-template-py-cli
 # optional install via pipx from GitHub
 pipx install "git+https://github.com/bitranox/bitranox_template_py_cli"
 # optional install from local
 pipx install .
-pipx upgrade bitranox_template_py_cli
+pipx upgrade bitranox-template-py-cli
 # install from Git tag
 pipx install "git+https://github.com/bitranox/bitranox_template_py_cli@v1.1.0"
 ```
@@ -120,11 +120,11 @@ pip install dist/bitranox_template_py_cli-*.tar.gz   # sdist
 
 ```bash
 # Poetry
-poetry add bitranox_template_py_cli     # as dependency
+poetry add bitranox-template-py-cli     # as dependency
 poetry install                          # for local dev
 
 # PDM
-pdm add bitranox_template_py_cli
+pdm add bitranox-template-py-cli
 pdm install
 ```
 

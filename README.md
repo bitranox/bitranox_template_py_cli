@@ -58,7 +58,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ### One-shot run (no install needed)
 
 ```bash
-uvx bitranox_template_py_cli@latest --help
+uvx bitranox-template-py-cli@latest --help
 ```
 
 ### Persistent install as CLI tool
@@ -79,7 +79,7 @@ bitranox-template-py-cli --help
 
 ```bash
 uv venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
-uv pip install bitranox_template_py_cli
+uv pip install bitranox-template-py-cli
 ```
 
 For alternative install paths (pip, pipx, source builds, etc.), see
@@ -128,7 +128,7 @@ See [CONFIG.md](CONFIG.md) for detailed documentation on the layered configurati
 
 ```bash
 # Install
-uv tool install bitranox_template_py_cli
+uv tool install bitranox-template-py-cli
 
 # Verify
 bitranox-template-py-cli --version
@@ -221,7 +221,7 @@ bitranox-template-py-cli send-notification \
 
 # All commands work with any entry point
 python -m bitranox_template_py_cli info
-uvx bitranox_template_py_cli info
+uvx bitranox-template-py-cli info
 ```
 
 ---

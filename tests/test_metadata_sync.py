@@ -70,11 +70,14 @@ def test_version_matches_pyproject_toml() -> None:
 
 @pytest.mark.os_agnostic
 def test_name_matches_project_name() -> None:
-    """__init__conf__.name must match the pyproject.toml project name."""
+    """__init__conf__.name must be exactly the pyproject.toml project name.
+
+    The comparison is exact, not normalised: rename.sh rewrites each spelling of the old name to
+    the same spelling of the new one, so a copy whose two names drifted apart is caught here
+    rather than shipping one spelling in ``info`` and the logging service and another on PyPI.
+    """
     project_name = _read_project_name()
 
-    # Package names are normalized (underscores → hyphens in some contexts)
-    # but __init__conf__.name should match the canonical form
-    assert __init__conf__.name.replace("-", "_") == project_name.replace("-", "_"), (
+    assert __init__conf__.name == project_name, (
         f"__init__conf__.name '{__init__conf__.name}' does not match project name '{project_name}'"
     )

@@ -36,7 +36,7 @@ __all__ = [
 ]
 
 #: Distribution name declared in ``pyproject.toml``.
-name = "bitranox_template_py_cli"
+name = "bitranox-template-py-cli"
 #: Human-readable summary shown in CLI help output.
 title = "Template CLI application with configuration management and structured logging"
 #: Current release version pulled from ``pyproject.toml`` by automation.
@@ -71,7 +71,7 @@ def print_info() -> None:
     Examples
     --------
     >>> print_info()  # doctest: +ELLIPSIS
-    Info for bitranox_template_py_cli:
+    Info for bitranox-template-py-cli:
     ...
     """
 

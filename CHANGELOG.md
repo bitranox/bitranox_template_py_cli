@@ -11,6 +11,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - Ruff selects `C90` (mccabe), so a function over cyclomatic complexity 10, the house hard limit,
   now fails `make test`; before, nothing enforced it. Proven with a complexity-11 function, which
   ruff reported only once `C90` was selected; the tree itself already passes.
+- The distribution name is `bitranox-template-py-cli` (`[project].name` and `__init__conf__.name`),
+  the hyphen form of the repository name; the import package, `-m` invocations, the macOS/Windows
+  config directory and the wheel/sdist filenames keep the underscore form. It is the same PyPI
+  project, since PyPI normalises `_` and `-`. A repository created with `rename.sh` now gets the
+  hyphen form of its own name in both places, where before it had to be set by hand. `info` and the
+  default logging service name show the hyphen form, and the install commands in `README.md` and
+  `INSTALL.md` use it.
 
 ### Tests
 
