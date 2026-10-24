@@ -1,6 +1,6 @@
 [project]
 name = "bitranox-template-py-cli"
-version = "2.4.3"
+version = "2.4.4"
 description = "Template CLI application with configuration management and structured logging"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,7 @@ dependencies = [
     "lib_log_rich>=6.5.7",
     "python-dotenv>=1.2.4",
     "lib_layered_config>=7.3.0",
-    "btx_lib_mail>=4.5.0",
+    "btx_lib_mail>=4.6.0",
     "pydantic>=2.14.1",
     "orjson>=3.13.0",
 ]

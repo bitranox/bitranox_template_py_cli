@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.4.4] 2026-10-24 15:27:27
+
 ### Fixed
 
 - `reset_git_history.sh` publishes the whole working tree minus ignored files. It staged only
@@ -30,6 +32,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   hyphen form of its own name in both places, where before it had to be set by hand. `info` and the
   default logging service name show the hyphen form, and the install commands in `README.md` and
   `INSTALL.md` use it.
+- Raise the btx_lib_mail floor to 4.6.0.
 
 ### Tests
 
