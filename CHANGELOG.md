@@ -14,6 +14,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (for example a `/etc/xdg/<slug>/config.d/99-*.toml`) can no longer fail tests locally while CI stays
   green. The subprocess tests in `test_display.py` and `test_logging_dotenv_isolation.py` dropped
   every `LIB_LAYERED_CONFIG*` variable and so read the real system layers; they now keep the redirect.
+- The test suite no longer reads the developer's own user configuration layer. `user_layer_in_tmp_path`
+  is now autouse and points the user layer (`XDG_CONFIG_HOME`, `LIB_LAYERED_CONFIG_MAC_HOME_ROOT`,
+  `_APPDATA`, `_LOCALAPPDATA`) at an empty directory under `tmp_path`. It was opt-in, so 22 tests that
+  reached the real loader without it read `~/.config/<slug>/` (or the macOS and Windows equivalent).
+  `HOME` is no longer redirected, because git and uv read it.
 
 ## [2.4.4] 2026-10-24 15:27:27
 

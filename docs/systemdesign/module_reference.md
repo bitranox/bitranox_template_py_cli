@@ -426,17 +426,20 @@ Use `composition.build_testing()` to wire all in-memory adapters. It wires the r
 
 ### Test Fixtures (conftest.py)
 
-| Fixture                   | Purpose                                                                                                                                                                 |
-|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `config_factory`          | Creates real `Config` instances from test data                                                                                                                          |
-| `inject_config`           | Injects config into CLI path                                                                                                                                            |
-| `cli_runner`              | Fresh `CliRunner` per test                                                                                                                                              |
-| `strip_ansi`              | Strips ANSI escape codes from output                                                                                                                                    |
-| `clear_config_cache`      | Clears LRU cache before tests                                                                                                                                           |
-| `managed_traceback_state` | Resets/restores traceback configuration                                                                                                                                 |
-| `isolated_logging_state`  | Autouse: after every test, shuts the lib_log_rich runtime down and restores the root logger; yields that restore step                                                   |
-| `user_layer_in_tmp_path`  | Points every OS's user-layer location (`HOME`, `USERPROFILE`, `XDG_CONFIG_HOME`, `APPDATA`, `LOCALAPPDATA`) at `tmp_path` and returns it, so a real deploy writes there |
+| Fixture                     | Purpose                                                                                                                                                                                                                                                   |
+|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `config_factory`            | Creates real `Config` instances from test data                                                                                                                                                                                                            |
+| `inject_config`             | Injects config into CLI path                                                                                                                                                                                                                              |
+| `cli_runner`                | Fresh `CliRunner` per test                                                                                                                                                                                                                                |
+| `strip_ansi`                | Strips ANSI escape codes from output                                                                                                                                                                                                                      |
+| `clear_config_cache`        | Clears LRU cache before tests                                                                                                                                                                                                                             |
+| `managed_traceback_state`   | Resets/restores traceback configuration                                                                                                                                                                                                                   |
+| `isolated_logging_state`    | Autouse: after every test, shuts the lib_log_rich runtime down and restores the root logger; yields that restore step                                                                                                                                     |
+| `system_layers_in_tmp_path` | Autouse: points the app and host layers (`LIB_LAYERED_CONFIG_ETC`, `_MAC_APP_ROOT`, `_PROGRAMDATA`) at an empty directory under `tmp_path` and returns it                                                                                                 |
+| `user_layer_in_tmp_path`    | Autouse: points the user layer (`XDG_CONFIG_HOME`, `LIB_LAYERED_CONFIG_MAC_HOME_ROOT`, `_APPDATA`, `_LOCALAPPDATA`) at an empty directory under `tmp_path` and returns it, so a real deploy writes there; `HOME` is left alone because git and uv read it |
+| `app_layer_config_file`     | The app layer's `config.toml` path under the redirect, its directory created                                                                                                                                                                              |
+| `user_layer_config_file`    | The user layer's `config.toml` path under the redirect, its directory created                                                                                                                                                                             |
 
 ---
 
-**Last Updated:** 2026-10-08 (`send-notification` options, test fixtures)
+**Last Updated:** 2026-10-26 (configuration-layer test fixtures)

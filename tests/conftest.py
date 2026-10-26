@@ -196,9 +196,8 @@ def system_layers_in_tmp_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     return root
 
 
-@pytest.fixture
-def app_layer_config_file(system_layers_in_tmp_path: Path) -> Path:
-    """Return where the app layer's ``config.toml`` lives under the redirect, its directory created.
+def _layer_config_file(target: str, redirected_root: Path) -> Path:
+    """Return where ``target``'s ``config.toml`` lives under ``redirected_root``, its directory created.
 
     The location is asked of lib_layered_config, which shares it between its deploy and its reader,
     because the layout under the root differs per OS.
@@ -213,14 +212,26 @@ def app_layer_config_file(system_layers_in_tmp_path: Path) -> Path:
         vendor=__init__conf__.LAYEREDCONF_VENDOR,
         app=__init__conf__.LAYEREDCONF_APP,
         slug=__init__conf__.LAYEREDCONF_SLUG,
-        targets=["app"],
+        targets=[target],
     )
     config_file = next(path for path in paths if path.name == "config.toml")
-    # Refuse before anything writes: without the redirect this is a real system directory, and the
-    # elevated Windows runner would let a write through.
-    assert config_file.is_relative_to(system_layers_in_tmp_path.resolve()), config_file
+    # Refuse before anything writes: without the redirect this is a real system or user directory,
+    # and the elevated Windows runner would let a write through.
+    assert config_file.is_relative_to(redirected_root.resolve()), config_file
     config_file.parent.mkdir(parents=True)
     return config_file
+
+
+@pytest.fixture
+def app_layer_config_file(system_layers_in_tmp_path: Path) -> Path:
+    """Return where the app layer's ``config.toml`` lives under the redirect, its directory created."""
+    return _layer_config_file("app", system_layers_in_tmp_path)
+
+
+@pytest.fixture
+def user_layer_config_file(user_layer_in_tmp_path: Path) -> Path:
+    """Return where the user layer's ``config.toml`` lives under the redirect, its directory created."""
+    return _layer_config_file("user", user_layer_in_tmp_path)
 
 
 @pytest.fixture
@@ -243,16 +254,34 @@ def production_factory() -> Callable[[], AppServices]:
     return build_production
 
 
-@pytest.fixture
-def user_layer_in_tmp_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Point every OS's user-layer location at ``tmp_path`` and return it.
+#: The variables lib_layered_config reads the user layer's root from, one per platform: Linux's
+#: ``XDG_CONFIG_HOME`` (which also places the user-layer ``.env``), and on macOS and Windows its own
+#: overrides, which it consults before ``HOME`` / ``APPDATA`` / ``LOCALAPPDATA``. Redirecting ``HOME``
+#: instead would also move git's and uv's configuration for every subprocess the suite starts.
+USER_LAYER_ROOT_VARIABLES: tuple[str, ...] = (
+    "XDG_CONFIG_HOME",
+    "LIB_LAYERED_CONFIG_MAC_HOME_ROOT",
+    "LIB_LAYERED_CONFIG_APPDATA",
+    "LIB_LAYERED_CONFIG_LOCALAPPDATA",
+)
 
-    A deploy then writes under ``tmp_path`` rather than into the real user configuration
-    directory, and the developer's own user-layer files cannot decide a result.
+
+@pytest.fixture(autouse=True)
+def user_layer_in_tmp_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """Point every OS's user configuration layer at an empty directory under ``tmp_path``.
+
+    A developer with a user-layer deploy (``~/.config/<slug>/config.d/99-*.toml``) would otherwise
+    decide results on their machine while a clean CI runner stays green, and a test running
+    ``config-deploy --target user`` would write into their real configuration. A subprocess inherits
+    the redirect through ``os.environ``.
+
+    Returns:
+        The redirected root, so a test can place a file in the user layer or find what a deploy wrote.
     """
-    for name in ("HOME", "USERPROFILE", "XDG_CONFIG_HOME", "APPDATA", "LOCALAPPDATA"):
-        monkeypatch.setenv(name, str(tmp_path))
-    return tmp_path
+    root = tmp_path / "user-layer"
+    for name in USER_LAYER_ROOT_VARIABLES:
+        monkeypatch.setenv(name, str(root))
+    return root
 
 
 @pytest.fixture
