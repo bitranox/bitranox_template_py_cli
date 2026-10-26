@@ -273,14 +273,14 @@ Send simple plain-text notification email.
 
 Run logging demonstration.
 
-| Option         | Description                      |
-|----------------|----------------------------------|
-| `--theme NAME` | Logging theme (default: classic) |
+| Option         | Description                                                                                                        |
+|----------------|--------------------------------------------------------------------------------------------------------------------|
+| `--theme NAME` | Logging theme: one of lib_log_rich's `ConsoleTheme` values, `classic`, `dark`, `neon`, `pastel` (default: classic) |
 
 The demo runs lib_log_rich's own demo runtime: it does not read the configuration, so a
 `--set lib_log_rich.*` value changes nothing in it, while a `LOG_*` variable does.
 
-**Exit codes:** 0, 22 (an unknown `--theme`, or a `LOG_*` variable lib_log_rich refuses)
+**Exit codes:** 0, 2 (an unknown `--theme`), 22 (a `LOG_*` variable lib_log_rich refuses)
 
 ---
 
