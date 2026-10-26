@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
     from btx_lib_mail.lib_mail import DeliveryOptions
     from click.testing import CliRunner
+
     from conftest import EmailCliContext
 
 # ======================== Transport test double ========================
