@@ -8,13 +8,16 @@ Contents:
 
 from __future__ import annotations
 
-import lib_log_rich
-import lib_log_rich.runtime
 import rich_click as click
 from lib_log_rich.domain import ConsoleTheme
 
+from bitranox_template_py_cli.adapters.logging.setup import InvalidLoggingConfigError, run_logdemo
+
 from .. import safe_console
+from ..config_load import report_load_failure
 from ..constants import CLICK_CONTEXT_SETTINGS
+from ..context import get_cli_context
+from ..exit_codes import ExitCode
 from ..typed_click import option
 
 
@@ -31,6 +34,9 @@ from ..typed_click import option
 def cli_logdemo(ctx: click.Context, theme: str) -> None:
     """Run a logging demonstration to preview log output.
 
+    A ``LOG_*`` variable lib_log_rich refuses ends the command with exit 78 and lib_log_rich's
+    own line, as it ends ``config``.
+
     \f
     Example:
         >>> from click.testing import CliRunner
@@ -40,11 +46,11 @@ def cli_logdemo(ctx: click.Context, theme: str) -> None:
         >>> result.exit_code, result.output.splitlines()[-1]
         (0, 'Log demo completed (theme: classic)')
     """
-    # logdemo() requires uninitialized runtime
-    if lib_log_rich.runtime.is_initialised():
-        lib_log_rich.runtime.shutdown()
-
-    result = lib_log_rich.logdemo(theme=ConsoleTheme(theme.lower()))
+    try:
+        result = run_logdemo(ConsoleTheme(theme.lower()))
+    except InvalidLoggingConfigError as exc:
+        report_load_failure(exc, show_traceback=get_cli_context(ctx).traceback)
+        ctx.exit(ExitCode.CONFIG_ERROR)
     safe_console.echo(f"\nLog demo completed (theme: {result.theme})")
 
 

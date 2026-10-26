@@ -26,7 +26,7 @@ moves or removes a module, a CLI option or a public name.
 - `src/bitranox_template_py_cli/adapters/email/transport.py`  -  `send_email` / `send_notification` over btx_lib_mail
 - `src/bitranox_template_py_cli/adapters/email/sender.py`  -  Re-exports of `config.py` and `transport.py`
 - `src/bitranox_template_py_cli/adapters/email/validation.py`  -  Email recipient validation
-- `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization; takes only the `LOG_*` lines of a `.env`, and raises `InvalidLoggingConfigError` for a refused `[lib_log_rich]` value or `LOG_*` variable, after starting logging with its defaults (and without the `LOG_*` variables only when one of them is refused); `check_logging_config` refuses another configuration's logging settings through lib_log_rich's `validate_config`, without touching the running runtime
+- `src/bitranox_template_py_cli/adapters/logging/setup.py`  -  lib_log_rich initialization; takes only the `LOG_*` lines of a `.env`, and raises `InvalidLoggingConfigError` for a refused `[lib_log_rich]` value or `LOG_*` variable, after starting logging with its defaults (and without the `LOG_*` variables only when one of them is refused); `check_logging_config` refuses another configuration's logging settings through lib_log_rich's `validate_config`, without touching the running runtime; `run_logdemo` runs lib_log_rich's demo and raises `InvalidLoggingConfigError` for a `LOG_*` variable the demo refuses
 - `src/bitranox_template_py_cli/adapters/cli/`  -  CLI adapter package:
   - `__init__.py`  -  Public facade
   - `constants.py`  -  Shared constants
@@ -280,7 +280,7 @@ Run logging demonstration.
 The demo runs lib_log_rich's own demo runtime: it does not read the configuration, so a
 `--set lib_log_rich.*` value changes nothing in it, while a `LOG_*` variable does.
 
-**Exit codes:** 0, 2 (an unknown `--theme`), 22 (a `LOG_*` variable lib_log_rich refuses)
+**Exit codes:** 0, 2 (an unknown `--theme`), 78 (a `LOG_*` variable lib_log_rich refuses, with lib_log_rich's own line, as `config` writes it)
 
 ---
 
