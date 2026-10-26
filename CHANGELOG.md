@@ -19,6 +19,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `_APPDATA`, `_LOCALAPPDATA`) at an empty directory under `tmp_path`. It was opt-in, so 22 tests that
   reached the real loader without it read `~/.config/<slug>/` (or the macOS and Windows equivalent).
   `HOME` is no longer redirected, because git and uv read it.
+- The doctests under `src/` no longer run against the machine's configuration layers. They are
+  collected through `--doctest-modules`, which a fixture in `tests/conftest.py` never reaches, so all
+  48 ran without the layer redirects. The two redirect fixtures now live in a rootdir `conftest.py`,
+  the variable lists in `tests/layer_roots.py`, and pyproject sets `testpaths = ["src", "tests"]`
+  (which keeps the root `conftest.py` out of doctest collection) and adds `tests` to `pythonpath` and
+  pyright's `extraPaths`, plus a pyright execution environment rooted at `tests/` so a test's
+  `from conftest import ...` still resolves to `tests/conftest.py` rather than the root one. A test
+  now checks that every doctest collected from `src/` gets both redirects.
 
 ## [2.4.4] 2026-10-24 15:27:27
 

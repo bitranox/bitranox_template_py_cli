@@ -167,35 +167,6 @@ def deterministic_cli_output(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FORCE_COLOR", raising=False)
 
 
-#: The variables lib_layered_config reads the app and host layers' root from, one per platform.
-#: All three are set on every OS: Windows looks up ``ProgramData`` in mixed case after
-#: ``LIB_LAYERED_CONFIG_PROGRAMDATA``, while ``os.environ`` upper-cases its keys there, so redirecting
-#: ``PROGRAMDATA`` alone still reads the real ``C:\ProgramData``.
-SYSTEM_LAYER_ROOT_VARIABLES: tuple[str, ...] = (
-    "LIB_LAYERED_CONFIG_ETC",
-    "LIB_LAYERED_CONFIG_MAC_APP_ROOT",
-    "LIB_LAYERED_CONFIG_PROGRAMDATA",
-)
-
-
-@pytest.fixture(autouse=True)
-def system_layers_in_tmp_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Point the app and host configuration layers at an empty directory under ``tmp_path``.
-
-    A machine with the CLI deployed system-wide would otherwise decide results: a value in its
-    ``/etc/xdg/<slug>/config.d/`` fails tests there while a clean CI runner stays green. A
-    subprocess inherits the redirect through ``os.environ``; one that builds its own environment
-    must carry these variables over (see ``SYSTEM_LAYER_ROOT_VARIABLES``).
-
-    Returns:
-        The redirected root, so a test can place a file in the app or host layer.
-    """
-    root = tmp_path / "system-layers"
-    for name in SYSTEM_LAYER_ROOT_VARIABLES:
-        monkeypatch.setenv(name, str(root))
-    return root
-
-
 def _layer_config_file(target: str, redirected_root: Path) -> Path:
     """Return where ``target``'s ``config.toml`` lives under ``redirected_root``, its directory created.
 
@@ -252,36 +223,6 @@ def production_factory() -> Callable[[], AppServices]:
     from bitranox_template_py_cli.composition import build_production
 
     return build_production
-
-
-#: The variables lib_layered_config reads the user layer's root from, one per platform: Linux's
-#: ``XDG_CONFIG_HOME`` (which also places the user-layer ``.env``), and on macOS and Windows its own
-#: overrides, which it consults before ``HOME`` / ``APPDATA`` / ``LOCALAPPDATA``. Redirecting ``HOME``
-#: instead would also move git's and uv's configuration for every subprocess the suite starts.
-USER_LAYER_ROOT_VARIABLES: tuple[str, ...] = (
-    "XDG_CONFIG_HOME",
-    "LIB_LAYERED_CONFIG_MAC_HOME_ROOT",
-    "LIB_LAYERED_CONFIG_APPDATA",
-    "LIB_LAYERED_CONFIG_LOCALAPPDATA",
-)
-
-
-@pytest.fixture(autouse=True)
-def user_layer_in_tmp_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Point every OS's user configuration layer at an empty directory under ``tmp_path``.
-
-    A developer with a user-layer deploy (``~/.config/<slug>/config.d/99-*.toml``) would otherwise
-    decide results on their machine while a clean CI runner stays green, and a test running
-    ``config-deploy --target user`` would write into their real configuration. A subprocess inherits
-    the redirect through ``os.environ``.
-
-    Returns:
-        The redirected root, so a test can place a file in the user layer or find what a deploy wrote.
-    """
-    root = tmp_path / "user-layer"
-    for name in USER_LAYER_ROOT_VARIABLES:
-        monkeypatch.setenv(name, str(root))
-    return root
 
 
 @pytest.fixture

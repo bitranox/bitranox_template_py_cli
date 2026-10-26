@@ -68,7 +68,9 @@ moves or removes a module, a CLI option or a public name.
 - `src/bitranox_template_py_cli/adapters/config/defaultconfig.d/90-logging.toml`  -  Logging defaults
 
 ### Tests
+- `conftest.py` (repository root)  -  The two configuration-layer redirects; at the root so they also reach the doctests `--doctest-modules` collects from `src/`
 - `tests/conftest.py`  -  Shared fixtures (see Test Fixtures below)
+- `tests/layer_roots.py`  -  The environment variables that place each configuration layer, shared by both conftests and the subprocess tests
 - `tests/test_behaviors.py`  -  Domain function tests
 - `tests/test_cache_effectiveness.py`  -  Configuration loading returns consistent (cached) results
 - `tests/test_cli_attachment_refused.py`  -  An attachment btx_lib_mail's security checks refuse exits 77 with one `Error:` line, nothing delivered
@@ -425,6 +427,9 @@ Use `composition.build_testing()` to wire all in-memory adapters. It wires the r
 `load_email_config_from_dict`, so CLI tests run through the same translation as production.
 
 ### Test Fixtures (conftest.py)
+
+`system_layers_in_tmp_path` and `user_layer_in_tmp_path` live in the rootdir `conftest.py`; the rest in
+`tests/conftest.py`.
 
 | Fixture                     | Purpose                                                                                                                                                                                                                                                   |
 |-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
