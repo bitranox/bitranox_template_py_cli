@@ -8,6 +8,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- On Windows with stderr piped, an `Error:` line could land in the middle of a log line
+  (`...configuration_mergedError: ...`), because lib_log_rich wrote each log line in several pieces
+  while the CLI wrote its own message. The `lib_log_rich` floor is now 8.1.2, which writes a line
+  whole. The test checking that `config --profile` refuses a bad logging setting stays strict about
+  the line starting with `Error:`; it is the test that showed the interleaving.
+
 - `logdemo` works with lib_log_rich 7.0, which takes a `ConsoleTheme` member rather than a string
   (it failed with `AttributeError: 'str' object has no attribute 'value'`); the `lib_log_rich` floor
   is now 7.0.0. `--theme` offers lib_log_rich's own theme list, so an unknown name is a usage error
