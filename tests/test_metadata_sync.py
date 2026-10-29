@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import rtoml
+from toml_files import read_toml
 
 from bitranox_template_py_cli import __init__conf__
 
@@ -19,7 +19,7 @@ _PYPROJECT_PATH = Path(__file__).parent.parent / "pyproject.toml"
 
 def _read_project_name() -> str:
     """Read the project name from pyproject.toml."""
-    return rtoml.load(_PYPROJECT_PATH)["project"]["name"]
+    return read_toml(_PYPROJECT_PATH)["project"]["name"]
 
 
 @pytest.mark.os_agnostic
@@ -61,7 +61,7 @@ def test_version_matches_pyproject_toml() -> None:
     Reads pyproject.toml directly since during development the installed package
     may lag behind source changes.
     """
-    pyproject_version = rtoml.load(_PYPROJECT_PATH)["project"]["version"]
+    pyproject_version = read_toml(_PYPROJECT_PATH)["project"]["version"]
 
     assert __init__conf__.version == pyproject_version, (
         f"__init__conf__.version '{__init__conf__.version}' does not match pyproject.toml version '{pyproject_version}'"

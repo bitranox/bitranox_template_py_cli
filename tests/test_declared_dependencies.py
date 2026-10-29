@@ -15,7 +15,7 @@ from importlib.metadata import packages_distributions
 from pathlib import Path
 
 import pytest
-import rtoml
+from toml_files import read_toml
 
 _ROOT = Path(__file__).parent.parent
 _PACKAGE = "bitranox_template_py_cli"
@@ -28,7 +28,7 @@ def _normalise(name: str) -> str:
 
 
 def _declared_distributions() -> set[str]:
-    requirements: list[str] = rtoml.load(_ROOT / "pyproject.toml")["project"]["dependencies"]
+    requirements: list[str] = read_toml(_ROOT / "pyproject.toml")["project"]["dependencies"]
     names = (re.match(r"[A-Za-z0-9][A-Za-z0-9._-]*", requirement) for requirement in requirements)
     return {_normalise(match.group(0)) for match in names if match}
 

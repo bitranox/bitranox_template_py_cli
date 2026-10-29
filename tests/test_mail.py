@@ -17,10 +17,10 @@ from typing import IO, TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
-import rtoml
 from btx_lib_mail import ConfMail
 from pydantic import SecretStr
 from pydantic import ValidationError as PydanticValidationError
+from toml_files import read_toml
 
 from bitranox_template_py_cli.adapters import cli as cli_mod
 from bitranox_template_py_cli.adapters.cli.commands.email._common import EmailConfigOverrides, apply_validated_overrides
@@ -1534,14 +1534,14 @@ _SHIPPED_MAIL = (
 
 @pytest.mark.os_agnostic
 def test_the_shipped_defaults_verify_the_certificate_and_name_no_ehlo_host() -> None:
-    shipped = rtoml.load(_SHIPPED_MAIL)["email"]
+    shipped = read_toml(_SHIPPED_MAIL)["email"]
     assert shipped["starttls_verify"] is True
     assert shipped["local_hostname"] == ""
 
 
 @pytest.mark.os_agnostic
 def test_the_shipped_count_limits_and_deadline_load_as_the_library_defaults() -> None:
-    shipped = rtoml.load(_SHIPPED_MAIL)
+    shipped = read_toml(_SHIPPED_MAIL)
     # The keys are written out, so a reader of the shipped file sees them: the premise.
     assert "recipient_max_count" in shipped["email"]
     assert "delivery_deadline" in shipped["email"]

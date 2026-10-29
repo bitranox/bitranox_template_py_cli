@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+import importlib
+import json
+import math
+import sysconfig
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-import orjson
 from lib_layered_config import Config, NotSensitiveKeys
 
 from .loader import NOT_SENSITIVE
 
 if TYPE_CHECKING:
+    from types import ModuleType
+
     from lib_layered_config.domain.config import SourceInfo
 
 CLI_LAYER = "cli"
@@ -23,6 +28,85 @@ value was typed on the command line and there is nothing to open.
 
 CoercedValue = str | int | float | bool | None | list[object] | dict[str, object]
 """Union of types that :func:`coerce_value` can produce."""
+
+
+def _refuse_non_finite(text: str) -> float:
+    # stdlib json accepts NaN, Infinity and a literal that overflows to infinity; orjson refuses
+    # all three, so a --set value means the same whichever backend parses it.
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError(f"non-finite number {text!r}")
+    return value
+
+
+def _refuse_constant(name: str) -> object:
+    raise ValueError(f"non-finite number {name!r}")
+
+
+def stdlib_json_loads(raw: str) -> object:
+    """Parse JSON with the standard library, refusing what orjson refuses.
+
+    Args:
+        raw: JSON text.
+
+    Returns:
+        The parsed value.
+
+    Raises:
+        ValueError: For text that is not JSON, or a NaN, Infinity or overflowing number.
+
+    Examples:
+        >>> stdlib_json_loads('{"a": [1, 2.5]}')
+        {'a': [1, 2.5]}
+        >>> stdlib_json_loads("NaN")
+        Traceback (most recent call last):
+        ...
+        ValueError: non-finite number 'NaN'
+    """
+    return json.loads(raw, parse_float=_refuse_non_finite, parse_constant=_refuse_constant)
+
+
+def _import_orjson() -> ModuleType | None:
+    # By name, not an import statement: orjson is absent from every 3.14+ environment of the
+    # dev install (no marker tells 3.14t from 3.14), and a static import would leave the type
+    # checker unable to resolve the module there.
+    try:
+        return importlib.import_module("orjson")
+    except ImportError:
+        return None
+
+
+def select_json_loads(
+    *, free_threaded: bool, import_orjson: Callable[[], ModuleType | None]
+) -> Callable[[str], object]:
+    """Return orjson's parser where it can run here, else :func:`stdlib_json_loads`.
+
+    Args:
+        free_threaded: Whether the interpreter is a free-threaded build. orjson is never
+            imported there: it has no free-threaded build, and importing one without
+            free-threading support would turn the GIL back on.
+        import_orjson: Returns the ``orjson`` module, or ``None`` when it is not installed.
+
+    Returns:
+        A function parsing JSON text.
+
+    Example:
+        >>> select_json_loads(free_threaded=True, import_orjson=lambda: None) is stdlib_json_loads
+        True
+    """
+    if free_threaded:
+        return stdlib_json_loads
+    orjson = import_orjson()
+    if orjson is None:
+        return stdlib_json_loads
+    return cast("Callable[[str], object]", orjson.loads)
+
+
+#: The JSON parser this interpreter uses, chosen once at import.
+_JSON_LOADS = select_json_loads(
+    free_threaded=bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
+    import_orjson=_import_orjson,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,8 +177,9 @@ def parse_override(raw: str) -> ConfigOverride:
 def coerce_value(raw: str) -> CoercedValue:
     """Coerce a raw string value using JSON parsing with string fallback.
 
-    Attempts ``orjson.loads`` first (handling booleans, numbers, null, arrays,
-    objects). Falls back to the raw string if JSON parsing fails.
+    Attempts JSON first (booleans, numbers, null, arrays, objects), with orjson where it
+    can run and :func:`stdlib_json_loads` otherwise. Falls back to the raw string if JSON
+    parsing fails, which includes a NaN, Infinity or overflowing number.
 
     Args:
         raw: Raw value string from CLI.
@@ -121,8 +206,9 @@ def coerce_value(raw: str) -> CoercedValue:
     if raw == "":
         return ""
     try:
-        return orjson.loads(raw)
-    except (orjson.JSONDecodeError, ValueError):
+        # Both backends raise a ValueError subclass for text that is not JSON.
+        return cast("CoercedValue", _JSON_LOADS(raw))
+    except ValueError:
         return raw
 
 
@@ -302,4 +388,6 @@ __all__ = [
     "coerce_value",
     "nest_overrides",
     "parse_override",
+    "select_json_loads",
+    "stdlib_json_loads",
 ]

@@ -6,6 +6,26 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- The template runs on free-threaded CPython 3.14 (3.14t) with the GIL off, and CI gains a 3.14t
+  cell on every OS but macOS (`[tool.ci] free-threaded = ["3.14"]`, classifier
+  `Free Threading :: 2 - Beta`). orjson and rtoml ship no free-threaded build, and no dependency
+  marker tells 3.14t from 3.14, so, as in lib_layered_config and lib_log_rich, both are required
+  only below 3.14: orjson moves to an `orjson` extra from 3.14 on, and the tests read TOML with
+  tomllib (rtoml only on 3.10). A free-threaded process never imports orjson, even when it is
+  installed. 3.15t waits for cp315t wheels of cryptography, nh3, pynacl, pyyaml and hypothesis.
+  A project copied from the template opts in on its own: a template sync must not carry the
+  `free-threaded` entry into a project whose dependencies lack free-threaded wheels.
+
+### Changed
+
+- `--set` values are parsed with the standard library's `json` where orjson is not used (3.14+
+  without the extra, and every free-threaded build). It refuses `NaN`, `Infinity` and numbers that
+  overflow a float, as orjson does, so such a value stays a string. One difference remains: an
+  integer too large for a float (`--set app.id=123456789012345678901234567890`) is kept exact,
+  where orjson turns it into a float.
+
 ### Fixed
 
 - On Windows with stderr piped, an `Error:` line could land in the middle of a log line

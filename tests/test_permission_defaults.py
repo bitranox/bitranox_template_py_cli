@@ -24,8 +24,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 import pytest
-import rtoml
 from lib_layered_config import Config, deploy_permissions_from_config
+from toml_files import read_toml
 
 from bitranox_template_py_cli import __init__conf__
 from bitranox_template_py_cli.adapters import cli as cli_mod
@@ -302,7 +302,7 @@ def test_a_non_boolean_enabled_is_not_reported_as_a_mode(
 def test_the_layer_modes_are_755_644_for_app_and_host_and_700_600_for_user(source: str) -> None:
     """A deploy with nothing configured, and with the shipped section, uses these modes."""
     shipped = get_default_config_path().parent / "defaultconfig.d" / "40-layered-config.toml"
-    data = rtoml.load(shipped) if source == "shipped" else {}
+    data = read_toml(shipped) if source == "shipped" else {}
     settings = deploy_permissions_from_config(Config(data, {}))
 
     modes = {

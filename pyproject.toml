@@ -14,10 +14,14 @@ dependencies = [
     # line can no longer land in the middle of it.
     "lib_log_rich>=8.1.2",
     "python-dotenv>=1.2.4",
-    "lib_layered_config>=7.4.1",
+    "lib_layered_config>=7.4.2",
     "btx_lib_mail>=4.6.0",
     "pydantic>=2.14.1",
-    "orjson>=3.13.0",
+    # orjson ships no free-threaded build, and no marker tells 3.14t from 3.14, so it is
+    # required only below 3.14 (as in lib_log_rich and lib_layered_config); from 3.14 it is the
+    # `orjson` extra and the code falls back to stdlib json. Drop the marker once orjson
+    # publishes cp314t wheels.
+    "orjson>=3.13.0; python_version < \"3.14\"",
 ]
 license = { text = "MIT" }
 authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
@@ -31,6 +35,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
   "License :: OSI Approved :: MIT License",
   "Environment :: Console",
   "Operating System :: OS Independent",
@@ -45,6 +50,10 @@ system-dependencies-macos = []
 system-dependencies-windows-pip = []
 system-dependencies-windows-choco = []
 os = ["ubuntu-latest", "windows-latest", "macos-latest"]
+# Adds an X.Yt cell per entry (every OS but macOS). 3.15t waits for cp315t wheels of
+# cryptography, nh3, pynacl, pyyaml and hypothesis. A derived project opts in on its own:
+# its dependencies need free-threaded wheels too.
+free-threaded = ["3.14"]
 
 [project.urls]
 Homepage = "https://github.com/bitranox/bitranox_template_py_cli"
@@ -52,6 +61,8 @@ Repository = "https://github.com/bitranox/bitranox_template_py_cli.git"
 Issues = "https://github.com/bitranox/bitranox_template_py_cli/issues"
 
 [project.optional-dependencies]
+# orjson's fast path on 3.14+ GIL builds; a free-threaded build never imports it.
+orjson = ["orjson>=3.13.0"]
 dev = [
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
@@ -75,7 +86,8 @@ dev = [
   "pip-audit>=2.10.1",
   "textual>=8.2.8",
   "import-linter>=2.15",
-  "rtoml>=0.14.0",
+  # No free-threaded build; the tests read TOML with tomllib from 3.11 and need rtoml only on 3.10.
+  "rtoml>=0.14.0; python_version < \"3.14\"",
   "httpx2>=2.14.0",
   # Transitive CVE pins
   "click>=8.5.0",                # CVE-2026-7246
@@ -84,7 +96,7 @@ dev = [
   "wheel>=0.48.0",               # CVE-2025-24049
   "pynacl>=1.6.2",               # CVE-2025-69277
   "urllib3>=2.8.0",              # CVE-2025-66471, CVE-2025-66418
-  "virtualenv>=21.14.12",        # CVE-2025-22702, CVE-2026-113722, CVE-2026-113713
+  "virtualenv>=21.14.13",        # CVE-2025-22702, CVE-2026-113722, CVE-2026-113713
   "certifi>=2026.10.19",         # PYSEC-2026-4320
   # CVE-2026-112906/-112907/-112913/-112914/-112937/-112940, fixed in 4.2.1. filelock 4.2 needs
   # Python 3.11, so the 3.10 fork keeps 4.1.0, the newest release that installs there.

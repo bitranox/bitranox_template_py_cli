@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-import rtoml
+from toml_files import read_toml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
@@ -14,7 +14,7 @@ PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 
 def _load_pyproject() -> dict[str, Any]:
     """Load and parse pyproject.toml from the project root."""
-    return rtoml.load(PYPROJECT_PATH)
+    return read_toml(PYPROJECT_PATH)
 
 
 def _get_package_dir() -> Path:

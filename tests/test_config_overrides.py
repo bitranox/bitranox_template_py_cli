@@ -6,7 +6,10 @@ apply_overrides integration with the Config class.
 
 from __future__ import annotations
 
-from typing import Any
+import importlib
+import importlib.util
+import json
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from lib_layered_config import Config
@@ -16,6 +19,18 @@ from bitranox_template_py_cli.adapters.config.overrides import (
     apply_overrides,
     coerce_value,
     parse_override,
+    select_json_loads,
+    stdlib_json_loads,
+)
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+# orjson is required only below Python 3.14 (it has no free-threaded build); from 3.14 it is an
+# extra the dev install does not pull in, so its arms run wherever it is installed.
+_ORJSON_INSTALLED = importlib.util.find_spec("orjson") is not None
+_needs_orjson = pytest.mark.skipif(
+    not _ORJSON_INSTALLED, reason="orjson is not installed (not required from Python 3.14)"
 )
 
 # ======================== parse_override tests ========================
@@ -217,10 +232,84 @@ def test_parse_override_unicode_value() -> None:
 
 @pytest.mark.os_agnostic
 def test_parse_override_value_with_newline_json() -> None:
-    """JSON string with escaped newline is parsed by orjson as a real newline."""
+    """A JSON string with an escaped newline is parsed into a real newline."""
     result = parse_override('s.key="line1\\nline2"')
 
     assert result.value == "line1\nline2"
+
+
+# ======================== JSON backend selection ========================
+
+_NON_FINITE = ["NaN", "Infinity", "-Infinity", "1e400", "[1, NaN]", '{"a": Infinity}']
+_PARSED_ALIKE = [
+    "true",
+    "false",
+    "null",
+    "42",
+    "-7",
+    "3.14",
+    "-1.5e3",
+    '["a", "b"]',
+    '{"a": {"b": [1, 2.5]}}',
+    '"x\\ny"',
+]
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("raw", _NON_FINITE)
+def test_stdlib_json_loads_refuses_non_finite_numbers_like_orjson(raw: str) -> None:
+    """stdlib json accepts NaN, Infinity and an overflowing literal; orjson refuses them, so this does too."""
+    with pytest.raises(ValueError, match="non-finite"):
+        stdlib_json_loads(raw)
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("raw", _NON_FINITE)
+def test_coerce_value_keeps_a_non_finite_number_as_the_raw_string(raw: str) -> None:
+    """A refused number falls back to the string the user typed, whichever backend parses it."""
+    assert coerce_value(raw) == raw
+
+
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("raw", _PARSED_ALIKE)
+def test_stdlib_json_loads_parses_ordinary_json(raw: str) -> None:
+    """The stdlib backend parses the values a --set override carries."""
+    assert stdlib_json_loads(raw) == json.loads(raw)
+
+
+@_needs_orjson
+@pytest.mark.os_agnostic
+@pytest.mark.parametrize("raw", _PARSED_ALIKE)
+def test_stdlib_json_loads_agrees_with_orjson(raw: str) -> None:
+    """Both backends give the same value, so a --set override means the same on every interpreter."""
+    orjson = importlib.import_module("orjson")
+
+    assert stdlib_json_loads(raw) == orjson.loads(raw)
+
+
+def _import_must_not_run() -> ModuleType | None:
+    raise AssertionError("orjson must never be imported on a free-threaded build")
+
+
+@pytest.mark.os_agnostic
+def test_select_json_loads_never_imports_orjson_on_a_free_threaded_build() -> None:
+    """Importing orjson there would turn the GIL back on, so the selector does not even try."""
+    assert select_json_loads(free_threaded=True, import_orjson=_import_must_not_run) is stdlib_json_loads
+
+
+@pytest.mark.os_agnostic
+def test_select_json_loads_falls_back_to_stdlib_without_orjson() -> None:
+    """Without orjson installed (the 3.14+ default), the stdlib backend parses."""
+    assert select_json_loads(free_threaded=False, import_orjson=lambda: None) is stdlib_json_loads
+
+
+@_needs_orjson
+@pytest.mark.os_agnostic
+def test_select_json_loads_uses_orjson_where_it_can_run() -> None:
+    """On a GIL build with orjson installed, orjson parses."""
+    orjson = importlib.import_module("orjson")
+
+    assert select_json_loads(free_threaded=False, import_orjson=lambda: orjson) is orjson.loads
 
 
 # ======================== apply_overrides tests ========================

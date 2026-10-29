@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any
 
 import pytest
-import rtoml
 from btx_lib_mail import AttachmentSecurityError, AttachmentViolation, ConfMail
+from toml_files import read_toml
 
 from bitranox_template_py_cli.adapters.email.config import EmailConfig, load_email_config_from_dict
 from bitranox_template_py_cli.adapters.email.transport import send_email
@@ -45,7 +45,7 @@ class _Recording:
 
 
 def _shipped_config() -> EmailConfig:
-    shipped: dict[str, Any] = rtoml.load(_SHIPPED)
+    shipped: dict[str, Any] = read_toml(_SHIPPED)
     assert shipped["email"]["attachments"]["blocked_extensions"] == []  # the premise
     shipped["email"]["smtp_hosts"] = ["smtp.example.com:25"]
     return load_email_config_from_dict(shipped)
