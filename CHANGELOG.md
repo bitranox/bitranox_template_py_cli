@@ -46,7 +46,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   a host substring, which also matched `xsmtp.test.com:5870`. The substring form was what CodeQL
   flagged as `py/incomplete-url-substring-sanitization`.
 
-## [2.4.4] 2026-10-24 15:27:27
+## [2.4.4] - 2026-10-24
 
 ### Fixed
 
@@ -89,7 +89,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   and `logdemo` had none. Each example now runs through the root group with `build_testing` and
   checks a real result. The test fails a command whose example is false or checks no output.
 
-## [2.4.3] 2026-10-15 13:17:15
+## [2.4.3] - 2026-10-15
 
 ### Fixed
 - The source distribution ships only the package, its tests, its docs, `README.md`, `CONFIG.md`,
@@ -148,7 +148,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   file, for `config` and `send-notification`: lib_layered_config 7.1.1 wraps the PermissionError in a
   LayerLoadError, and exit 13 stays reserved for a refused write (`config-deploy`).
 
-## [2.4.2] 2026-10-15 12:30:56
+## [2.4.2] - 2026-10-15
 
 ### Added
 - `uv.lock` is committed, and `[tool.uv] exclude-newer` sets a cooldown that keeps releases younger
@@ -164,7 +164,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `BINDSNAP-*` keywords and skill) and claimed the GNU AGPL v3.0, while this template is under
   the MIT License. It now describes this template's own work and states the MIT License.
 
-## [2.4.1] 2026-10-12 18:59:22
+## [2.4.1] - 2026-10-12
 
 ### Added
 - Python 3.15 is declared and tested: the classifier puts it into the CI matrix and
@@ -187,7 +187,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (exit 0) and the commands that read the configuration exit 78. The notes now say that only the
   native `LOG_GRAYLOG_ENDPOINT` and `LOG_RATE_LIMIT` variables take that form.
 
-## [2.4.0] 2026-10-08 17:34:36
+## [2.4.0] - 2026-10-08
 
 ### Changed
 - **The email commands' SMTP options reach the configuration as a typed `EmailConfigOverrides`
@@ -200,7 +200,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `filter_sentinels` is gone; the command line behaves as before.
 - Requires `pydantic>=2.14.0` (and `virtualenv>=21.14.6` in the dev extra).
 
-## [2.3.0] 2026-10-08 16:14:12
+## [2.3.0] - 2026-10-08
 
 ### Changed
 - **`config --profile NAME` checks the profile's logging settings instead of restarting logging.**
@@ -217,7 +217,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   example TLS together with UDP for Graylog, which lib_log_rich 6.4.2 now refuses up front) has no
   key, and its `Error:` line came out as `lib_log_rich.: <reason>` with a dangling dot.
 
-## [2.2.0] 2026-10-08 13:56:49
+## [2.2.0] - 2026-10-08
 
 ### Removed
 - **`send-notification --raise-on-missing-attachments` (usage change).** A notification takes no
@@ -230,7 +230,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   is covered end to end. New shared fixture `user_layer_in_tmp_path` points every OS's user-layer
   location at `tmp_path`; it replaces two hand-written copies of the same loop.
 
-## [2.1.3] 2026-10-08 11:57:40
+## [2.1.3] - 2026-10-08
 
 ### Fixed
 - **`config --profile NAME` refuses an invalid logging setting like `config` does.** The
@@ -243,7 +243,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   command then logs with the profile's settings. New `RestartLogging` port
   (`AppServices.restart_logging`; the testing composition's double keeps its quiet runtime).
 
-## [2.1.2] 2026-10-08 09:43:32
+## [2.1.2] - 2026-10-08
 
 ### Changed
 - **A refused attachment exits 77, not 1 with a traceback (exit code change).** An attachment
@@ -259,7 +259,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   still skipped with a warning and the message sent, as before; a violation that names no attachment
   left to drop is refused in warn mode too, and now exits 77 where it exited 1.
 
-## [2.1.1] 2026-10-06 18:13:05
+## [2.1.1] - 2026-10-06
 
 ### Fixed
 - **A refused `LOG_*` variable no longer disables every command (exit code change).** A value
@@ -280,7 +280,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   every command under `build_testing()` fail with `ValueError: Unknown log level: 'bogus'`, and a
   valid one changed the quiet test runtime. Production logging is unaffected.
 
-## [2.1.0] 2026-10-06 15:37:27
+## [2.1.0] - 2026-10-06
 
 ### Added
 - **Three email limits from btx_lib_mail 4.0.0 are configurable**: `[email] delivery_deadline`
@@ -301,13 +301,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **`EmailConfig`'s own SMTP host validator.** `ConfMail` checks every host's syntax (port
   range, IPv6 brackets) itself since btx_lib_mail 3.0.1; the messages are unchanged.
 
-## [2.0.1] 2026-10-06 13:09:50
+## [2.0.1] - 2026-10-06
 
 Re-release of 2.0.0, which was tagged but never published: PyPI rejected the upload because
 that filename had been used by a file that has since been deleted, and PyPI never permits
 filename reuse. Package contents are identical to 2.0.0.
 
-## [2.0.0] 2026-10-06 08:26:05 [NOT PUBLISHED]
+## [2.0.0] - 2026-10-06 [NOT PUBLISHED]
 
 ### Added
 - **`describe_validation_error` and `nest_overrides` are public** (in `__all__` of
@@ -565,7 +565,7 @@ filename reuse. Package contents are identical to 2.0.0.
   `recipients` no longer empty a tuple or a non-list value: a tuple is read as a list, a number is
   refused.
 
-## [1.7.2] 2026-09-12 02:11:47
+## [1.7.2] - 2026-09-12
 
 ### Fixed
 - **`--set` overrides now report the CLI as their source.** `Config.with_overrides` returns the
@@ -574,13 +574,13 @@ filename reuse. Package contents are identical to 2.0.0.
   rebuilds provenance, naming layer `cli` with no path for exactly the keys `--set` supplied and
   leaving every other key's source alone.
 
-## [1.7.1] 2026-08-01 01:02:45
+## [1.7.1] - 2026-08-01
 
 Re-release of 1.7.0, which was tagged but never published: PyPI rejected the upload because
 that filename had been used by a file that has since been deleted, and PyPI never permits
 filename reuse. Package contents are identical to 1.7.0.
 
-## [1.7.0] 2026-08-01 00:45:53 [NOT PUBLISHED]
+## [1.7.0] - 2026-08-01 [NOT PUBLISHED]
 
 ### Added
 - **`adapters/cli/safe_console.py`, an encode-safe replacement for `click.echo`.** A Windows console at
@@ -599,7 +599,7 @@ filename reuse. Package contents are identical to 1.7.0.
   no module calls `click.echo` or builds an unwrapped `Console(file=sys.stdout)` again, so a project
   scaffolded from this template keeps the property by construction.
 
-## [1.6.2] 2026-07-24 12:00:55
+## [1.6.2] - 2026-07-24
 
 ### Fixed
 - CI (scheduled runs install the latest ruff) went red on `PLR0917` (too many positional arguments) for the four CLI command callbacks. Their option parameters are now keyword-only, which matches how Click actually invokes them (`f(ctx, **ctx.params)`) and drops the positional-argument count without suppressing the rule.
@@ -637,7 +637,7 @@ Re-release of 1.6.0. PyPI rejected the 1.6.0 upload because that filename was pr
 
 Tagged and released on GitHub, but never published to PyPI: the upload was rejected because the `1.6.0` filename had been used by a previously deleted file. Superseded by 1.6.1, which carries the same changes.
 
-## [1.5.4] 2026-06-14
+## [1.5.4] - 2026-06-14
 
 ### Changed
 - Added a `typed_click.py` facade wrapping rich-click's `option` / `version_option` decorators behind explicit, fully-known signatures, keeping the CLI strict-clean under pyright 1.1.410 (`reportUnknownMemberType`) without disabling the rule (ignore isolated to the facade).
