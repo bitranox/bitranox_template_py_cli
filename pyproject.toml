@@ -50,9 +50,10 @@ system-dependencies-macos = []
 system-dependencies-windows-pip = []
 system-dependencies-windows-choco = []
 os = ["ubuntu-latest", "windows-latest", "macos-latest"]
-# Adds an X.Yt cell per entry (every OS but macOS). 3.15t waits for cp315t wheels of
-# cryptography, nh3, pynacl, pyyaml and hypothesis. A derived project opts in on its own:
-# its dependencies need free-threaded wheels too.
+# Adds an X.Yt cell per entry (every OS but macOS). 3.15 is not listed yet: nh3 (via twine)
+# and pyyaml (via bandit) publish no cp315t wheel, so a 3.15t cell builds them from source and
+# needs Rust and a C compiler on the runner. A derived project opts in on its own: its
+# dependencies need free-threaded wheels too.
 free-threaded = ["3.14"]
 
 [project.urls]
@@ -89,15 +90,20 @@ dev = [
   # No free-threaded build; the tests read TOML with tomllib from 3.11 and need rtoml only on 3.10.
   "rtoml>=0.14.0; python_version < \"3.14\"",
   "httpx2>=2.14.0",
-  # Transitive CVE pins
+  # Transitive CVE pins: each raises the floor of a package another dependency pulls in.
   "click>=8.5.0",                # CVE-2026-7246
   "jaraco-context>=6.1.2",       # CVE-2025-23949
-  "python-multipart>=0.0.32",    # CVE-2025-24486
-  "wheel>=0.48.0",               # CVE-2025-24049
-  "pynacl>=1.6.2",               # CVE-2025-69277
   "urllib3>=2.8.0",              # CVE-2025-66471, CVE-2025-66418
-  "virtualenv>=21.14.13",        # CVE-2025-22702, CVE-2026-113722, CVE-2026-113713
   "certifi>=2026.10.23",         # PYSEC-2026-4320
+  # Disabled, not dropped: no package in uv.lock depends on these four (checked 2026-10-30), so
+  # the pin was the only thing installing them, and pynacl then has to build from source on
+  # free-threaded 3.15 (no cp315t wheel). The pip-audit gate audits the resolved tree, so a
+  # dependency that pulls one back in gets audited. Re-enable a line when uv.lock shows a
+  # package depending on it again.
+  # "python-multipart>=0.0.32",  # CVE-2025-24486
+  # "wheel>=0.48.0",             # CVE-2025-24049
+  # "pynacl>=1.6.2",             # CVE-2025-69277
+  # "virtualenv>=21.14.13",      # CVE-2025-22702, CVE-2026-113722, CVE-2026-113713
   # CVE-2026-112906/-112907/-112913/-112914/-112937/-112940, fixed in 4.2.1. filelock 4.2 needs
   # Python 3.11, so the 3.10 fork keeps 4.1.0, the newest release that installs there.
   "filelock>=4.2.4; python_version >= \"3.11\"",
