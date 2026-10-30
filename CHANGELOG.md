@@ -65,6 +65,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   (the parsed JSON value, or the whole `smtp_hosts = [...]` line) instead of searching the output for
   a host substring, which also matched `xsmtp.test.com:5870`. The substring form was what CodeQL
   flagged as `py/incomplete-url-substring-sanitization`.
+- `tests/test_permission_defaults.py` passes `Layer` members to `DeployPermissions.for_layer`
+  instead of the strings `"app"`, `"host"` and `"user"`. lib_layered_config 7.6 types that
+  parameter as `Layer`, so pyright strict refused the strings as soon as the floor reached it; the
+  members also satisfy the `str` parameter of the 7.4 floor.
 
 ## [2.4.4] - 2026-10-24
 
