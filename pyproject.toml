@@ -14,8 +14,8 @@ dependencies = [
     # line can no longer land in the middle of it.
     "lib_log_rich>=8.1.2",
     "python-dotenv>=1.2.4",
-    "lib_layered_config>=7.4.2",
-    "btx_lib_mail>=4.6.0",
+    "lib_layered_config>=7.6.1",
+    "btx_lib_mail>=4.6.4",
     "pydantic>=2.14.1",
     # orjson ships no free-threaded build, and no marker tells 3.14t from 3.14, so it is
     # required only below 3.14 (as in lib_log_rich and lib_layered_config); from 3.14 it is the
@@ -97,7 +97,7 @@ dev = [
   "pynacl>=1.6.2",               # CVE-2025-69277
   "urllib3>=2.8.0",              # CVE-2025-66471, CVE-2025-66418
   "virtualenv>=21.14.13",        # CVE-2025-22702, CVE-2026-113722, CVE-2026-113713
-  "certifi>=2026.10.19",         # PYSEC-2026-4320
+  "certifi>=2026.10.23",         # PYSEC-2026-4320
   # CVE-2026-112906/-112907/-112913/-112914/-112937/-112940, fixed in 4.2.1. filelock 4.2 needs
   # Python 3.11, so the 3.10 fork keeps 4.1.0, the newest release that installs there.
   "filelock>=4.2.4; python_version >= \"3.11\"",
