@@ -14,9 +14,9 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   marker tells 3.14t from 3.14, so, as in lib_layered_config and lib_log_rich, both are required
   only below 3.14: orjson moves to an `orjson` extra from 3.14 on, and the tests read TOML with
   tomllib (rtoml only on 3.10). A free-threaded process never imports orjson, even when it is
-  installed. 3.15t is not enabled yet: nh3 (via twine) and pyyaml (via bandit) publish no cp315t
-  wheel, so a 3.15t cell builds them from source and needs Rust and a C compiler on its runner.
-  A project copied from the template opts in on its own: a template sync must not carry the
+  installed. CI also runs a 3.15t cell (`free-threaded = ["3.14", "3.15"]`). There nh3 (via
+  twine) and pyyaml (via bandit) publish no cp315t wheel, so that cell builds them from source,
+  which needs Rust and a C compiler on the runner. A project copied from the template opts in on its own: a template sync must not carry the
   `free-threaded` entry into a project whose dependencies lack free-threaded wheels.
 
 ### Changed

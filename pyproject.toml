@@ -50,11 +50,11 @@ system-dependencies-macos = []
 system-dependencies-windows-pip = []
 system-dependencies-windows-choco = []
 os = ["ubuntu-latest", "windows-latest", "macos-latest"]
-# Adds an X.Yt cell per entry (every OS but macOS). 3.15 is not listed yet: nh3 (via twine)
-# and pyyaml (via bandit) publish no cp315t wheel, so a 3.15t cell builds them from source and
-# needs Rust and a C compiler on the runner. A derived project opts in on its own: its
-# dependencies need free-threaded wheels too.
-free-threaded = ["3.14"]
+# Adds an X.Yt cell per entry (every OS but macOS). On 3.15t nh3 (via twine) and pyyaml (via
+# bandit) publish no cp315t wheel, so that cell builds them from source and needs Rust and a C
+# compiler on the runner. A derived project opts in on its own: its dependencies need
+# free-threaded wheels, or a runner that can build them.
+free-threaded = ["3.14", "3.15"]
 
 [project.urls]
 Homepage = "https://github.com/bitranox/bitranox_template_py_cli"
