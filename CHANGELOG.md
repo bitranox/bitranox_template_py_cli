@@ -34,6 +34,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- The Quickstart notebook installs from a checkout whose path contains a space. It put the path
+  into an IPython shell line unquoted, so uv got it as two arguments and failed with
+  'Distribution not found'. Both installs now run as argument lists, still show their output in
+  the cell, and still fail the cell when they fail.
+
 - `notebooks/Quickstart.ipynb` installs the checkout it runs in, so CI's "Execute notebooks" job
   tests the commit under test. It used to install `git+https://github.com/...` every time, which is
   the pushed default branch: a pull request's notebook run tested the code already on the default
