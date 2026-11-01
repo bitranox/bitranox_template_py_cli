@@ -34,6 +34,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- `notebooks/Quickstart.ipynb` installs the checkout it runs in, so CI's "Execute notebooks" job
+  tests the commit under test. It used to install `git+https://github.com/...` every time, which is
+  the pushed default branch: a pull request's notebook run tested the code already on the default
+  branch, and a local run did the same. Outside a checkout (a downloaded notebook) it still
+  installs from GitHub.
+
 - On Windows with stderr piped, an `Error:` line could land in the middle of a log line
   (`...configuration_mergedError: ...`), because lib_log_rich wrote each log line in several pieces
   while the CLI wrote its own message. The `lib_log_rich` floor is now 8.1.2, which writes a line
