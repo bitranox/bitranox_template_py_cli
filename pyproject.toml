@@ -16,7 +16,7 @@ dependencies = [
     "python-dotenv>=1.2.4",
     "lib_layered_config>=7.7.0",
     "btx_lib_mail>=4.6.4",
-    "pydantic>=2.14.1",
+    "pydantic>=2.14.2",
     # orjson ships no free-threaded build, and no marker tells 3.14t from 3.14, so it is
     # required only below 3.14 (as in lib_log_rich and lib_layered_config); from 3.14 it is the
     # `orjson` extra and the code falls back to stdlib json. Drop the marker once orjson
@@ -65,17 +65,17 @@ Issues = "https://github.com/bitranox/bitranox_template_py_cli/issues"
 # orjson's fast path on 3.14+ GIL builds; a free-threaded build never imports it.
 orjson = ["orjson>=3.13.0"]
 dev = [
-  "pytest>=9.1.1",
+  "pytest>=9.2.0",
   "pytest-cov>=7.1.0",
   "pytest-xdist>=3.8.0",
   "hypothesis>=6.168.5",
-  "ruff>=0.17.2",
+  "ruff>=0.17.3",
   "pyright[nodejs]>=1.1.414",
   "bandit>=1.9.4",
   "build>=1.6.1",
   # The build backend, importable in the test env: tests/test_packaging.py builds the sdist
   # and wheel in-process to prove what they ship.
-  "hatchling>=1.32.4",
+  "hatchling>=1.33.0",
   "twine>=7.0.0",
   # codecov-cli is disabled, not dropped: it requires click<8.3.0, which drags click back to
   # 8.2.1 - the version with CVE-2026-7246 (command injection in click.edit(), fixed in 8.3.3).
@@ -106,7 +106,7 @@ dev = [
   # "virtualenv>=21.14.13",      # CVE-2025-22702, CVE-2026-113722, CVE-2026-113713
   # CVE-2026-112906/-112907/-112913/-112914/-112937/-112940, fixed in 4.2.1. filelock 4.2 needs
   # Python 3.11, so the 3.10 fork keeps 4.1.0, the newest release that installs there.
-  "filelock>=4.2.4; python_version >= \"3.11\"",
+  "filelock>=4.2.7; python_version >= \"3.11\"",
 ]
 
 [project.scripts]
@@ -114,7 +114,7 @@ bitranox_template_py_cli = "bitranox_template_py_cli.entry:main"
 bitranox-template-py-cli = "bitranox_template_py_cli.entry:main"
 
 [build-system]
-requires = ["hatchling>=1.32.4"]
+requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.metadata]
