@@ -202,3 +202,11 @@ def test_config_in_a_subprocess_reads_the_redirected_app_layer_not_the_host_s(
     shown = _config_json(tmp_path)
 
     assert _value(shown, "layer_isolation_probe.read_from") == "redirected app layer"
+
+
+@pytest.mark.os_agnostic
+def test_display_takes_the_format_as_its_plain_value(capsys: pytest.CaptureFixture[str]) -> None:
+    """An untyped caller passing "json" gets JSON, as for OutputFormat.JSON, rather than an AttributeError."""
+    config = Config({"section": {"key": "value"}}, {})
+    display_config(config, output_format=cast("OutputFormat", "json"))
+    assert json.loads(capsys.readouterr().out) == {"section": {"key": "value"}}

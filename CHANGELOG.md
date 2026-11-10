@@ -34,6 +34,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- `display_config` takes its `output_format` as the plain value too (`"json"`), as an untyped caller
+  passes it, instead of failing with `AttributeError: 'str' object has no attribute 'value'`.
 - The Quickstart notebook installs from a checkout whose path contains a space. It put the path
   into an IPython shell line unquoted, so uv got it as two arguments and failed with
   'Distribution not found'. Both installs now run as argument lists, still show their output in
