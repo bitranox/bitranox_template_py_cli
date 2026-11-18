@@ -1,6 +1,6 @@
 [project]
 name = "bitranox-template-py-cli"
-version = "2.4.4"
+version = "2.4.5"
 description = "Template CLI application with configuration management and structured logging"
 readme = "README.md"
 requires-python = ">=3.10"

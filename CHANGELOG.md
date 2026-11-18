@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [2.4.5] - 2026-11-18
+
 ### Added
 
 - The template runs on free-threaded CPython 3.14 (3.14t) with the GIL off, and CI gains a 3.14t
