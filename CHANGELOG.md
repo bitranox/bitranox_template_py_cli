@@ -21,6 +21,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- `lib_layered_config>=8.1.0`: `DeployAction` (and `DeployResult`) are imported from the package
+  root instead of the `lib_layered_config.examples` shim, which lib_layered_config 9.0.0 removes.
 - Four of the dev extra's CVE pins are commented out: python-multipart, wheel, pynacl and
   virtualenv. No package in the lock depends on any of them, so the pin itself was the only thing
   installing them, and pynacl had to build from source on free-threaded 3.15. The pip-audit gate
